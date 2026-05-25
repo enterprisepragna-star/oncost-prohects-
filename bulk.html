@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bulk Enquiry | ONCOST</title>
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <div class="topbar"><span>* Bulk Orders Available</span><span>* Pan India Delivery</span><span>* Custom packaging</span></div>
+  <header class="site-header">
+    <a class="logo" href="index.html">ONCOST</a>
+    <nav class="desktop-nav"><a href="index.html">Home</a><a href="products.html">Shop</a><a href="cart.html">Cart</a><a href="account.html" data-account-link>Login</a></nav>
+    <div class="header-actions"><a class="icon-button" href="cart.html" data-cart-count>Cart</a><a class="icon-button hide-mobile" href="account.html" data-account-link>Login</a></div>
+  </header>
+  <main>
+    <section class="page-hero"><div><p class="eyebrow">Event gifting</p><h1>Bulk Enquiry</h1><p>Share event type, quantity, and packaging needs. This static demo keeps the form local.</p></div><a class="button secondary" href="products.html">Browse Gifts</a></section>
+    <section class="section">
+      <form class="auth-card form-grid" data-enquiry-form>
+        <p class="notice" data-lead-status>Lead saved. Your email app should open with the enquiry ready to send to enterprisepragna@gmail.com.</p>
+        <div class="summary-strip" data-selected-product>General bulk enquiry</div>
+        <label>Name <input class="field" required name="name" placeholder="Your name"></label>
+        <label>Email <input class="field" required type="email" name="email" placeholder="customer@example.com"></label>
+        <label>Phone <input class="field" required name="phone" placeholder="Mobile number"></label>
+        <label>GSTIN <input class="field" name="gstin" placeholder="Optional GSTIN for invoice"></label>
+        <label>Event Type <select class="select" name="eventType"><option>Birthday</option><option>Pooja</option><option>Wedding</option><option>Corporate</option></select></label>
+        <label>Quantity <input class="field" required type="number" min="50" name="quantity" placeholder="50"></label>
+        <label>Event Date <input class="field" type="date" name="eventDate"></label>
+        <label>Budget <input class="field" name="budget" placeholder="Example: Rs. 150 per piece"></label>
+        <label>Message <textarea rows="5" name="message" placeholder="Preferred products, budget, date, and packaging details"></textarea></label>
+        <button class="button primary" type="submit">Submit Enquiry</button>
+        <a class="button secondary" href="https://einvoice1.gst.gov.in/Others/EinvEnabled" target="_blank" rel="noreferrer">Check E-Invoice GSTIN Status</a>
+      </form>
+    </section>
+  </main>
+  <footer class="site-footer"><h2>ONCOST</h2><p>Premium gifting collections for every occasion</p><nav class="footer-nav"><a href="products.html">Shop</a><a href="cart.html">Cart</a><a href="account.html">Account</a></nav></footer>
+  <nav class="mobile-nav"><a href="index.html">Home</a><a href="products.html">Shop</a><a href="products.html">Categories</a><a href="cart.html">Cart</a><a href="account.html">Account</a></nav>
+  <script src="app.js"></script>
+</body>
+</html>
