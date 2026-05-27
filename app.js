@@ -50,7 +50,7 @@ const ONCOST_PRODUCTS = [
 ];
 
 const ONCOST_LEAD_EMAIL = "enterprisepragna@gmail.com";
-const ONCOST_PAYMENT_LINK = "";
+const ONCOST_PAYMENT_LINK = "https://oncost.shop/payment"; // Production payment gateway - configure with actual endpoint
 
 const storage = {
   getUser() {
@@ -143,6 +143,14 @@ function renderProducts() {
 
   const search = document.querySelector("[data-product-search]");
   const collection = document.querySelector("[data-product-filter]");
+  // respect ?collection=... query param when opening products page
+  try {
+    const params = new URLSearchParams(location.search);
+    const initialCollection = params.get("collection");
+    if (initialCollection && collection) collection.value = initialCollection;
+  } catch (e) {
+    // ignore
+  }
   const draw = () => {
     const query = (search?.value || "").toLowerCase();
     const selected = collection?.value || "all";
@@ -349,6 +357,72 @@ function bindAuthForms() {
     location.href = redirect;
   });
 
+  // --- Mobile OTP flows (demo) ---
+  function generateOtp() {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+  function sendOtp(phone) {
+    const code = generateOtp();
+    sessionStorage.setItem(`oncostOtp:${phone}`, JSON.stringify({ code, expires: Date.now() + 5 * 60 * 1000 }));
+    // for demo purposes show the OTP to the user (no SMS integration)
+    alert(`Demo OTP for ${phone}: ${code}`);
+    return code;
+  }
+  function verifyOtp(phone, otp) {
+    const raw = sessionStorage.getItem(`oncostOtp:${phone}`);
+    if (!raw) return false;
+    try {
+      const data = JSON.parse(raw);
+      return data.code === otp && data.expires > Date.now();
+    } catch (e) {
+      return false;
+    }
+  }
+
+  const loginOtp = document.querySelector("[data-login-otp]");
+  if (loginOtp) {
+    const phoneInput = loginOtp.querySelector("[name='phone']");
+    const otpInput = loginOtp.querySelector("[name='otp']");
+    const requestBtn = loginOtp.querySelector("[data-request-otp]");
+    requestBtn?.addEventListener("click", (e) => {
+      e.preventDefault();
+      const phone = (phoneInput.value || "").trim();
+      if (!phone) return alert("Enter mobile number to receive OTP (demo)");
+      sendOtp(phone);
+      otpInput?.focus();
+    });
+    loginOtp.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const phone = (phoneInput.value || "").trim();
+      const code = (otpInput.value || "").trim();
+      if (!verifyOtp(phone, code)) return alert("Invalid or expired OTP");
+      storage.setUser({ name: `user_${phone.slice(-4)}`, email: `phone+${phone}@oncost.local`, phone });
+      const redirect = new URLSearchParams(location.search).get("redirect") || "products.html";
+      location.href = redirect;
+    });
+  }
+
+  const signupOtp = document.querySelector("[data-signup-otp]");
+  if (signupOtp) {
+    const phoneInput = signupOtp.querySelector("[name='phone']");
+    const otpInput = signupOtp.querySelector("[name='otp']");
+    const requestBtn = signupOtp.querySelector("[data-request-otp]");
+    requestBtn?.addEventListener("click", (e) => {
+      e.preventDefault();
+      const phone = (phoneInput.value || "").trim();
+      if (!phone) return alert("Enter mobile number to receive OTP (demo)");
+      sendOtp(phone);
+      otpInput?.focus();
+    });
+    signupOtp.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const phone = (phoneInput.value || "").trim();
+      const code = (otpInput.value || "").trim();
+      if (!verifyOtp(phone, code)) return alert("Invalid or expired OTP");
+      storage.setUser({ name: `user_${phone.slice(-4)}`, email: `phone+${phone}@oncost.local`, phone });
+      location.href = "products.html";
+    });
+  }
   document.querySelector("[data-logout]")?.addEventListener("click", () => {
     localStorage.removeItem("oncostUser");
     location.href = "index.html";

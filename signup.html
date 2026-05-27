@@ -9,14 +9,27 @@
 <body>
   <main class="auth-shell">
     <form class="auth-card form-grid" data-signup-form>
-      <a class="logo" href="index.html">ONCOST</a>
+      <a class="logo" href="/">ONCOST</a>
       <div><p class="eyebrow">Create account</p><h2>Start gifting with ONCOST</h2><p>Create a demo customer account to unlock products and cart modules.</p></div>
       <label>Name <input class="field" required name="name" placeholder="Your name"></label>
       <label>Email <input class="field" required type="email" name="email" placeholder="customer@example.com"></label>
       <label>Phone <input class="field" required name="phone" placeholder="Mobile number"></label>
       <label>Password <input class="field" required type="password" name="password" placeholder="Create password"></label>
       <button class="button primary" type="submit">Create Account</button>
-      <p>Already registered? <a href="login.html"><strong>Login</strong></a></p>
+      <p>Already registered? <a href="/login.html"><strong>Login</strong></a></p>
+    </form>
+
+    <!-- Mobile OTP signup (demo) -->
+    <form class="auth-card form-grid" data-signup-otp style="margin-top:18px;">
+      <a class="logo" href="/">ONCOST</a>
+      <div><p class="eyebrow">OTP signup</p><h2>Sign up with Mobile</h2><p>Enter your mobile number to receive a demo OTP and quickly create an account (no SMS integration).</p></div>
+      <label>Mobile <input class="field" required name="phone" placeholder="Mobile number"></label>
+      <label>OTP <input class="field" name="otp" placeholder="Enter OTP"></label>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="button primary" data-request-otp>Request OTP</button>
+        <button class="button secondary" type="submit">Verify & Create</button>
+      </div>
+      <p>Or use the form above for name and email signup.</p>
     </form>
   </main>
   <script src="app.js"></script>

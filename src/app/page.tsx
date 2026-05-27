@@ -42,7 +42,7 @@ const mobileNav = [
 
 export default function HomePage() {
   return (
-    <main>
+    <xmain>
       <div className="topbar" aria-label="Store highlights">
         <span>
           <Sparkles aria-hidden="true" size={16} /> Bulk Orders Available

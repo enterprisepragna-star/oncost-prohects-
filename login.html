@@ -9,12 +9,25 @@
 <body>
   <main class="auth-shell">
     <form class="auth-card form-grid" data-login-form>
-      <a class="logo" href="index.html">ONCOST</a>
+      <a class="logo" href="/">ONCOST</a>
       <div><p class="eyebrow">Customer login</p><h2>Welcome back</h2><p>Login to view product details, cart, account, and enquiry modules.</p></div>
       <label>Email <input class="field" required type="email" name="email" placeholder="customer@example.com"></label>
       <label>Password <input class="field" required type="password" name="password" placeholder="Enter password"></label>
       <button class="button primary" type="submit">Login</button>
-      <p>New customer? <a href="signup.html"><strong>Create an account</strong></a></p>
+      <p>New customer? <a href="/signup.html"><strong>Create an account</strong></a></p>
+    </form>
+    
+    <!-- Mobile OTP login (demo) -->
+    <form class="auth-card form-grid" data-login-otp style="margin-top:18px;">
+      <a class="logo" href="/">ONCOST</a>
+      <div><p class="eyebrow">OTP login</p><h2>Login with Mobile</h2><p>Enter your mobile number and request a demo OTP (no SMS integration).</p></div>
+      <label>Mobile <input class="field" required name="phone" placeholder="Mobile number"></label>
+      <label>OTP <input class="field" name="otp" placeholder="Enter OTP"></label>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="button primary" data-request-otp>Request OTP</button>
+        <button class="button secondary" type="submit">Verify & Login</button>
+      </div>
+      <p>Prefer email? Use the form above.</p>
     </form>
   </main>
   <script src="app.js"></script>
