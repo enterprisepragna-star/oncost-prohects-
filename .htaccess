@@ -1,0 +1,130 @@
+# ONCOST Website - .htaccess Configuration for Hostinger
+# Enable mod_rewrite and mod_headers
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Set the RewriteBase to the root of the website
+    RewriteBase /
+    
+    # Remove www prefix (redirect www to non-www)
+    RewriteCond %{HTTP_HOST} ^www\.(.*)$ [NC]
+    RewriteRule ^(.*)$ https://%1/$1 [R=301,L]
+    
+    # Force HTTPS
+    RewriteCond %{HTTPS} off
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+    
+    # Prevent direct access to app.js
+    RewriteRule ^app\.js$ - [F,L]
+    RewriteRule ^(app\.js|next\.config\.ts|tsconfig\.json|package\.json)$ - [F,L]
+    
+    # Remove trailing slashes (except for directories)
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.+)/$ /$1 [R=301,L]
+    
+    # Route requests to index.html for SPA routing (if applicable)
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ index.html [L]
+</IfModule>
+
+# Prevent directory listing
+<IfModule mod_autoindex.c>
+    Options -Indexes
+</IfModule>
+
+# MIME types for fonts and assets
+<IfModule mod_mime.c>
+    AddType font/eot .eot
+    AddType font/ttf .ttf
+    AddType font/otf .otf
+    AddType font/woff .woff
+    AddType font/woff2 .woff2
+    AddType application/font-woff2 .woff2
+    AddType application/javascript .js
+    AddType text/css .css
+    AddType image/svg+xml .svg
+    AddEncoding gzip .svgz
+</IfModule>
+
+# Enable GZIP compression
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/xml
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE text/javascript
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/json
+    AddOutputFilterByType DEFLATE image/svg+xml
+    AddOutputFilterByType DEFLATE font/woff
+    AddOutputFilterByType DEFLATE font/woff2
+</IfModule>
+
+# Caching headers for static assets
+<IfModule mod_headers.c>
+    # Set cache expiration for images (1 year)
+    <FilesMatch "\.(jpg|jpeg|png|gif|ico|webp)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+        Header set Expires "Thu, 31 Dec 2099 23:59:59 GMT"
+    </FilesMatch>
+    
+    # Set cache expiration for fonts (1 year)
+    <FilesMatch "\.(eot|ttf|otf|woff|woff2)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+        Header set Expires "Thu, 31 Dec 2099 23:59:59 GMT"
+        Header set Access-Control-Allow-Origin "*"
+    </FilesMatch>
+    
+    # Set cache expiration for CSS and JavaScript (30 days)
+    <FilesMatch "\.(css|js)$">
+        Header set Cache-Control "public, max-age=2592000"
+        Header set Expires "Thu, 31 Dec 2099 23:59:59 GMT"
+    </FilesMatch>
+    
+    # Set cache expiration for HTML documents (1 hour)
+    <FilesMatch "\.(html|htm)$">
+        Header set Cache-Control "public, max-age=3600"
+    </FilesMatch>
+    
+    # Disable caching for API responses and dynamic content
+    <FilesMatch "\.(php|json)$">
+        Header set Cache-Control "no-cache, no-store, must-revalidate, max-age=0"
+        Header set Pragma "no-cache"
+        Header set Expires "0"
+    </FilesMatch>
+    
+    # Security headers
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# Custom 404 error handling
+ErrorDocument 404 /404.html
+
+# Prevent access to sensitive configuration files
+<FilesMatch "^(\.|~)">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Block access to node_modules and other sensitive directories
+RewriteRule ^node_modules - [F,L]
+RewriteRule ^\.git - [F,L]
+RewriteRule ^\.env - [F,L]
+
+# Set character encoding
+<IfModule mod_mime.c>
+    AddCharset UTF-8 .html
+    AddCharset UTF-8 .css
+    AddCharset UTF-8 .js
+    AddCharset UTF-8 .json
+</IfModule>

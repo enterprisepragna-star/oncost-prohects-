@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact Us | ONCOST</title>
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <div class="topbar"><span>* Customer support</span><span>* Enquiry follow-up</span><span>* Bulk support</span></div>
+  <header class="site-header">
+    <a class="logo" href="/">ONCOST</a>
+    <nav class="desktop-nav"><a href="/">Home</a><a href="/products.html">Shop</a><a href="/bulk.html">Bulk Orders</a><a href="/account.html" data-account-link>Login</a></nav>
+    <div class="header-actions"><a class="icon-button" href="/cart.html" data-cart-count>Cart</a><a class="icon-button hide-mobile" href="/account.html" data-account-link>Login</a></div>
+  </header>
+  <main>
+    <section class="page-hero"><div><p class="eyebrow">Get in touch</p><h1>Contact ONCOST</h1><p>Questions about products, bulk orders, or custom packaging? Send us a message and we'll follow up.</p></div><a class="button secondary" href="/products.html">Browse Products</a></section>
+    <section class="section">
+      <form class="auth-card form-grid" id="contact-form" data-contact-form>
+        <p class="notice" id="contact-status" style="display:none">Message prepared. Your email app will open to send the message.</p>
+        <label>Name <input class="field" required name="name" placeholder="Your name"></label>
+        <label>Email <input class="field" required type="email" name="email" placeholder="customer@example.com"></label>
+        <label>Phone <input class="field" name="phone" placeholder="Mobile number"></label>
+        <label>Message <textarea class="field" rows="5" name="message" placeholder="Write your message or question here"></textarea></label>
+        <button class="button primary" type="submit">Send Message</button>
+      </form>
+    </section>
+  </main>
+  <footer class="site-footer"><h2>ONCOST</h2><p>Premium gifting collections for every occasion</p><nav class="footer-nav"><a href="/products.html">Shop</a><a href="/bulk.html">Bulk Orders</a><a href="/account.html">Account</a></nav></footer>
+  <nav class="mobile-nav"><a href="/">Home</a><a href="/products.html">Shop</a><a href="/products.html">Categories</a><a href="/cart.html">Cart</a><a href="/account.html">Account</a></nav>
+  <script src="app.js"></script>
+  <script>
+    (function(){
+      const form = document.querySelector('[data-contact-form]');
+      if(!form) return;
+      form.addEventListener('submit', function(e){
+        e.preventDefault();
+        const fd = new FormData(form);
+        const user = storage.getUser() || { name: fd.get('name') || 'Guest', email: fd.get('email') };
+        const lead = {
+          id: Date.now(),
+          createdAt: new Date().toISOString(),
+          productId: 'contact',
+          summary: makeLeadSummary({ user, product: null, form: fd, source: 'Contact form' })
+        };
+        const leads = storage.getLeads();
+        leads.unshift(lead);
+        storage.setLeads(leads);
+        document.getElementById('contact-status').style.display = 'block';
+        openLeadEmail({ summary: lead.summary });
+      });
+    })();
+  </script>
+</body>
+</html>
