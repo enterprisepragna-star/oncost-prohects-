@@ -1,3 +1,6 @@
+'use client';
+
+import Link from 'next/link';
 import {
   Gift,
   Heart,
@@ -12,32 +15,42 @@ import {
   Boxes,
   MessageCircle,
   ChevronRight,
-} from "lucide-react";
+} from 'lucide-react';
 
-const navLinks = ["Home", "Shop", "Collections", "Bulk Orders", "Contact"];
+const navLinks = [
+  { label: 'Home', href: '/' },
+  { label: 'Shop', href: '/shop' },
+  { label: 'Collections', href: '/collections' },
+  { label: 'Bulk Orders', href: '/bulk-orders' },
+  { label: 'Contact', href: '/contact' },
+];
 
 const collections = [
-  { name: "Brass Collection", detail: "Traditional keepsakes", tone: "maroon" },
-  { name: "Birthday Collection", detail: "Joyful party favors", tone: "gold" },
-  { name: "Return Gifts", detail: "Ready for every event", tone: "rose" },
-  { name: "Tin Boxes", detail: "Reusable festive packaging", tone: "sage" },
-  { name: "German Silver", detail: "Elegant pooja gifting", tone: "silver" },
-  { name: "Thambulam Sets", detail: "Celebration essentials", tone: "cream" },
+  { name: 'Brass Collection', detail: 'Traditional keepsakes', tone: 'maroon' },
+  {
+    name: 'Birthday Collection',
+    detail: 'Joyful party favors',
+    tone: 'gold',
+  },
+  { name: 'Return Gifts', detail: 'Ready for every event', tone: 'rose' },
+  { name: 'Tin Boxes', detail: 'Reusable festive packaging', tone: 'sage' },
+  { name: 'German Silver', detail: 'Elegant pooja gifting', tone: 'silver' },
+  { name: 'Thambulam Sets', detail: 'Celebration essentials', tone: 'cream' },
 ];
 
 const products = [
-  { name: "Brass Diya Set", price: "From Rs. 149", badge: "Best Seller" },
-  { name: "Decorative Tin Box", price: "From Rs. 99", badge: "New" },
-  { name: "German Silver Bowl", price: "From Rs. 199", badge: "Premium" },
-  { name: "Thambulam Gift Set", price: "From Rs. 249", badge: "Bulk Ready" },
+  { name: 'Brass Diya Set', price: 'From Rs. 149', badge: 'Best Seller' },
+  { name: 'Decorative Tin Box', price: 'From Rs. 99', badge: 'New' },
+  { name: 'German Silver Bowl', price: 'From Rs. 199', badge: 'Premium' },
+  { name: 'Thambulam Gift Set', price: 'From Rs. 249', badge: 'Bulk Ready' },
 ];
 
 const mobileNav = [
-  { label: "Home", icon: Home },
-  { label: "Shop", icon: ShoppingBag },
-  { label: "Categories", icon: Boxes },
-  { label: "Cart", icon: ShoppingCart },
-  { label: "Account", icon: User },
+  { label: 'Home', href: '/', icon: Home },
+  { label: 'Shop', href: '/shop', icon: ShoppingBag },
+  { label: 'Categories', href: '/collections', icon: Boxes },
+  { label: 'Cart', href: '/shop', icon: ShoppingCart },
+  { label: 'Account', href: '/account', icon: User },
 ];
 
 export default function HomePage() {
@@ -56,14 +69,14 @@ export default function HomePage() {
       </div>
 
       <header className="site-header">
-        <a className="logo" href="#" aria-label="ONCOST home">
+        <Link className="logo" href="/" aria-label="ONCOST home">
           ONCOST
-        </a>
+        </Link>
         <nav className="desktop-nav" aria-label="Primary navigation">
           {navLinks.map((link) => (
-            <a href="#" key={link}>
-              {link}
-            </a>
+            <Link href={link.href} key={link.label}>
+              {link.label}
+            </Link>
           ))}
         </nav>
         <div className="header-actions" aria-label="Store tools">
@@ -76,9 +89,9 @@ export default function HomePage() {
           <button aria-label="Cart">
             <ShoppingCart size={20} />
           </button>
-          <button aria-label="Account">
+          <Link href="/account" aria-label="Account">
             <User size={20} />
-          </button>
+          </Link>
         </div>
       </header>
 
@@ -92,12 +105,12 @@ export default function HomePage() {
             list.
           </p>
           <div className="button-row">
-            <a className="button primary" href="#">
+            <Link className="button primary" href="/shop">
               Shop Now <ChevronRight aria-hidden="true" size={18} />
-            </a>
-            <a className="button secondary" href="#">
+            </Link>
+            <Link className="button secondary" href="/bulk-orders">
               Bulk Enquiry
-            </a>
+            </Link>
           </div>
         </div>
         <div className="hero-visual" aria-label="Premium gift preview">
@@ -118,11 +131,15 @@ export default function HomePage() {
         </div>
         <div className="collection-grid">
           {collections.map((collection) => (
-            <a href="#" className="collection-card" key={collection.name}>
+            <Link
+              href="/collections"
+              className="collection-card"
+              key={collection.name}
+            >
               <span className={`collection-art ${collection.tone}`} />
               <strong>{collection.name}</strong>
               <span>{collection.detail}</span>
-            </a>
+            </Link>
           ))}
         </div>
       </section>
@@ -156,9 +173,9 @@ export default function HomePage() {
               Customize gifts, packaging, and quantities for birthdays,
               weddings, poojas, school events, and corporate celebrations.
             </p>
-            <a className="button primary" href="#">
-              <MessageCircle aria-hidden="true" size={18} /> WhatsApp Us
-            </a>
+            <Link className="button primary" href="/bulk-orders">
+              <MessageCircle aria-hidden="true" size={18} /> Get in Touch
+            </Link>
           </div>
           <div className="packaging-preview" aria-label="Gift packaging preview">
             <Gift aria-hidden="true" size={44} />
@@ -171,19 +188,19 @@ export default function HomePage() {
         <h2>ONCOST</h2>
         <p>Premium gifting collections for every occasion</p>
         <nav aria-label="Footer navigation">
-          <a href="#">Contact</a>
-          <a href="#">Policies</a>
-          <a href="#">Instagram</a>
-          <a href="#">WhatsApp</a>
+          <Link href="/contact">Contact</Link>
+          <Link href="/">Policies</Link>
+          <Link href="/">Instagram</Link>
+          <Link href="/">WhatsApp</Link>
         </nav>
       </footer>
 
       <nav className="mobile-nav" aria-label="Mobile navigation">
-        {mobileNav.map(({ label, icon: Icon }) => (
-          <a href="#" key={label}>
+        {mobileNav.map(({ label, href, icon: Icon }) => (
+          <Link href={href} key={label}>
             <Icon aria-hidden="true" size={20} />
             <span>{label}</span>
-          </a>
+          </Link>
         ))}
       </nav>
     </main>
