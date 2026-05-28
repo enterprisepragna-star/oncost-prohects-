@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oncost - Customer Login</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        :root {
+            --primary-maroon: #7B2A3A;
+            --primary-maroon-hover: #5A1E2A;
+            --secondary-gold: #C69C31;
+            --secondary-gold-hover: #A88325;
+            --text-dark: #1A1A1A;
+            --text-gray: #666666;
+            --bg-color: #F7F8FA;
+            --border-color: #E0E0E0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .login-container {
+            background-color: white;
+            width: 100%;
+            max-width: 440px;
+            padding: 48px 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05), 0 2px 10px rgba(0, 0, 0, 0.02);
+        }
+
+        .brand-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .brand-title {
+            color: var(--primary-maroon);
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+
+        .brand-subtitle {
+            color: var(--primary-maroon);
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .welcome-text {
+            margin-bottom: 24px;
+        }
+
+        .welcome-text h1 {
+            color: var(--text-dark);
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .welcome-text p {
+            color: var(--text-gray);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            color: var(--text-dark);
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 15px;
+            color: var(--text-dark);
+            transition: all 0.2s ease;
+            outline: none;
+        }
+
+        .form-group input:focus {
+            border-color: var(--primary-maroon);
+            box-shadow: 0 0 0 3px rgba(123, 42, 58, 0.1);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-maroon);
+            color: white;
+            margin-top: 10px;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-maroon-hover);
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            margin: 24px 0;
+            color: var(--text-gray);
+            font-size: 13px;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .divider:not(:empty)::before {
+            margin-right: .5em;
+        }
+
+        .divider:not(:empty)::after {
+            margin-left: .5em;
+        }
+
+        .btn-secondary {
+            background-color: var(--secondary-gold);
+            color: var(--text-dark);
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--secondary-gold-hover);
+        }
+
+        .footer-links {
+            text-align: center;
+            margin-top: 32px;
+            font-size: 14px;
+            color: var(--text-gray);
+        }
+
+        .footer-links a {
+            color: var(--primary-maroon);
+            font-weight: 600;
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        .footer-links a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-container">
+        <!-- Brand Header -->
+        <div class="brand-header">
+            <div class="brand-title">ONCOST</div>
+            <div class="brand-subtitle">Customer Login</div>
+        </div>
+
+        <!-- Welcome Text -->
+        <div class="welcome-text">
+            <h1>Welcome back</h1>
+            <p>Login to view product details, your cart, account settings, and enquiry modules.</p>
+        </div>
+
+        <!-- Login Form -->
+        <form action="#" method="POST">
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" placeholder="customer@example.com" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" placeholder="Enter password" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Login</button>
+        </form>
+
+        <div class="divider">OR</div>
+
+        <!-- OTP Button -->
+        <button type="button" class="btn btn-secondary">Login with OTP instead</button>
+
+        <!-- Footer -->
+        <div class="footer-links">
+            New customer? <a href="#">Create an account</a>
+        </div>
+    </div>
+
+</body>
+</html>
