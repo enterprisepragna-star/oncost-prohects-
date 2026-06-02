@@ -2,15 +2,13 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Mail, Lock, ArrowRight, Loader, Eye, EyeOff, CheckCircle } from 'lucide-react';
+import { Mail, ArrowRight, Loader, CheckCircle } from 'lucide-react';
 
-export default function LoginPage() {
+export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,26 +17,21 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/login', {
+      const response = await fetch('/api/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.message || 'Login failed');
+        setError(data.message || 'Request failed');
         return;
       }
 
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      
-      setSuccess('✓ Login successful!');
-      setTimeout(() => {
-        window.location.href = '/account';
-      }, 1500);
+      setSuccess(data.message);
+      setEmail('');
     } catch (err) {
       setError('Network error. Please try again.');
       console.error(err);
@@ -69,9 +62,9 @@ export default function LoginPage() {
           <Link href="/" style={{ fontSize: '32px', fontWeight: '900', textDecoration: 'none', color: '#8B2E3B', marginBottom: '24px', display: 'inline-block', letterSpacing: '-1px' }}>
             ONCOST
           </Link>
-          <p style={{ color: '#A83A4B', fontSize: '12px', letterSpacing: '2px', marginBottom: '12px', fontWeight: '700', textTransform: 'uppercase' }}>Welcome Back</p>
-          <h1 style={{ fontSize: '28px', fontWeight: '700', color: '#2C2C2C', margin: '0 0 12px' }}>Sign In</h1>
-          <p style={{ color: '#666', fontSize: '14px', lineHeight: '1.6', margin: '0' }}>Access your account to view products, manage orders, and bulk enquiries</p>
+          <p style={{ color: '#A83A4B', fontSize: '12px', letterSpacing: '2px', marginBottom: '12px', fontWeight: '700', textTransform: 'uppercase' }}>Reset Password</p>
+          <h1 style={{ fontSize: '28px', fontWeight: '700', color: '#2C2C2C', margin: '0 0 12px' }}>Forgot Password?</h1>
+          <p style={{ color: '#666', fontSize: '14px', lineHeight: '1.6', margin: '0' }}>Enter your email and we'll send you a link to reset your password</p>
         </div>
 
         {/* Form Card */}
@@ -89,7 +82,7 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit}>
             {/* Email */}
-            <div style={{ marginBottom: '20px' }}>
+            <div style={{ marginBottom: '28px' }}>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#2C2C2C', marginBottom: '8px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Email Address</label>
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                 <Mail size={18} style={{ position: 'absolute', left: '14px', color: '#8B2E3B', opacity: 0.6 }} />
@@ -97,53 +90,20 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Password */}
-            <div style={{ marginBottom: '12px' }}>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#2C2C2C', marginBottom: '8px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Password</label>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <Lock size={18} style={{ position: 'absolute', left: '14px', color: '#8B2E3B', opacity: 0.6 }} />
-                <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password" required style={{ width: '100%', padding: '12px 44px 12px 44px', border: '1.5px solid #E8E8E8', borderRadius: '8px', fontSize: '14px', outline: 'none', transition: 'all 0.3s', boxSizing: 'border-box' }} className="field" />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '14px', background: 'none', border: 'none', cursor: 'pointer', color: '#8B2E3B', opacity: 0.6 }}>
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-            </div>
-
-            {/* Forgot Password */}
-            <div style={{ textAlign: 'right', marginBottom: '28px' }}>
-              <Link href="/forgot-password" style={{ fontSize: '13px', color: '#8B2E3B', textDecoration: 'none', fontWeight: '600' }}>
-                Forgot password?
-              </Link>
-            </div>
-
             {/* Submit Button */}
             <button type="submit" disabled={loading} style={{ width: '100%', padding: '12px 16px', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '700', letterSpacing: '0.5px', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.3s', opacity: loading ? 0.8 : 1 }} className="btn-primary">
               {loading && <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} />}
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? 'Sending...' : 'Send Reset Link'}
               {!loading && <ArrowRight size={16} />}
             </button>
           </form>
 
-          {/* Divider */}
-          <div style={{ margin: '28px 0', position: 'relative' }}>
-            <div style={{ height: '1px', background: '#E8E8E8' }}></div>
-            <span style={{ position: 'absolute', left: '50%', top: '-10px', transform: 'translateX(-50%)', backgroundColor: 'white', padding: '0 12px', color: '#999', fontSize: '12px', fontWeight: '600' }}>OR</span>
-          </div>
-
-          {/* Signup Link */}
-          <p style={{ textAlign: 'center', fontSize: '14px', color: '#666', margin: '0' }}>
-            Don't have an account?{' '}
-            <Link href="/signup" style={{ color: '#8B2E3B', fontWeight: '700', textDecoration: 'none' }}>
-              Create one
+          {/* Back to Login */}
+          <div style={{ marginTop: '28px', textAlign: 'center' }}>
+            <Link href="/login" style={{ color: '#8B2E3B', fontWeight: '700', textDecoration: 'none', fontSize: '14px' }}>
+              ← Back to Login
             </Link>
-          </p>
-        </div>
-
-        {/* Demo Info */}
-        <div style={{ backgroundColor: 'rgba(139, 46, 59, 0.05)', padding: '16px', borderRadius: '8px', marginTop: '24px', fontSize: '12px', color: '#666', border: '1px solid rgba(139, 46, 59, 0.1)' }}>
-          <p style={{ margin: '0 0 8px', fontWeight: '700', color: '#8B2E3B' }}>Demo Account:</p>
-          <p style={{ margin: '4px 0', fontFamily: 'monospace' }}>📧 demo@example.com</p>
-          <p style={{ margin: '4px 0', fontFamily: 'monospace' }}>🔑 demo123</p>
+          </div>
         </div>
       </div>
     </main>
