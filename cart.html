@@ -3,22 +3,133 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cart | ONCOST</title>
+  <title>Your Cart | ONCOST</title>
+  <meta name="description" content="Review your selected ONCOST gifts and send a bulk enquiry for final pricing.">
   <link rel="stylesheet" href="site.css">
+  <style>
+    .cart-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .cart-header-row h2 {
+      margin: 0;
+      color: var(--burgundy);
+      font-family: Georgia, serif;
+      font-size: 1.5rem;
+    }
+    .cart-clear-btn {
+      padding: 8px 16px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .cart-clear-btn:hover { border-color: var(--burgundy); color: var(--burgundy); }
+    .cart-trust {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 24px;
+    }
+    .trust-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: #fff8ed;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 800;
+    }
+  </style>
 </head>
 <body>
-  <div class="topbar"><span>* Cart module</span><span>* Bulk-friendly quantities</span><span>* Enquiry before checkout</span></div>
+  <div class="topbar">
+    <span>&#10022; Bulk-friendly quantities</span>
+    <span>&#10022; Enquiry before checkout</span>
+    <span>&#10022; Pan India delivery</span>
+  </div>
+
   <header class="site-header">
-    <a class="logo" href="index.html">ONCOST</a>
-    <nav class="desktop-nav"><a href="index.html">Home</a><a href="products.html">Shop</a><a href="bulk.html">Bulk Orders</a><a href="account.html" data-account-link>Login</a></nav>
-    <div class="header-actions"><a class="icon-button" href="account.html" data-account-link>Login</a></div>
+    <a class="logo" href="index.html" aria-label="ONCOST home">ONCOST</a>
+    <nav class="desktop-nav" aria-label="Primary navigation">
+      <a href="index.html">Home</a>
+      <a href="products.html">Shop</a>
+      <a href="products.html">Collections</a>
+      <a href="bulk.html">Bulk Orders</a>
+      <a href="contact.html">Contact</a>
+    </nav>
+    <div class="header-actions">
+      <a class="icon-button" href="cart.html" aria-label="Cart" data-cart-count>&#128722;</a>
+      <a class="icon-button hide-mobile" href="account.html" aria-label="Account" data-account-link>&#128100;</a>
+    </div>
   </header>
+
   <main>
-    <section class="page-hero"><div><p class="eyebrow">Customer cart</p><h1>Your Cart</h1><p>Review selected products and send a bulk enquiry for final pricing.</p></div><a class="button secondary" href="products.html">Continue Shopping</a></section>
-    <section class="section" data-cart></section>
+    <section class="page-hero" aria-labelledby="cart-page-title">
+      <div>
+        <p class="eyebrow">Customer cart</p>
+        <h1 id="cart-page-title">Your Cart</h1>
+        <p>Review selected gifts and submit an enquiry for bulk pricing, custom packaging, and delivery confirmation.</p>
+      </div>
+      <a class="button secondary" href="products.html">Continue Shopping</a>
+    </section>
+
+    <section class="section">
+      <div class="cart-header-row">
+        <h2>&#128705; Cart Items</h2>
+        <button class="cart-clear-btn" id="clear-cart-btn">Clear Cart</button>
+      </div>
+
+      <div data-cart aria-live="polite">
+        <!-- Rendered by app.js renderCart() -->
+      </div>
+
+      <div class="cart-trust">
+        <span class="trust-badge">&#128666; Pan India delivery</span>
+        <span class="trust-badge">&#128230; Custom packaging</span>
+        <span class="trust-badge">&#9679; Bulk pricing on enquiry</span>
+        <span class="trust-badge">&#128172; WhatsApp support</span>
+      </div>
+    </section>
   </main>
-  <footer class="site-footer"><h2>ONCOST</h2><p>Premium gifting collections for every occasion</p><nav class="footer-nav"><a href="products.html">Shop</a><a href="bulk.html">Bulk Orders</a><a href="account.html">Account</a></nav></footer>
-  <nav class="mobile-nav"><a href="index.html">Home</a><a href="products.html">Shop</a><a href="products.html">Categories</a><a href="cart.html">Cart</a><a href="account.html">Account</a></nav>
+
+  <footer class="site-footer">
+    <h2>ONCOST</h2>
+    <p>Premium gifting collections for every occasion</p>
+    <nav class="footer-nav" aria-label="Footer navigation">
+      <a href="products.html">Shop</a>
+      <a href="bulk.html">Bulk Orders</a>
+      <a href="account.html">Account</a>
+      <a href="contact.html">Contact</a>
+    </nav>
+  </footer>
+
+  <nav class="mobile-nav" aria-label="Mobile navigation">
+    <a href="index.html"><span>&#8962;</span><span>Home</span></a>
+    <a href="products.html"><span>&#128722;</span><span>Shop</span></a>
+    <a href="products.html"><span>&#9783;</span><span>Categories</span></a>
+    <a href="cart.html"><span>&#128705;</span><span>Cart</span></a>
+    <a href="account.html"><span>&#128100;</span><span>Account</span></a>
+  </nav>
+
   <script src="app.js"></script>
+  <script>
+    // Clear cart button
+    document.getElementById('clear-cart-btn').addEventListener('click', function () {
+      if (confirm('Remove all items from your cart?')) {
+        localStorage.removeItem('oncostCart');
+        location.reload();
+      }
+    });
+  </script>
 </body>
 </html>

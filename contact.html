@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact Us | ONCOST</title>
+  <meta name="description" content="Get in touch with ONCOST for product queries, bulk orders, and gifting support.">
+  <link rel="stylesheet" href="site.css">
+  <style>
+    .contact-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 0.85fr);
+      gap: 28px;
+      align-items: start;
+    }
+    .contact-info {
+      display: grid;
+      gap: 16px;
+    }
+    .contact-info-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 18px 20px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: #fff;
+      box-shadow: 0 4px 16px rgba(76,24,37,0.05);
+    }
+    .contact-info-card .info-icon {
+      font-size: 1.5rem;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .contact-info-card h3 {
+      margin: 0 0 4px;
+      color: var(--burgundy);
+      font-size: 0.95rem;
+      font-family: Georgia, serif;
+    }
+    .contact-info-card p, .contact-info-card a {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.6;
+    }
+    .contact-info-card a:hover { color: var(--burgundy); }
+    .whatsapp-banner {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 16px;
+      padding: 22px 24px;
+      border-radius: 12px;
+      background: linear-gradient(120deg, #25d366, #128c7e);
+      color: #fff;
+      margin-bottom: 16px;
+    }
+    .whatsapp-banner h3 { color: #fff; margin: 0 0 4px; font-size: 1rem; font-family: Georgia, serif; }
+    .whatsapp-banner p { color: rgba(255,255,255,0.88); margin: 0; font-size: 0.88rem; }
+    .whatsapp-banner .button { background: #fff; color: #128c7e; font-weight: 900; flex-shrink: 0; }
+    .faq-list { display: grid; gap: 12px; }
+    .faq-item {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+    .faq-item summary {
+      padding: 14px 18px;
+      cursor: pointer;
+      color: var(--burgundy);
+      font-weight: 800;
+      font-size: 0.92rem;
+      list-style: none;
+    }
+    .faq-item summary::-webkit-details-marker { display: none; }
+    .faq-item summary::after { content: ' +'; }
+    .faq-item[open] summary::after { content: ' \2212'; }
+    .faq-item p {
+      margin: 0;
+      padding: 0 18px 14px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.7;
+    }
+    @media (max-width: 860px) {
+      .contact-layout { grid-template-columns: 1fr; }
+      .whatsapp-banner { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <span>&#10022; Customer support</span>
+    <span>&#10022; Bulk enquiry follow-up</span>
+    <span>&#10022; Reply within 24 hours</span>
+  </div>
+
+  <header class="site-header">
+    <a class="logo" href="index.html" aria-label="ONCOST home">ONCOST</a>
+    <nav class="desktop-nav" aria-label="Primary navigation">
+      <a href="index.html">Home</a>
+      <a href="products.html">Shop</a>
+      <a href="products.html">Collections</a>
+      <a href="bulk.html">Bulk Orders</a>
+      <a href="contact.html">Contact</a>
+    </nav>
+    <div class="header-actions">
+      <a class="icon-button" href="cart.html" aria-label="Cart" data-cart-count>&#128722;</a>
+      <a class="icon-button hide-mobile" href="account.html" aria-label="Account" data-account-link>&#128100;</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-hero" aria-labelledby="contact-page-title">
+      <div>
+        <p class="eyebrow">Get in touch</p>
+        <h1 id="contact-page-title">Contact ONCOST</h1>
+        <p>Questions about products, bulk orders, packaging, or delivery? Send a message or reach us directly on WhatsApp.</p>
+      </div>
+      <a class="button secondary" href="bulk.html">Bulk Enquiry</a>
+    </section>
+
+    <section class="section">
+      <div class="contact-layout">
+
+        <div>
+          <form class="auth-card form-grid" id="contact-form" data-contact-form novalidate>
+            <p class="notice" id="contact-status">
+              &#10003; Message saved. Your email app will open to send the message to ONCOST.
+            </p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+              <label>Your name
+                <input class="field" required name="name" placeholder="Full name">
+              </label>
+              <label>Email address
+                <input class="field" required type="email" name="email" placeholder="customer@example.com">
+              </label>
+            </div>
+            <label>Mobile number
+              <input class="field" name="phone" placeholder="+91 9876543210" type="tel">
+            </label>
+            <label>Subject
+              <select class="select" name="subject">
+                <option>Product enquiry</option>
+                <option>Bulk order</option>
+                <option>Delivery query</option>
+                <option>Payment query</option>
+                <option>Return / exchange</option>
+                <option>Other</option>
+              </select>
+            </label>
+            <label>Your message
+              <textarea class="field" rows="5" name="message" placeholder="Write your message or question..."></textarea>
+            </label>
+            <button class="button primary" type="submit" style="width:100%;justify-content:center">
+              Send Message
+            </button>
+          </form>
+        </div>
+
+        <aside class="contact-info" aria-label="Contact details">
+          <div class="whatsapp-banner">
+            <div>
+              <h3>&#128172; Chat on WhatsApp</h3>
+              <p>Fastest way to reach us. Replies within minutes for urgent event queries.</p>
+            </div>
+            <a class="button" href="https://wa.me/917799791820" target="_blank" rel="noreferrer">Chat Now</a>
+          </div>
+
+          <div class="contact-info-card">
+            <span class="info-icon">&#128231;</span>
+            <div>
+              <h3>Email</h3>
+              <a href="mailto:enterprisepragna@gmail.com">enterprisepragna@gmail.com</a>
+              <p>We reply within 24 hours on business days.</p>
+            </div>
+          </div>
+          <div class="contact-info-card">
+            <span class="info-icon">&#127891;</span>
+            <div>
+              <h3>Bulk Orders</h3>
+              <p>For orders of 50+ pieces, use the dedicated bulk enquiry form for faster processing.</p>
+              <a href="bulk.html" style="color:var(--burgundy);font-weight:900">Go to Bulk Enquiry &rsaquo;</a>
+            </div>
+          </div>
+          <div class="contact-info-card">
+            <span class="info-icon">&#128666;</span>
+            <div>
+              <h3>Delivery &amp; Shipping</h3>
+              <p>Pan India delivery. 5–10 working days for standard, express available on request.</p>
+            </div>
+          </div>
+
+          <section aria-labelledby="faq-title">
+            <h2 id="faq-title" style="color:var(--burgundy);font-family:Georgia,serif;font-size:1.3rem;margin:8px 0 14px">Common Questions</h2>
+            <div class="faq-list">
+              <details class="faq-item">
+                <summary>What is the minimum bulk order quantity?</summary>
+                <p>Our minimum bulk order quantity is 50 pieces. For smaller quantities, browse the standard product listing and add to cart.</p>
+              </details>
+              <details class="faq-item">
+                <summary>Can I get a GST invoice?</summary>
+                <p>Yes. Include your GSTIN in the enquiry form and we'll generate a GST-compliant e-invoice for your order.</p>
+              </details>
+              <details class="faq-item">
+                <summary>Do you offer custom packaging?</summary>
+                <p>Absolutely. We offer branded boxes, pouches, and carry bags. Mention your packaging preference in the enquiry form.</p>
+              </details>
+              <details class="faq-item">
+                <summary>How long does delivery take?</summary>
+                <p>Standard delivery is 5–10 working days after order confirmation. Express delivery is available for urgent events at an additional charge.</p>
+              </details>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <h2>ONCOST</h2>
+    <p>Premium gifting collections for every occasion</p>
+    <nav class="footer-nav" aria-label="Footer navigation">
+      <a href="products.html">Shop</a>
+      <a href="bulk.html">Bulk Orders</a>
+      <a href="account.html">Account</a>
+    </nav>
+  </footer>
+
+  <nav class="mobile-nav" aria-label="Mobile navigation">
+    <a href="index.html"><span>&#8962;</span><span>Home</span></a>
+    <a href="products.html"><span>&#128722;</span><span>Shop</span></a>
+    <a href="products.html"><span>&#9783;</span><span>Categories</span></a>
+    <a href="cart.html"><span>&#128705;</span><span>Cart</span></a>
+    <a href="account.html"><span>&#128100;</span><span>Account</span></a>
+  </nav>
+
+  <script src="app.js"></script>
+  <script>
+    (function () {
+      var form = document.getElementById('contact-form');
+      var status = document.getElementById('contact-status');
+      if (!form) return;
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var fd = new FormData(form);
+        try {
+          var user = storage.getUser() || { name: fd.get('name') || 'Guest', email: fd.get('email') };
+          var summary = [
+            'ONCOST Contact Message',
+            '',
+            'From: ' + (fd.get('name') || user.name),
+            'Email: ' + (fd.get('email') || user.email),
+            'Phone: ' + (fd.get('phone') || 'Not provided'),
+            'Subject: ' + (fd.get('subject') || 'General'),
+            '',
+            'Message:',
+            fd.get('message') || ''
+          ].join('\n');
+          var lead = { id: Date.now(), createdAt: new Date().toISOString(), productId: 'contact', summary: summary };
+          var leads = storage.getLeads();
+          leads.unshift(lead);
+          storage.setLeads(leads);
+          if (status) status.classList.add('show');
+          var subject = encodeURIComponent('ONCOST Contact: ' + (fd.get('subject') || 'Query'));
+          location.href = 'mailto:enterprisepragna@gmail.com?subject=' + subject + '&body=' + encodeURIComponent(summary);
+        } catch (err) {
+          if (status) { status.textContent = 'Message ready. Please email enterprisepragna@gmail.com directly.'; status.classList.add('show'); }
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

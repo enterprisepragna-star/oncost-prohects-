@@ -15,9 +15,8 @@
     RewriteCond %{HTTPS} off
     RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
     
-    # Prevent direct access to app.js
-    RewriteRule ^app\.js$ - [F,L]
-    RewriteRule ^(app\.js|next\.config\.ts|tsconfig\.json|package\.json)$ - [F,L]
+    # Block access to sensitive config/build files only (app.js must be publicly accessible)
+    RewriteRule ^(next\.config\.ts|tsconfig\.json|package\.json|package-lock\.json)$ - [F,L]
     
     # Remove trailing slashes (except for directories)
     RewriteCond %{REQUEST_FILENAME} !-d

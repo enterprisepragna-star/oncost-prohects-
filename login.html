@@ -4,188 +4,141 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login | ONCOST</title>
+  <meta name="description" content="Login to your ONCOST account to browse products, manage your cart, and submit enquiries.">
   <link rel="stylesheet" href="site.css">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    
-    /* Dedicated styles for the professional auth pages */
-    .pro-auth-body {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        min-height: 100vh;
-        padding: 20px;
-        background-color: #F7F8FA;
-        font-family: 'Inter', sans-serif;
+    .auth-tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 24px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--line);
     }
-    .pro-auth-container {
-        background-color: white;
-        width: 100%;
-        max-width: 440px;
-        padding: 48px 40px;
-        border-radius: 12px;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05), 0 2px 10px rgba(0, 0, 0, 0.02);
+    .auth-tab {
+      flex: 1;
+      padding: 11px;
+      background: #fff;
+      border: none;
+      color: var(--muted);
+      font-size: 0.88rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: background 150ms;
     }
-    .pro-auth-header {
-        text-align: center;
-        margin-bottom: 32px;
+    .auth-tab.active {
+      background: var(--burgundy);
+      color: #fff;
     }
-    .pro-auth-logo {
-        color: #7B2A3A;
-        font-size: 32px;
-        font-weight: 700;
-        letter-spacing: 1px;
-        margin-bottom: 4px;
-        text-decoration: none;
-        display: block;
+    .auth-panel { display: none; }
+    .auth-panel.active { display: contents; }
+    .auth-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 8px 0;
+      color: var(--muted);
+      font-size: 0.8rem;
     }
-    .pro-auth-subtitle {
-        color: #7B2A3A;
-        font-size: 12px;
-        font-weight: 600;
-        letter-spacing: 2px;
-        text-transform: uppercase;
+    .auth-divider::before,
+    .auth-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--line);
     }
-    .pro-auth-welcome h1 {
-        color: #1A1A1A;
-        font-size: 24px;
-        font-weight: 600;
-        margin: 0 0 8px 0;
-        font-family: 'Inter', sans-serif;
+    .otp-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
     }
-    .pro-auth-welcome p {
-        color: #666666;
-        font-size: 14px;
-        line-height: 1.5;
-        margin-bottom: 24px;
+    .otp-row .button {
+      min-height: 48px;
+      white-space: nowrap;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 0.85rem;
     }
-    .pro-form-group {
-        margin-bottom: 20px;
-    }
-    .pro-form-group label {
-        display: block;
-        color: #1A1A1A;
-        font-size: 14px;
-        font-weight: 500;
-        margin-bottom: 8px;
-    }
-    .pro-form-group input {
-        width: 100%;
-        padding: 12px 16px;
-        border: 1px solid #E0E0E0;
-        border-radius: 8px;
-        font-size: 15px;
-        color: #1A1A1A;
-        transition: all 0.2s ease;
-        outline: none;
-        font-family: 'Inter', sans-serif;
-    }
-    .pro-form-group input:focus {
-        border-color: #7B2A3A;
-        box-shadow: 0 0 0 3px rgba(123, 42, 58, 0.1);
-    }
-    .pro-btn {
-        width: 100%;
-        padding: 14px;
-        border-radius: 8px;
-        font-size: 15px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        border: none;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        font-family: 'Inter', sans-serif;
-    }
-    .pro-btn-primary {
-        background-color: #7B2A3A;
-        color: white;
-        margin-top: 10px;
-    }
-    .pro-btn-primary:hover {
-        background-color: #5A1E2A;
-    }
-    .pro-btn-secondary {
-        background-color: #C69C31;
-        color: #1A1A1A;
-    }
-    .pro-btn-secondary:hover {
-        background-color: #A88325;
-    }
-    .pro-divider {
-        display: flex;
-        align-items: center;
-        text-align: center;
-        margin: 24px 0;
-        color: #666666;
-        font-size: 13px;
-    }
-    .pro-divider::before,
-    .pro-divider::after {
-        content: '';
-        flex: 1;
-        border-bottom: 1px solid #E0E0E0;
-    }
-    .pro-divider:not(:empty)::before {
-        margin-right: .5em;
-    }
-    .pro-divider:not(:empty)::after {
-        margin-left: .5em;
-    }
-    .pro-footer-links {
-        text-align: center;
-        margin-top: 32px;
-        font-size: 14px;
-        color: #666666;
-    }
-    .pro-footer-links a {
-        color: #7B2A3A;
-        font-weight: 600;
-        text-decoration: none;
-        transition: color 0.2s ease;
-    }
-    .pro-footer-links a:hover {
-        text-decoration: underline;
+    .social-hint {
+      text-align: center;
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.88rem;
     }
   </style>
 </head>
-<body class="pro-auth-body">
-  <div class="pro-auth-container">
-    <div class="pro-auth-header">
-      <a href="index.html" class="pro-auth-logo">ONCOST</a>
-      <div class="pro-auth-subtitle">Customer Login</div>
-    </div>
+<body>
+  <main class="auth-shell">
+    <div class="auth-card form-grid">
+      <a class="logo" href="index.html" aria-label="ONCOST home">ONCOST</a>
 
-    <div class="pro-auth-welcome">
-      <h1>Welcome back</h1>
-      <p>Login to view product details, your cart, account settings, and enquiry modules.</p>
-    </div>
-
-    <form action="#" method="POST" data-login-form>
-      <div class="pro-form-group">
-        <label for="email">Email</label>
-        <input type="email" id="email" name="email" placeholder="customer@example.com" required>
+      <div>
+        <p class="eyebrow">Customer login</p>
+        <h2>Welcome back</h2>
+        <p>Login to view product details, manage your cart, and submit event enquiries.</p>
       </div>
 
-      <div class="pro-form-group">
-        <label for="password">Password</label>
-        <!-- Added minlength validation -->
-        <input type="password" id="password" name="password" placeholder="Enter password" required minlength="8">
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tab-email">Email Login</button>
+        <button class="auth-tab" id="tab-otp">Mobile OTP</button>
       </div>
 
-      <button type="submit" class="pro-btn pro-btn-primary">Login</button>
-    </form>
+      <!-- Email Login -->
+      <form data-login-form id="panel-email" class="auth-panel active form-grid" novalidate>
+        <label>Email address
+          <input class="field" required type="email" name="email" placeholder="customer@example.com" autocomplete="email">
+        </label>
+        <label>Password
+          <input class="field" required type="password" name="password" placeholder="Your password" autocomplete="current-password">
+        </label>
+        <button class="button primary" type="submit">Login to ONCOST</button>
+        <div class="social-hint">
+          New customer? <a href="signup.html"><strong>Create a free account</strong></a>
+        </div>
+      </form>
 
-    <div class="pro-divider">OR</div>
-
-    <button type="button" class="pro-btn pro-btn-secondary" onclick="alert('OTP login is coming soon!')">Login with OTP instead</button>
-
-    <div class="pro-footer-links">
-      New customer? <a href="signup.html">Create an account</a>
+      <!-- OTP Login -->
+      <form data-login-otp id="panel-otp" class="auth-panel form-grid" novalidate>
+        <label>Mobile number
+          <div class="otp-row">
+            <input class="field" required name="phone" placeholder="+91 9876543210" type="tel" autocomplete="tel">
+            <button class="button secondary" data-request-otp type="button">Send OTP</button>
+          </div>
+        </label>
+        <label>Enter OTP
+          <input class="field" name="otp" placeholder="6-digit OTP" inputmode="numeric" maxlength="6">
+        </label>
+        <button class="button primary" type="submit">Verify &amp; Login</button>
+        <p style="font-size:0.82rem;color:var(--muted);text-align:center;margin:0">Demo mode — OTP appears as an alert. No SMS is sent.</p>
+        <div class="social-hint">
+          New customer? <a href="signup.html"><strong>Create a free account</strong></a>
+        </div>
+      </form>
     </div>
-  </div>
+  </main>
 
   <script src="app.js"></script>
+  <script>
+    // Tab switching
+    var tabEmail = document.getElementById('tab-email');
+    var tabOtp = document.getElementById('tab-otp');
+    var panelEmail = document.getElementById('panel-email');
+    var panelOtp = document.getElementById('panel-otp');
+
+    tabEmail.addEventListener('click', function () {
+      tabEmail.classList.add('active');
+      tabOtp.classList.remove('active');
+      panelEmail.classList.add('active');
+      panelOtp.classList.remove('active');
+    });
+    tabOtp.addEventListener('click', function () {
+      tabOtp.classList.add('active');
+      tabEmail.classList.remove('active');
+      panelOtp.classList.add('active');
+      panelEmail.classList.remove('active');
+    });
+  </script>
 </body>
 </html>

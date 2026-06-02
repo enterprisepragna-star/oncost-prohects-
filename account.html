@@ -3,22 +3,215 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Account | ONCOST</title>
+  <title>My Account | ONCOST</title>
+  <meta name="description" content="Manage your ONCOST account, orders, and event enquiries.">
   <link rel="stylesheet" href="site.css">
+  <style>
+    .account-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 20px;
+    }
+    .account-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      padding: 24px;
+      box-shadow: 0 8px 24px rgba(76, 24, 37, 0.07);
+    }
+    .account-card .card-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: rgba(122, 31, 53, 0.1);
+      font-size: 1.3rem;
+      margin-bottom: 14px;
+    }
+    .account-card h3 {
+      margin: 0 0 8px;
+      color: var(--burgundy);
+      font-size: 1.05rem;
+      font-family: Georgia, serif;
+    }
+    .account-card p {
+      margin: 0 0 6px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+    .account-card .card-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 14px;
+      padding: 9px 18px;
+      border-radius: 999px;
+      background: var(--burgundy);
+      color: #fff;
+      font-size: 0.85rem;
+      font-weight: 900;
+    }
+    .account-card .card-action.gold {
+      background: var(--gold);
+      color: #27190b;
+    }
+    .profile-strip {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 22px 24px;
+      border-radius: 12px;
+      background: linear-gradient(120deg, var(--burgundy), #a33050);
+      color: #fff;
+      margin-bottom: 24px;
+    }
+    .profile-avatar {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      font-size: 1.6rem;
+      font-weight: 900;
+      flex-shrink: 0;
+    }
+    .profile-strip h2 {
+      color: #fff;
+      font-size: 1.25rem;
+      margin: 0 0 4px;
+    }
+    .profile-strip p {
+      color: rgba(255,255,255,0.82);
+      font-size: 0.9rem;
+      margin: 0;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.2);
+      font-size: 0.75rem;
+      font-weight: 900;
+      color: #fff;
+      margin-top: 6px;
+    }
+    .empty-state {
+      display: grid;
+      place-items: center;
+      gap: 10px;
+      padding: 32px 20px;
+      text-align: center;
+    }
+    .empty-state .empty-icon { font-size: 2.2rem; }
+    @media (max-width: 680px) {
+      .account-grid { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
-  <div class="topbar"><span>* Account dashboard</span><span>* Cart and enquiry modules</span><span>* Demo customer state</span></div>
+  <div class="topbar">
+    <span>&#10022; My Account</span>
+    <span>&#10022; Order History</span>
+    <span>&#10022; Bulk Enquiries</span>
+  </div>
+
   <header class="site-header">
-    <a class="logo" href="index.html">ONCOST</a>
-    <nav class="desktop-nav"><a href="index.html">Home</a><a href="products.html">Shop</a><a href="cart.html">Cart</a><a href="bulk.html">Bulk Orders</a></nav>
-    <div class="header-actions"><button class="icon-button" data-logout>Logout</button></div>
+    <a class="logo" href="index.html" aria-label="ONCOST home">ONCOST</a>
+    <nav class="desktop-nav" aria-label="Primary navigation">
+      <a href="index.html">Home</a>
+      <a href="products.html">Shop</a>
+      <a href="products.html">Collections</a>
+      <a href="bulk.html">Bulk Orders</a>
+      <a href="contact.html">Contact</a>
+    </nav>
+    <div class="header-actions">
+      <a class="icon-button" href="cart.html" aria-label="Cart" data-cart-count>&#128722;</a>
+      <button class="icon-button" data-logout aria-label="Logout" title="Logout">&#x2715;</button>
+    </div>
   </header>
+
   <main>
-    <section class="page-hero"><div><p class="eyebrow">Customer area</p><h1>My Account</h1><p>Manage customer profile, orders, wishlist, support, and event enquiries.</p></div><a class="button secondary" href="products.html">Shop Products</a></section>
-    <section class="section" data-account></section>
+    <section class="page-hero" aria-labelledby="account-title">
+      <div>
+        <p class="eyebrow">Customer area</p>
+        <h1 id="account-title">My Account</h1>
+        <p>Manage your profile, orders, event enquiries, and gifting preferences all in one place.</p>
+      </div>
+      <a class="button secondary" href="products.html">Browse Gifts</a>
+    </section>
+
+    <section class="section">
+      <div id="account-profile-strip" class="profile-strip" style="display:none">
+        <div class="profile-avatar" id="account-avatar">U</div>
+        <div>
+          <h2 id="account-name">Customer</h2>
+          <p id="account-email">Loading...</p>
+          <span class="badge">&#10003; Verified Customer</span>
+        </div>
+      </div>
+
+      <div class="account-grid" data-account>
+        <!-- Filled by app.js renderAccount() -->
+      </div>
+    </section>
+
+    <section class="section" style="padding-top:0">
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;margin-top:0">
+        <article class="account-card">
+          <div class="card-icon">&#128230;</div>
+          <h3>Bulk Orders</h3>
+          <p>Need 50+ pieces for a birthday, pooja, wedding, or corporate event? Send a bulk enquiry and our team will get back with pricing and packaging options.</p>
+          <a class="card-action gold" href="bulk.html">Send Bulk Enquiry</a>
+        </article>
+        <article class="account-card">
+          <div class="card-icon">&#128241;</div>
+          <h3>WhatsApp Us</h3>
+          <p>Quick questions about a product or event? Reach the ONCOST team directly on WhatsApp for fast responses and personalised gifting advice.</p>
+          <a class="card-action" href="https://wa.me/917799791820" target="_blank" rel="noreferrer">Open WhatsApp</a>
+        </article>
+      </div>
+    </section>
   </main>
-  <footer class="site-footer"><h2>ONCOST</h2><p>Premium gifting collections for every occasion</p><nav class="footer-nav"><a href="products.html">Shop</a><a href="bulk.html">Bulk Orders</a><a href="cart.html">Cart</a></nav></footer>
-  <nav class="mobile-nav"><a href="index.html">Home</a><a href="products.html">Shop</a><a href="products.html">Categories</a><a href="cart.html">Cart</a><a href="account.html">Account</a></nav>
+
+  <footer class="site-footer">
+    <h2>ONCOST</h2>
+    <p>Premium gifting collections for every occasion</p>
+    <nav class="footer-nav" aria-label="Footer navigation">
+      <a href="products.html">Shop</a>
+      <a href="bulk.html">Bulk Orders</a>
+      <a href="cart.html">Cart</a>
+      <a href="contact.html">Contact</a>
+    </nav>
+  </footer>
+
+  <nav class="mobile-nav" aria-label="Mobile navigation">
+    <a href="index.html"><span>&#8962;</span><span>Home</span></a>
+    <a href="products.html"><span>&#128722;</span><span>Shop</span></a>
+    <a href="products.html"><span>&#9783;</span><span>Categories</span></a>
+    <a href="cart.html"><span>&#128705;</span><span>Cart</span></a>
+    <a href="account.html"><span>&#128100;</span><span>Account</span></a>
+  </nav>
+
   <script src="app.js"></script>
+  <script>
+    // Enhance profile strip with user data
+    (function () {
+      const user = JSON.parse(localStorage.getItem('oncostUser') || 'null');
+      if (!user) return;
+      const strip = document.getElementById('account-profile-strip');
+      const avatar = document.getElementById('account-avatar');
+      const nameEl = document.getElementById('account-name');
+      const emailEl = document.getElementById('account-email');
+      if (strip) strip.style.display = 'flex';
+      if (avatar) avatar.textContent = (user.name || 'U').charAt(0).toUpperCase();
+      if (nameEl) nameEl.textContent = user.name || 'Customer';
+      if (emailEl) emailEl.textContent = user.email || '';
+    })();
+  </script>
 </body>
 </html>

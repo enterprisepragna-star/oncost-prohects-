@@ -3,41 +3,230 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Enquiry | ONCOST</title>
+  <title>Bulk Enquiry | ONCOST</title>
+  <meta name="description" content="Submit a bulk gift enquiry to ONCOST for custom quantities, packaging, and Pan India delivery.">
   <link rel="stylesheet" href="site.css">
+  <style>
+    .enquiry-layout {
+      display: grid;
+      grid-template-columns: minmax(0,1.1fr) minmax(280px, 0.9fr);
+      gap: 28px;
+      align-items: start;
+    }
+    .enquiry-sidebar {
+      display: grid;
+      gap: 16px;
+      position: sticky;
+      top: 94px;
+    }
+    .sidebar-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 20px;
+      background: #fff;
+      box-shadow: 0 8px 24px rgba(76,24,37,0.06);
+    }
+    .sidebar-card h3 {
+      margin: 0 0 10px;
+      color: var(--burgundy);
+      font-size: 1rem;
+      font-family: Georgia, serif;
+    }
+    .sidebar-card p {
+      margin: 0 0 6px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.6;
+    }
+    .sidebar-card .button {
+      margin-top: 10px;
+      width: 100%;
+      justify-content: center;
+    }
+    .step-list {
+      display: grid;
+      gap: 12px;
+      padding: 0;
+      margin: 0;
+      list-style: none;
+    }
+    .step-list li {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+    .step-num {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--burgundy);
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 900;
+    }
+    .form-two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .form-two-col .span-2 { grid-column: span 2; }
+    @media (max-width: 860px) {
+      .enquiry-layout { grid-template-columns: 1fr; }
+      .enquiry-sidebar { position: static; }
+      .form-two-col { grid-template-columns: 1fr; }
+      .form-two-col .span-2 { grid-column: 1; }
+    }
+  </style>
 </head>
 <body>
-  <div class="topbar"><span>* Lead sent to enterprisepragna@gmail.com</span><span>* Registered details included</span><span>* Bulk support</span></div>
+  <div class="topbar">
+    <span>&#10022; Lead sent to ONCOST team</span>
+    <span>&#10022; Bulk support available</span>
+    <span>&#10022; GST invoice on request</span>
+  </div>
+
   <header class="site-header">
-    <a class="logo" href="index.html">ONCOST</a>
-    <nav class="desktop-nav"><a href="index.html">Home</a><a href="products.html">Shop</a><a href="cart.html">Cart</a><a href="payment.html">Pay Now</a><a href="account.html" data-account-link>Login</a></nav>
-    <div class="header-actions"><a class="icon-button" href="cart.html" data-cart-count>Cart</a><a class="icon-button hide-mobile" href="account.html" data-account-link>Login</a></div>
+    <a class="logo" href="index.html" aria-label="ONCOST home">ONCOST</a>
+    <nav class="desktop-nav" aria-label="Primary navigation">
+      <a href="index.html">Home</a>
+      <a href="products.html">Shop</a>
+      <a href="products.html">Collections</a>
+      <a href="bulk.html">Bulk Orders</a>
+      <a href="contact.html">Contact</a>
+    </nav>
+    <div class="header-actions">
+      <a class="icon-button" href="cart.html" aria-label="Cart" data-cart-count>&#128722;</a>
+      <a class="icon-button hide-mobile" href="account.html" aria-label="Account" data-account-link>&#128100;</a>
+    </div>
   </header>
+
   <main>
-    <section class="page-hero">
-      <div><p class="eyebrow">Customer lead</p><h1 data-enquiry-title>Enquiry</h1><p>Your registered details and selected product will be prepared as a lead email to ONCOST.</p></div>
+    <section class="page-hero" aria-labelledby="enquiry-page-title">
+      <div>
+        <p class="eyebrow">Customer lead</p>
+        <h1 id="enquiry-page-title" data-enquiry-title>Bulk Enquiry</h1>
+        <p>Share your event type, quantity, and packaging needs. The ONCOST team will follow up with a personalised quote.</p>
+      </div>
       <a class="button secondary" href="products.html">Browse Products</a>
     </section>
+
     <section class="section">
-      <form class="auth-card form-grid" data-enquiry-form>
-        <p class="notice" data-lead-status>Lead saved. Your email app should open with the enquiry ready to send to enterprisepragna@gmail.com.</p>
-        <div class="summary-strip" data-selected-product>Selected product loading...</div>
-        <label>Name <input class="field" required name="name"></label>
-        <label>Email <input class="field" required type="email" name="email"></label>
-        <label>Phone <input class="field" required name="phone"></label>
-        <label>GSTIN <input class="field" name="gstin" placeholder="Optional GSTIN for invoice"></label>
-        <label>Event Type <select class="select" name="eventType"><option>Birthday</option><option>Pooja</option><option>Wedding</option><option>Corporate</option><option>Other</option></select></label>
-        <label>Quantity <input class="field" required type="number" min="1" name="quantity" placeholder="Example: 100"></label>
-        <label>Event Date <input class="field" type="date" name="eventDate"></label>
-        <label>Budget <input class="field" name="budget" placeholder="Example: Rs. 150 per piece"></label>
-        <label>Message <textarea name="message" rows="5" placeholder="Mention packaging, delivery city, preferred product changes, or invoice needs"></textarea></label>
-        <button class="button primary" type="submit">Submit Enquiry</button>
-        <a class="button secondary" href="https://einvoice1.gst.gov.in/Others/EinvEnabled" target="_blank" rel="noreferrer">Check E-Invoice GSTIN Status</a>
-      </form>
+      <div class="enquiry-layout">
+
+        <form class="form-grid" data-enquiry-form novalidate>
+          <p class="notice" data-lead-status>
+            &#10003; Enquiry saved. Your email app will open to send the lead to enterprisepragna@gmail.com.
+          </p>
+          <div class="summary-strip" data-selected-product>Loading selected product...</div>
+
+          <div class="form-two-col">
+            <label class="span-2">Selected product
+              <div class="summary-strip" data-selected-product style="margin:6px 0 0">Loading...</div>
+            </label>
+            <label>Your name
+              <input class="field" required name="name" placeholder="Full name">
+            </label>
+            <label>Email address
+              <input class="field" required type="email" name="email" placeholder="customer@example.com">
+            </label>
+            <label>Mobile number
+              <input class="field" required name="phone" placeholder="+91 9876543210" type="tel">
+            </label>
+            <label>GSTIN (optional)
+              <input class="field" name="gstin" placeholder="For GST invoice">
+            </label>
+            <label>Event type
+              <select class="select" name="eventType">
+                <option>Birthday</option>
+                <option>Pooja</option>
+                <option>Wedding</option>
+                <option>Naming Ceremony</option>
+                <option>Corporate</option>
+                <option>School Event</option>
+                <option>Other</option>
+              </select>
+            </label>
+            <label>Quantity needed
+              <input class="field" required type="number" min="1" name="quantity" placeholder="e.g. 100">
+            </label>
+            <label>Event date
+              <input class="field" type="date" name="eventDate">
+            </label>
+            <label>Budget per piece
+              <input class="field" name="budget" placeholder="e.g. Rs. 150 per piece">
+            </label>
+            <label class="span-2">Additional message
+              <textarea class="field" name="message" rows="4" placeholder="Mention packaging preferences, delivery city, or any special requirements"></textarea>
+            </label>
+          </div>
+
+          <button class="button primary" type="submit" style="width:100%;justify-content:center">
+            &#128172; Submit Enquiry
+          </button>
+          <a class="button secondary" href="https://einvoice1.gst.gov.in/Others/EinvEnabled" target="_blank" rel="noreferrer" style="width:100%;justify-content:center;margin-top:0">
+            Check GSTIN E-Invoice Status
+          </a>
+        </form>
+
+        <aside class="enquiry-sidebar" aria-label="Enquiry help">
+          <div class="sidebar-card">
+            <h3>How it works</h3>
+            <ol class="step-list">
+              <li><span class="step-num">1</span> Fill in your event details and quantity.</li>
+              <li><span class="step-num">2</span> Submit — your email app opens with the lead pre-filled.</li>
+              <li><span class="step-num">3</span> The ONCOST team replies with a custom quote within 24 hours.</li>
+              <li><span class="step-num">4</span> Confirm and place your bulk order.</li>
+            </ol>
+          </div>
+          <div class="sidebar-card">
+            <h3>&#128172; WhatsApp Instead?</h3>
+            <p>Prefer a quick chat? Message us directly on WhatsApp for faster support.</p>
+            <a class="button primary" href="https://wa.me/917799791820" target="_blank" rel="noreferrer" style="justify-content:center">Open WhatsApp</a>
+          </div>
+          <div class="sidebar-card">
+            <h3>&#127873; Bulk Order Benefits</h3>
+            <p>&#10003; Volume discounts from 50+ pieces</p>
+            <p>&#10003; Custom packaging and branding</p>
+            <p>&#10003; GST invoice available</p>
+            <p>&#10003; Pan India delivery</p>
+          </div>
+        </aside>
+      </div>
     </section>
   </main>
-  <footer class="site-footer"><h2>ONCOST</h2><p>Premium gifting collections for every occasion</p><nav class="footer-nav"><a href="products.html">Shop</a><a href="payment.html">Pay Now</a><a href="account.html">Account</a></nav></footer>
-  <nav class="mobile-nav"><a href="index.html">Home</a><a href="products.html">Shop</a><a href="products.html">Categories</a><a href="cart.html">Cart</a><a href="account.html">Account</a></nav>
+
+  <footer class="site-footer">
+    <h2>ONCOST</h2>
+    <p>Premium gifting collections for every occasion</p>
+    <nav class="footer-nav" aria-label="Footer navigation">
+      <a href="products.html">Shop</a>
+      <a href="payment.html">Pay Now</a>
+      <a href="account.html">Account</a>
+      <a href="contact.html">Contact</a>
+    </nav>
+  </footer>
+
+  <nav class="mobile-nav" aria-label="Mobile navigation">
+    <a href="index.html"><span>&#8962;</span><span>Home</span></a>
+    <a href="products.html"><span>&#128722;</span><span>Shop</span></a>
+    <a href="products.html"><span>&#9783;</span><span>Categories</span></a>
+    <a href="cart.html"><span>&#128705;</span><span>Cart</span></a>
+    <a href="account.html"><span>&#128100;</span><span>Account</span></a>
+  </nav>
+
   <script src="app.js"></script>
+  <script>
+    // Remove duplicate summary strip (the form has two - clean one up)
+    (function () {
+      var strips = document.querySelectorAll('[data-selected-product]');
+      if (strips.length > 1) strips[0].remove();
+    })();
+  </script>
 </body>
 </html>

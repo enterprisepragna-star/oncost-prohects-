@@ -3,41 +3,193 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Products | ONCOST</title>
+  <title>Products | ONCOST — Premium Return Gifts</title>
+  <meta name="description" content="Browse ONCOST's curated return gift collections — Brass, Tin, German Silver, Thambulam Sets, and more.">
   <link rel="stylesheet" href="site.css">
+  <style>
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px 14px;
+      margin-bottom: 28px;
+    }
+    .filter-bar .field {
+      flex: 1;
+      min-width: 200px;
+      max-width: 320px;
+    }
+    .filter-bar .select { min-width: 180px; }
+    .collection-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 28px;
+    }
+    .collection-tab {
+      padding: 7px 16px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 0.85rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 150ms;
+    }
+    .collection-tab.active,
+    .collection-tab:hover {
+      background: var(--burgundy);
+      border-color: var(--burgundy);
+      color: #fff;
+    }
+    .products-count {
+      color: var(--muted);
+      font-size: 0.88rem;
+      font-weight: 800;
+      margin-bottom: 20px;
+    }
+    .product-card a { display: block; color: inherit; }
+    .product-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+    .product-card { transition: transform 180ms ease, box-shadow 180ms ease; }
+  </style>
 </head>
 <body>
-  <div class="topbar"><span>* Bulk Orders Available</span><span>* Pan India Delivery</span><span>* Premium Return Gifts</span></div>
+  <div class="topbar">
+    <span>&#10022; Bulk Orders Available</span>
+    <span>&#10022; Pan India Delivery</span>
+    <span>&#10022; Premium Return Gifts</span>
+  </div>
+
   <header class="site-header">
-    <a class="logo" href="index.html">ONCOST</a>
-    <nav class="desktop-nav">
-      <a href="index.html">Home</a><a href="products.html">Shop</a><a href="products.html">Collections</a><a href="bulk.html">Bulk Orders</a><a href="account.html" data-account-link>Login</a>
+    <a class="logo" href="index.html" aria-label="ONCOST home">ONCOST</a>
+    <nav class="desktop-nav" aria-label="Primary navigation">
+      <a href="index.html">Home</a>
+      <a href="products.html">Shop</a>
+      <a href="products.html">Collections</a>
+      <a href="bulk.html">Bulk Orders</a>
+      <a href="contact.html">Contact</a>
     </nav>
-    <div class="header-actions"><a class="icon-button" href="cart.html" data-cart-count>Cart</a><a class="icon-button hide-mobile" href="account.html" data-account-link>Login</a></div>
+    <div class="header-actions">
+      <a class="icon-button" href="cart.html" aria-label="Cart" data-cart-count>&#128722;</a>
+      <a class="icon-button hide-mobile" href="account.html" aria-label="Account" data-account-link>&#128100;</a>
+    </div>
   </header>
+
   <main>
-    <section class="page-hero">
-      <div><p class="eyebrow">Shop ONCOST</p><h1>Product Collections</h1><p>Browse curated gifting options. Product details are available after customer login.</p></div>
+    <section class="page-hero" aria-labelledby="products-page-title">
+      <div>
+        <p class="eyebrow">Browse ONCOST</p>
+        <h1 id="products-page-title">Gift Collections</h1>
+        <p>Curated return gifts for every celebration — from traditional pooja keepsakes to joyful birthday favors. Login to view full details and add to cart.</p>
+      </div>
       <a class="button secondary" href="signup.html">Create Account</a>
     </section>
-    <section class="section">
-      <div class="toolbar">
-        <input class="field" data-product-search placeholder="Search products or collections">
-        <select class="select" data-product-filter aria-label="Filter products">
+
+    <section class="section" aria-label="Product listing">
+      <div class="filter-bar">
+        <input class="field" data-product-search placeholder="&#128269; Search products or collections" aria-label="Search products">
+        <select class="select" data-product-filter aria-label="Filter by collection">
           <option value="all">All Collections</option>
-          <option>Brass Collection</option>
-          <option>Birthday Collection</option>
-          <option>Return Gifts</option>
-          <option>Tin Boxes</option>
-          <option>German Silver</option>
-          <option>Thambulam Sets</option>
+          <option value="Brass Collection">Brass Collection</option>
+          <option value="Birthday Collection">Birthday Collection</option>
+          <option value="Return Gifts">Return Gifts</option>
+          <option value="Tin Boxes">Tin Boxes</option>
+          <option value="German Silver">German Silver</option>
+          <option value="Thambulam Sets">Thambulam Sets</option>
         </select>
       </div>
-      <div class="product-grid" data-products></div>
+
+      <div class="collection-tabs" role="tablist" aria-label="Quick collection filter">
+        <button class="collection-tab active" data-tab="all" role="tab">All</button>
+        <button class="collection-tab" data-tab="Brass Collection" role="tab">Brass</button>
+        <button class="collection-tab" data-tab="Birthday Collection" role="tab">Birthday</button>
+        <button class="collection-tab" data-tab="Return Gifts" role="tab">Return Gifts</button>
+        <button class="collection-tab" data-tab="Tin Boxes" role="tab">Tin Boxes</button>
+        <button class="collection-tab" data-tab="German Silver" role="tab">German Silver</button>
+        <button class="collection-tab" data-tab="Thambulam Sets" role="tab">Thambulam</button>
+      </div>
+
+      <p class="products-count" data-products-count></p>
+      <div class="product-grid" data-products aria-live="polite"></div>
+    </section>
+
+    <section class="section" style="padding-top:0">
+      <div class="bulk-panel">
+        <div>
+          <p class="eyebrow">Event gifting made simple</p>
+          <h2>Need 50+ Pieces?</h2>
+          <p>Custom quantities, packaging, and delivery for birthdays, weddings, poojas, and corporate events.</p>
+          <a class="button primary" href="bulk.html">&#128172; WhatsApp Us</a>
+        </div>
+        <div class="packaging-preview" aria-label="Gift packaging preview">
+          <span style="font-size:2.8rem">&#127873;</span>
+          <span>Custom Gift Packaging</span>
+        </div>
+      </div>
     </section>
   </main>
-  <footer class="site-footer"><h2>ONCOST</h2><p>Premium gifting collections for every occasion</p><nav class="footer-nav"><a href="products.html">Shop</a><a href="bulk.html">Bulk Orders</a><a href="account.html">Account</a></nav></footer>
-  <nav class="mobile-nav"><a href="index.html">Home</a><a href="products.html">Shop</a><a href="products.html">Categories</a><a href="cart.html">Cart</a><a href="account.html">Account</a></nav>
+
+  <footer class="site-footer">
+    <h2>ONCOST</h2>
+    <p>Premium gifting collections for every occasion</p>
+    <nav class="footer-nav" aria-label="Footer navigation">
+      <a href="contact.html">Contact</a>
+      <a href="bulk.html">Bulk Orders</a>
+      <a href="account.html">Account</a>
+    </nav>
+  </footer>
+
+  <nav class="mobile-nav" aria-label="Mobile navigation">
+    <a href="index.html"><span>&#8962;</span><span>Home</span></a>
+    <a href="products.html"><span>&#128722;</span><span>Shop</span></a>
+    <a href="products.html"><span>&#9783;</span><span>Categories</span></a>
+    <a href="cart.html"><span>&#128705;</span><span>Cart</span></a>
+    <a href="account.html"><span>&#128100;</span><span>Account</span></a>
+  </nav>
+
   <script src="app.js"></script>
+  <script>
+    // Collection tab quick-filter wiring
+    (function () {
+      const tabs = document.querySelectorAll('[data-tab]');
+      const filterSelect = document.querySelector('[data-product-filter]');
+      const countEl = document.querySelector('[data-products-count]');
+
+      function updateCount() {
+        const grid = document.querySelector('[data-products]');
+        if (grid && countEl) {
+          const n = grid.querySelectorAll('.product-card').length;
+          countEl.textContent = n + ' product' + (n !== 1 ? 's' : '') + ' found';
+        }
+      }
+
+      tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+          tabs.forEach(function (t) { t.classList.remove('active'); });
+          tab.classList.add('active');
+          const val = tab.dataset.tab;
+          if (filterSelect) {
+            filterSelect.value = val;
+            filterSelect.dispatchEvent(new Event('change'));
+          }
+          setTimeout(updateCount, 50);
+        });
+      });
+
+      // Sync select back to tabs
+      if (filterSelect) {
+        filterSelect.addEventListener('change', function () {
+          tabs.forEach(function (t) {
+            t.classList.toggle('active', t.dataset.tab === filterSelect.value);
+          });
+          setTimeout(updateCount, 50);
+        });
+      }
+
+      // Initial count after app.js renders
+      setTimeout(updateCount, 100);
+    })();
+  </script>
 </body>
 </html>

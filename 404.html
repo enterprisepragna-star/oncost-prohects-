@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Page Not Found | ONCOST</title>
+  <link rel="stylesheet" href="site.css">
+  <style>
+    .not-found-shell {
+      min-height: calc(100vh - 78px);
+      display: grid;
+      place-items: center;
+      padding: 40px 20px;
+      background: linear-gradient(135deg, rgba(122,31,53,0.06), rgba(212,175,55,0.14)), var(--cream);
+      text-align: center;
+    }
+    .not-found-inner { max-width: 480px; }
+    .not-found-code {
+      font-size: clamp(5rem, 18vw, 9rem);
+      font-weight: 900;
+      font-family: Georgia, serif;
+      color: var(--burgundy);
+      line-height: 1;
+      margin: 0 0 8px;
+      opacity: 0.18;
+    }
+    .not-found-inner h1 {
+      font-size: clamp(1.6rem, 4vw, 2.2rem);
+      font-family: Georgia, serif;
+      color: var(--burgundy);
+      margin: 0 0 12px;
+    }
+    .not-found-inner p {
+      color: var(--muted);
+      line-height: 1.7;
+      margin: 0 0 24px;
+    }
+    .not-found-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <a class="logo" href="index.html" aria-label="ONCOST home">ONCOST</a>
+    <nav class="desktop-nav" aria-label="Primary navigation">
+      <a href="index.html">Home</a>
+      <a href="products.html">Shop</a>
+      <a href="bulk.html">Bulk Orders</a>
+      <a href="contact.html">Contact</a>
+    </nav>
+    <div class="header-actions">
+      <a class="icon-button" href="cart.html" aria-label="Cart" data-cart-count>&#128722;</a>
+    </div>
+  </header>
+
+  <main class="not-found-shell" aria-labelledby="nf-title">
+    <div class="not-found-inner">
+      <div class="not-found-code" aria-hidden="true">404</div>
+      <h1 id="nf-title">Page not found</h1>
+      <p>The page you were looking for doesn't exist or may have been moved. Head back to the homepage or browse our gift collections.</p>
+      <div class="not-found-actions">
+        <a class="button primary" href="index.html">Back to Home</a>
+        <a class="button secondary" href="products.html">Browse Products</a>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <h2>ONCOST</h2>
+    <p>Premium gifting collections for every occasion</p>
+    <nav class="footer-nav" aria-label="Footer navigation">
+      <a href="products.html">Shop</a>
+      <a href="bulk.html">Bulk Orders</a>
+      <a href="contact.html">Contact</a>
+    </nav>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

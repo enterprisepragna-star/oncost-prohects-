@@ -3,33 +3,199 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pay Now | ONCOST</title>
+  <title>Payment | ONCOST</title>
+  <meta name="description" content="Complete your ONCOST order payment securely.">
   <link rel="stylesheet" href="site.css">
+  <style>
+    .payment-layout {
+      display: grid;
+      grid-template-columns: minmax(0,1fr) minmax(280px,0.72fr);
+      gap: 28px;
+      align-items: start;
+    }
+    .payment-sidebar {
+      display: grid;
+      gap: 16px;
+      position: sticky;
+      top: 94px;
+    }
+    .sidebar-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 20px;
+      background: #fff;
+      box-shadow: 0 8px 24px rgba(76,24,37,0.06);
+    }
+    .sidebar-card h3 {
+      margin: 0 0 10px;
+      color: var(--burgundy);
+      font-size: 1rem;
+      font-family: Georgia, serif;
+    }
+    .sidebar-card p {
+      margin: 0 0 6px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.6;
+    }
+    .secure-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: #edfbf2;
+      color: #1e6a3a;
+      font-size: 0.8rem;
+      font-weight: 900;
+      margin-bottom: 14px;
+    }
+    .payment-step-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      background: #fff8ed;
+      border: 1px solid var(--line);
+      margin-bottom: 10px;
+    }
+    .payment-step-icon {
+      font-size: 1.3rem;
+      flex-shrink: 0;
+    }
+    .payment-step-row p { margin: 0; color: var(--muted); font-size: 0.88rem; }
+    .payment-step-row strong { color: var(--ink); font-size: 0.9rem; }
+    @media (max-width: 860px) {
+      .payment-layout { grid-template-columns: 1fr; }
+      .payment-sidebar { position: static; }
+    }
+  </style>
 </head>
 <body>
-  <div class="topbar"><span>* Payment gateway ready page</span><span>* MyBillBook invoice link placeholder</span><span>* Secure checkout phase</span></div>
+  <div class="topbar">
+    <span>&#10022; Secure payment</span>
+    <span>&#10022; GST invoice on request</span>
+    <span>&#10022; Pan India delivery</span>
+  </div>
+
   <header class="site-header">
-    <a class="logo" href="index.html">ONCOST</a>
-    <nav class="desktop-nav"><a href="index.html">Home</a><a href="products.html">Shop</a><a href="cart.html">Cart</a><a href="enquiry.html">Enquiry</a><a href="account.html" data-account-link>Login</a></nav>
-    <div class="header-actions"><a class="icon-button" href="cart.html" data-cart-count>Cart</a><a class="icon-button hide-mobile" href="account.html" data-account-link>Login</a></div>
+    <a class="logo" href="index.html" aria-label="ONCOST home">ONCOST</a>
+    <nav class="desktop-nav" aria-label="Primary navigation">
+      <a href="index.html">Home</a>
+      <a href="products.html">Shop</a>
+      <a href="products.html">Collections</a>
+      <a href="bulk.html">Bulk Orders</a>
+      <a href="contact.html">Contact</a>
+    </nav>
+    <div class="header-actions">
+      <a class="icon-button" href="cart.html" aria-label="Cart" data-cart-count>&#128722;</a>
+      <a class="icon-button hide-mobile" href="account.html" aria-label="Account" data-account-link>&#128100;</a>
+    </div>
   </header>
+
   <main>
-    <section class="page-hero">
-      <div><p class="eyebrow">Checkout</p><h1>Payment</h1><p>Connect this page to MyBillBook invoice payment links or your preferred payment gateway.</p></div>
+    <section class="page-hero" aria-labelledby="payment-page-title">
+      <div>
+        <p class="eyebrow">Checkout</p>
+        <h1 id="payment-page-title">Complete Payment</h1>
+        <p>Review your order summary and proceed to payment. For bulk orders, request an invoice first via enquiry.</p>
+      </div>
       <a class="button secondary" href="enquiry.html">Request Invoice</a>
     </section>
-    <section class="section" data-payment></section>
+
     <section class="section">
-      <article class="detail-card">
-        <p class="eyebrow">GST e-Invoice</p>
-        <h2>GSTIN Enablement Check</h2>
-        <p>Use the official GST e-Invoice portal to check taxpayer e-invoice enablement status before creating an invoice.</p>
-        <a class="button secondary" href="https://einvoice1.gst.gov.in/Others/EinvEnabled" target="_blank" rel="noreferrer">Open GST E-Invoice Portal</a>
-      </article>
+      <div class="payment-layout">
+
+        <div>
+          <div data-payment>
+            <!-- Rendered by app.js renderPayment() -->
+          </div>
+
+          <div style="margin-top:20px">
+            <div class="payment-step-row">
+              <span class="payment-step-icon">&#128396;</span>
+              <div>
+                <strong>Need a GST Invoice?</strong>
+                <p>Include your GSTIN in the bulk enquiry form and we'll generate a compliant e-invoice.</p>
+              </div>
+            </div>
+            <div class="payment-step-row">
+              <span class="payment-step-icon">&#128172;</span>
+              <div>
+                <strong>Payment confirmation</strong>
+                <p>After payment, share your receipt on WhatsApp for order processing.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside class="payment-sidebar" aria-label="Payment help">
+          <div class="sidebar-card">
+            <div class="secure-badge">&#128274; Secure Checkout</div>
+            <h3>Order Summary</h3>
+            <p id="payment-summary-label">Loading order details...</p>
+            <p id="payment-summary-amount" style="color:var(--burgundy);font-weight:900;font-size:1.1rem"></p>
+          </div>
+          <div class="sidebar-card">
+            <h3>&#128666; Delivery Info</h3>
+            <p>&#10003; Pan India delivery available</p>
+            <p>&#10003; Delivery timeline: 5–10 working days</p>
+            <p>&#10003; Express delivery on request</p>
+          </div>
+          <div class="sidebar-card">
+            <h3>Need Help?</h3>
+            <p>Our team is available on WhatsApp for payment support and order queries.</p>
+            <a class="button primary" href="https://wa.me/917799791820" target="_blank" rel="noreferrer" style="width:100%;justify-content:center;margin-top:10px">
+              &#128172; WhatsApp Support
+            </a>
+          </div>
+          <div class="sidebar-card">
+            <h3>GST E-Invoice Portal</h3>
+            <p>Check if your GSTIN is enabled for e-invoicing before placing a bulk order.</p>
+            <a class="button secondary" href="https://einvoice1.gst.gov.in/Others/EinvEnabled" target="_blank" rel="noreferrer" style="width:100%;justify-content:center;margin-top:10px">
+              Open GST Portal
+            </a>
+          </div>
+        </aside>
+      </div>
     </section>
   </main>
-  <footer class="site-footer"><h2>ONCOST</h2><p>Premium gifting collections for every occasion</p><nav class="footer-nav"><a href="products.html">Shop</a><a href="enquiry.html">Enquiry</a><a href="account.html">Account</a></nav></footer>
-  <nav class="mobile-nav"><a href="index.html">Home</a><a href="products.html">Shop</a><a href="products.html">Categories</a><a href="cart.html">Cart</a><a href="account.html">Account</a></nav>
+
+  <footer class="site-footer">
+    <h2>ONCOST</h2>
+    <p>Premium gifting collections for every occasion</p>
+    <nav class="footer-nav" aria-label="Footer navigation">
+      <a href="products.html">Shop</a>
+      <a href="enquiry.html">Enquiry</a>
+      <a href="account.html">Account</a>
+      <a href="contact.html">Contact</a>
+    </nav>
+  </footer>
+
+  <nav class="mobile-nav" aria-label="Mobile navigation">
+    <a href="index.html"><span>&#8962;</span><span>Home</span></a>
+    <a href="products.html"><span>&#128722;</span><span>Shop</span></a>
+    <a href="products.html"><span>&#9783;</span><span>Categories</span></a>
+    <a href="cart.html"><span>&#128705;</span><span>Cart</span></a>
+    <a href="account.html"><span>&#128100;</span><span>Account</span></a>
+  </nav>
+
   <script src="app.js"></script>
+  <script>
+    // Populate sidebar summary from rendered payment section
+    (function () {
+      setTimeout(function () {
+        var detail = document.querySelector('[data-payment] .detail-card');
+        if (!detail) return;
+        var label = detail.querySelector('p strong');
+        var amount = detail.querySelector('.price');
+        var sumLabel = document.getElementById('payment-summary-label');
+        var sumAmt = document.getElementById('payment-summary-amount');
+        if (label && sumLabel) sumLabel.textContent = label.textContent;
+        if (amount && sumAmt) sumAmt.textContent = amount.textContent;
+      }, 200);
+    })();
+  </script>
 </body>
 </html>
