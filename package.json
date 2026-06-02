@@ -3,5 +3,8 @@
   "version": "1.0.0",
   "scripts": {
     "build": "echo 'Static HTML site, no build needed'"
+  },
+  "dependencies": {
+    "next": "^16.2.7"
   }
 }
