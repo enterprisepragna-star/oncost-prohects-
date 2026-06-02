@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Login | ONCOST Luxury</title>
+  <link rel="stylesheet" href="luxury.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
+  <style>
+    body { background-color: var(--charcoal); color: white; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; font-family: var(--font-body); }
+    .admin-login-box { background: white; color: var(--charcoal); padding: 40px; border-radius: 12px; width: 100%; max-width: 400px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); text-align: center; }
+    .admin-logo { font-family: var(--font-heading); font-size: 2rem; color: var(--deep-maroon); letter-spacing: 2px; margin-bottom: 8px; }
+    .admin-subtitle { font-size: 0.85rem; letter-spacing: 4px; text-transform: uppercase; color: var(--grey-text); margin-bottom: 32px; }
+    .form-group { text-align: left; margin-bottom: 20px; }
+    .form-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 8px; color: var(--charcoal); }
+    .form-group input { width: 100%; padding: 12px; border: 1px solid #E0E0E0; border-radius: 8px; font-family: var(--font-body); }
+    .login-btn { width: 100%; padding: 14px; background: var(--deep-maroon); color: white; border: none; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer; transition: background 0.3s; }
+    .login-btn:hover { background: #5A1525; }
+    #error-msg { color: #D32F2F; font-size: 0.85rem; margin-bottom: 16px; display: none; }
+  </style>
+</head>
+<body>
+
+  <div class="admin-login-box">
+    <div class="admin-logo">ONCOST</div>
+    <div class="admin-subtitle">Admin Portal</div>
+    
+    <form id="admin-login-form">
+      <div class="form-group">
+        <label>Admin Email</label>
+        <input type="email" id="email" placeholder="admin@oncost.shop" required>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="password" placeholder="••••••••" required>
+      </div>
+      <p id="error-msg"></p>
+      <button type="submit" class="login-btn" id="submit-btn">Secure Login</button>
+    </form>
+    <a href="index.html" style="display: block; margin-top: 24px; color: var(--grey-text); font-size: 0.85rem; text-decoration: none;">&larr; Back to Storefront</a>
+  </div>
+
+  <script>
+    const ADMIN_EMAIL = 'enterprisepragna@gmail.com';
+
+    // Auto-redirect if already logged in as admin
+    async function checkSession() {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session && session.user.email === ADMIN_EMAIL) {
+        window.location.href = 'admin-dashboard.html';
+      }
+    }
+    checkSession();
+
+    document.getElementById('admin-login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const errorMsg = document.getElementById('error-msg');
+      const btn = document.getElementById('submit-btn');
+
+      if (email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+        errorMsg.textContent = 'Access Denied: You do not have admin privileges.';
+        errorMsg.style.display = 'block';
+        return;
+      }
+
+      btn.textContent = 'Authenticating...';
+      btn.disabled = true;
+      errorMsg.style.display = 'none';
+
+      try {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        
+        if (error) {
+          errorMsg.textContent = error.message;
+          errorMsg.style.display = 'block';
+          btn.textContent = 'Secure Login';
+          btn.disabled = false;
+        } else {
+          window.location.href = 'admin-dashboard.html';
+        }
+      } catch (err) {
+        errorMsg.textContent = 'Network Error: ' + err.message;
+        errorMsg.style.display = 'block';
+        btn.textContent = 'Secure Login';
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

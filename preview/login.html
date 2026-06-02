@@ -3,11 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sign Up | ONCOST</title>
+  <title>Login | ONCOST</title>
   <link rel="stylesheet" href="site.css">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     
+    /* Dedicated styles for the professional auth pages */
     .pro-auth-body {
         display: flex;
         justify-content: center;
@@ -83,9 +84,6 @@
         border-color: #7B2A3A;
         box-shadow: 0 0 0 3px rgba(123, 42, 58, 0.1);
     }
-    .pro-form-group input:invalid:not(:placeholder-shown) {
-        border-color: #D32F2F;
-    }
     .pro-btn {
         width: 100%;
         padding: 14px;
@@ -108,6 +106,33 @@
     .pro-btn-primary:hover {
         background-color: #5A1E2A;
     }
+    .pro-btn-secondary {
+        background-color: #C69C31;
+        color: #1A1A1A;
+    }
+    .pro-btn-secondary:hover {
+        background-color: #A88325;
+    }
+    .pro-divider {
+        display: flex;
+        align-items: center;
+        text-align: center;
+        margin: 24px 0;
+        color: #666666;
+        font-size: 13px;
+    }
+    .pro-divider::before,
+    .pro-divider::after {
+        content: '';
+        flex: 1;
+        border-bottom: 1px solid #E0E0E0;
+    }
+    .pro-divider:not(:empty)::before {
+        margin-right: .5em;
+    }
+    .pro-divider:not(:empty)::after {
+        margin-left: .5em;
+    }
     .pro-footer-links {
         text-align: center;
         margin-top: 32px;
@@ -129,42 +154,35 @@
   <div class="pro-auth-container">
     <div class="pro-auth-header">
       <a href="index.html" class="pro-auth-logo">ONCOST</a>
-      <div class="pro-auth-subtitle">Create Account</div>
+      <div class="pro-auth-subtitle">Customer Login</div>
     </div>
 
     <div class="pro-auth-welcome">
-      <h1>Start gifting with ONCOST</h1>
-      <p>Create your customer account to unlock products and cart modules.</p>
+      <h1>Welcome back</h1>
+      <p>Login to view product details, your cart, account settings, and enquiry modules.</p>
     </div>
 
-    <form action="#" method="POST" data-signup-form>
-      <div class="pro-form-group">
-        <label for="name">Name</label>
-        <input type="text" id="name" name="name" placeholder="Your name" required>
-      </div>
-
+    <form action="#" method="POST" data-login-form>
       <div class="pro-form-group">
         <label for="email">Email</label>
         <input type="email" id="email" name="email" placeholder="customer@example.com" required>
       </div>
 
       <div class="pro-form-group">
-        <label for="phone">Phone</label>
-        <!-- 10 digit phone number validation -->
-        <input type="tel" id="phone" name="phone" placeholder="10-digit mobile number" required pattern="[0-9]{10}" title="Please enter exactly 10 digits">
-      </div>
-
-      <div class="pro-form-group">
         <label for="password">Password</label>
-        <!-- 8 character min length validation -->
-        <input type="password" id="password" name="password" placeholder="Create password (min 8 characters)" required minlength="8">
+        <!-- Added minlength validation -->
+        <input type="password" id="password" name="password" placeholder="Enter password" required minlength="8">
       </div>
 
-      <button type="submit" class="pro-btn pro-btn-primary">Create Account</button>
+      <button type="submit" class="pro-btn pro-btn-primary">Login</button>
     </form>
 
+    <div class="pro-divider">OR</div>
+
+    <button type="button" class="pro-btn pro-btn-secondary" onclick="alert('OTP login is coming soon!')">Login with OTP instead</button>
+
     <div class="pro-footer-links">
-      Already registered? <a href="login.html">Login</a>
+      New customer? <a href="signup.html">Create an account</a>
     </div>
   </div>
 
