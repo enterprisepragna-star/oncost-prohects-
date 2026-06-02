@@ -1,6 +1,6 @@
 {
   "framework": null,
-  "buildCommand": null,
+  "buildCommand": "rm -rf .next src && echo 'Forcefully disabled Next.js build!'",
   "outputDirectory": ".",
   "cleanUrls": true,
   "headers": [
