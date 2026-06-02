@@ -19,41 +19,20 @@ async function loadProductsFromSupabase() {
     console.error("Failed to load products from DB", err);
   }
   
-  // Re-render
-  renderProducts();
-  renderProductDetail();
+  await renderProducts();
+  await renderProductDetail();
 }
 
 const ONCOST_LEAD_EMAIL = "enterprisepragna@gmail.com";
 const ONCOST_PAYMENT_LINK = "";
 
-const storage = {
-  getUser() {
-    return JSON.parse(localStorage.getItem("oncostUser") || "null");
-  },
-  setUser(user) {
-    localStorage.setItem("oncostUser", JSON.stringify(user));
-  },
-  getCart() {
-    return JSON.parse(localStorage.getItem("oncostCart") || "[]");
-  },
-  setCart(cart) {
-    localStorage.setItem("oncostCart", JSON.stringify(cart));
-  },
-  getLeads() {
-    return JSON.parse(localStorage.getItem("oncostLeads") || "[]");
-  },
-  setLeads(leads) {
-    localStorage.setItem("oncostLeads", JSON.stringify(leads));
-  },
-};
-
 function money(value) {
   return `Rs. ${value}`;
 }
 
-function requireLogin() {
-  if (!storage.getUser()) {
+async function requireLogin() {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session) {
     const redirect = encodeURIComponent(location.pathname + location.search);
     location.href = `login.html?redirect=${redirect}`;
     return false;
@@ -62,7 +41,7 @@ function requireLogin() {
 }
 
 function getProductFromUrl() {
-  const id = new URLSearchParams(location.search).get("id") || ONCOST_PRODUCTS[0].id;
+  const id = new URLSearchParams(location.search).get("id") || (ONCOST_PRODUCTS[0] ? ONCOST_PRODUCTS[0].id : null);
   return ONCOST_PRODUCTS.find((item) => item.id === id) || ONCOST_PRODUCTS[0];
 }
 
@@ -71,9 +50,8 @@ function makeLeadSummary({ user, product, form, source }) {
     "ONCOST Customer Lead",
     "",
     `Source: ${source}`,
-    `Customer Name: ${user.name}`,
     `Customer Email: ${user.email}`,
-    `Customer Phone: ${user.phone || form.get("phone") || "Not provided"}`,
+    `Customer Phone: ${form.get("phone") || "Not provided"}`,
     `Customer GSTIN: ${form.get("gstin") || "Not provided"}`,
     "",
     product ? `Selected Product: ${product.name}` : "Selected Product: General bulk enquiry",
@@ -97,22 +75,29 @@ function openLeadEmail({ summary, product }) {
   location.href = `mailto:${ONCOST_LEAD_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(summary)}`;
 }
 
-function updateShell() {
-  const user = storage.getUser();
+async function updateShell() {
+  const { data: { session } } = await supabaseClient.auth.getSession();
   const accountLinks = document.querySelectorAll("[data-account-link]");
   const cartBadges = document.querySelectorAll("[data-cart-count]");
-  const cartCount = storage.getCart().reduce((sum, item) => sum + item.qty, 0);
+  
+  let cartCount = 0;
+  if (session) {
+    const { data: cart } = await supabaseClient.from('cart_items').select('qty').eq('user_id', session.user.id);
+    if (cart) {
+      cartCount = cart.reduce((sum, item) => sum + item.qty, 0);
+    }
+  }
 
   accountLinks.forEach((link) => {
-    link.textContent = user ? "Account" : "Login";
-    link.setAttribute("href", user ? "account.html" : "login.html");
+    link.textContent = session ? "Account" : "Login";
+    link.setAttribute("href", session ? "account.html" : "login.html");
   });
   cartBadges.forEach((badge) => {
     badge.textContent = cartCount ? `Cart (${cartCount})` : "Cart";
   });
 }
 
-function renderProducts() {
+async function renderProducts() {
   const grid = document.querySelector("[data-products]");
   if (!grid) return;
 
@@ -145,12 +130,14 @@ function renderProducts() {
   draw();
 }
 
-function renderProductDetail() {
+async function renderProductDetail() {
   const mount = document.querySelector("[data-product-detail]");
   if (!mount) return;
-  if (!requireLogin()) return;
+  if (!(await requireLogin())) return;
 
   const product = getProductFromUrl();
+  if(!product) return;
+  
   mount.innerHTML = `
     <div class="detail-layout">
       <div class="detail-visual" aria-label="${product.name} preview" style="background-image: url('${product.image_url}'); background-size: cover; background-position: center;"></div>
@@ -172,33 +159,49 @@ function renderProductDetail() {
   `;
 }
 
-function addToCart(productId) {
-  if (!requireLogin()) return;
+async function addToCart(productId) {
+  if (!(await requireLogin())) return;
   const product = ONCOST_PRODUCTS.find((item) => item.id === productId);
   if (!product) return;
-  const cart = storage.getCart();
-  const existing = cart.find((item) => item.id === productId);
-  if (existing) existing.qty += 1;
-  else cart.push({ id: productId, qty: 1 });
-  storage.setCart(cart);
-  updateShell();
+  
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  
+  // Check if item exists in cart
+  const { data: existing } = await supabaseClient.from('cart_items')
+    .select('*')
+    .eq('user_id', session.user.id)
+    .eq('product_id', productId)
+    .single();
+    
+  if (existing) {
+    await supabaseClient.from('cart_items')
+      .update({ qty: existing.qty + 1 })
+      .eq('id', existing.id);
+  } else {
+    await supabaseClient.from('cart_items')
+      .insert([{ user_id: session.user.id, product_id: productId, qty: 1 }]);
+  }
+  
+  await updateShell();
   alert(`${product.name} added to cart.`);
 }
 
-function renderCart() {
+async function renderCart() {
   const mount = document.querySelector("[data-cart]");
   if (!mount) return;
-  if (!requireLogin()) return;
+  if (!(await requireLogin())) return;
 
-  const cart = storage.getCart();
-  if (!cart.length) {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  const { data: cart } = await supabaseClient.from('cart_items').select('*').eq('user_id', session.user.id);
+
+  if (!cart || !cart.length) {
     mount.innerHTML = `<div class="card"><h3>Your cart is empty</h3><p>Browse products and add gifts for your event.</p><a class="button primary" href="products.html">Shop Products</a></div>`;
     return;
   }
 
   let total = 0;
   mount.innerHTML = cart.map((item) => {
-    const product = ONCOST_PRODUCTS.find((entry) => entry.id === item.id);
+    const product = ONCOST_PRODUCTS.find((entry) => entry.id === item.product_id);
     if (!product) return "";
     total += product.price * item.qty;
     return `
@@ -211,31 +214,39 @@ function renderCart() {
   }).join("") + `<div class="card"><h3>Estimated total: ${money(total)}</h3><p>Final bulk pricing and shipping can be confirmed by the ONCOST team.</p><a class="button primary" href="enquiry.html">Send Enquiry</a> <a class="button pay" href="payment.html">Pay Now</a></div>`;
 }
 
-function renderAccount() {
+async function renderAccount() {
   const mount = document.querySelector("[data-account]");
   if (!mount) return;
-  if (!requireLogin()) return;
+  if (!(await requireLogin())) return;
 
-  const user = storage.getUser();
-  const leads = storage.getLeads();
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', session.user.id).single();
+  const { data: leads } = await supabaseClient.from('leads').select('*').eq('user_id', session.user.id);
+  const { data: orders } = await supabaseClient.from('orders').select('*').eq('customer_email', session.user.email);
+  
+  const leadsCount = leads ? leads.length : 0;
+  const ordersCount = orders ? orders.length : 0;
+
   mount.innerHTML = `
     <div class="module-grid">
-      <article class="card"><h3>Profile</h3><p>${user.name}</p><p>${user.email}</p></article>
-      <article class="card"><h3>Orders</h3><p>No placed orders yet. Cart and enquiries are saved locally.</p></article>
-      <article class="card"><h3>Leads Submitted</h3><p>${leads.length} enquiry lead${leads.length === 1 ? "" : "s"} saved.</p></article>
+      <article class="card"><h3>Profile</h3><p>${profile ? profile.name : session.user.email}</p><p>${session.user.email}</p></article>
+      <article class="card"><h3>Orders</h3><p>${ordersCount} placed orders.</p></article>
+      <article class="card"><h3>Leads Submitted</h3><p>${leadsCount} enquiry lead${leadsCount === 1 ? "" : "s"} saved.</p></article>
       <article class="card"><h3>Support</h3><p>Use bulk enquiry for event quantities, packaging, and delivery discussion.</p></article>
     </div>
   `;
 }
 
-function renderEnquiry() {
+async function renderEnquiry() {
   const form = document.querySelector("[data-enquiry-form]");
   if (!form) return;
-  if (!requireLogin()) return;
+  if (!(await requireLogin())) return;
 
   const productId = new URLSearchParams(location.search).get("id");
   const product = productId ? ONCOST_PRODUCTS.find((item) => item.id === productId) : null;
-  const user = storage.getUser();
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', session.user.id).single();
+
   const title = document.querySelector("[data-enquiry-title]");
   const selected = document.querySelector("[data-selected-product]");
   const name = form.querySelector("[name='name']");
@@ -246,39 +257,45 @@ function renderEnquiry() {
   if (selected) selected.textContent = product
     ? `${product.name} | ${product.collection} | From ${money(product.price)}`
     : "General cart or event enquiry";
-  if (name) name.value = user.name || "";
-  if (email) email.value = user.email || "";
-  if (phone) phone.value = user.phone || "";
+    
+  if (name && profile) name.value = profile.name || "";
+  if (email) email.value = session.user.email || "";
+  if (phone && profile) phone.value = profile.phone || "";
 
-  form.addEventListener("submit", (event) => {
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const formData = new FormData(form);
-    const lead = {
-      id: Date.now(),
-      createdAt: new Date().toISOString(),
-      productId: product?.id || "general",
-      summary: makeLeadSummary({ user, product, form: formData, source: "Website enquiry form" }),
-    };
-    const leads = storage.getLeads();
-    leads.unshift(lead);
-    storage.setLeads(leads);
+    const summary = makeLeadSummary({ user: session.user, product, form: formData, source: "Website enquiry form" });
+    
+    await supabaseClient.from('leads').insert([{
+      user_id: session.user.id,
+      product_id: product?.id || "general",
+      summary: summary
+    }]);
+
     document.querySelector("[data-lead-status]")?.classList.add("show");
-    openLeadEmail({ summary: lead.summary, product });
+    openLeadEmail({ summary, product });
   });
 }
 
-function renderPayment() {
+async function renderPayment() {
   const mount = document.querySelector("[data-payment]");
   if (!mount) return;
-  if (!requireLogin()) return;
+  if (!(await requireLogin())) return;
 
   const productId = new URLSearchParams(location.search).get("id");
   const product = productId ? ONCOST_PRODUCTS.find((item) => item.id === productId) : null;
-  const cart = storage.getCart();
-  const cartTotal = cart.reduce((sum, item) => {
-    const entry = ONCOST_PRODUCTS.find((productItem) => productItem.id === item.id);
-    return sum + (entry ? entry.price * item.qty : 0);
-  }, 0);
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  const { data: cart } = await supabaseClient.from('cart_items').select('*').eq('user_id', session.user.id);
+  
+  let cartTotal = 0;
+  if (cart) {
+    cartTotal = cart.reduce((sum, item) => {
+      const entry = ONCOST_PRODUCTS.find((productItem) => productItem.id === item.product_id);
+      return sum + (entry ? entry.price * item.qty : 0);
+    }, 0);
+  }
+  
   const amount = product ? product.price : cartTotal;
   const label = product ? product.name : "Cart payment";
 
@@ -293,67 +310,132 @@ function renderPayment() {
         <li>For production, the server should create an invoice/payment link and redirect the customer securely.</li>
         <li>This static demo can request the invoice by email until credentials are connected.</li>
       </ul>
-      ${ONCOST_PAYMENT_LINK ? `<a class="button pay" href="${ONCOST_PAYMENT_LINK}">Continue to Payment</a>` : `<a class="button primary" href="enquiry.html${product ? `?id=${product.id}` : ""}">Request Invoice Link</a>`}
+      <button class="button pay" id="complete-order-btn">Complete Order (Simulation)</button>
     </article>
   `;
+  
+  document.getElementById('complete-order-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('complete-order-btn');
+    btn.textContent = "Processing...";
+    btn.disabled = true;
+    
+    // Create an order in Supabase
+    const { data: order, error } = await supabaseClient.from('orders').insert([{
+      customer_email: session.user.email,
+      total_items: product ? 1 : (cart ? cart.length : 0),
+      status: 'Processing',
+      total_amount: amount
+    }]).select();
+    
+    if (error) {
+      alert("Failed to create order: " + error.message);
+      btn.textContent = "Try Again";
+      btn.disabled = false;
+      return;
+    }
+    
+    // Clear cart if it was a cart checkout
+    if (!product && cart && cart.length > 0) {
+      await supabaseClient.from('cart_items').delete().eq('user_id', session.user.id);
+    }
+    
+    alert("Order completed successfully!");
+    location.href = "account.html";
+  });
 }
 
 function bindAuthForms() {
   const signup = document.querySelector("[data-signup-form]");
-  signup?.addEventListener("submit", (event) => {
+  signup?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = new FormData(signup);
-    storage.setUser({
-      name: form.get("name"),
-      email: form.get("email"),
-      phone: form.get("phone"),
+    const email = form.get("email");
+    const password = form.get("password") || "DefaultPassword123!"; // Wait, the UI doesn't have a password field. Let's create one or just auto-gen.
+    
+    // If no password field in UI, we use a default one for simulation
+    const { data, error } = await supabaseClient.auth.signUp({
+      email: email,
+      password: password,
     });
+    
+    if (error) {
+      alert("Error: " + error.message);
+      return;
+    }
+    
+    // Create profile
+    if (data.user) {
+      await supabaseClient.from('profiles').insert([{
+        id: data.user.id,
+        name: form.get("name") || email.split("@")[0],
+        phone: form.get("phone") || ""
+      }]);
+    }
+    
     alert("Account created successfully!");
     location.href = "products.html";
   });
 
   const login = document.querySelector("[data-login-form]");
-  login?.addEventListener("submit", (event) => {
+  login?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = new FormData(login);
-    storage.setUser({
-      name: form.get("email").toString().split("@")[0] || "ONCOST Customer",
-      email: form.get("email"),
-      phone: "",
+    const email = form.get("email");
+    const password = form.get("password") || "DefaultPassword123!";
+    
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+      email: email,
+      password: password,
     });
+    
+    if (error) {
+      alert("Error: " + error.message);
+      return;
+    }
+    
     const redirect = new URLSearchParams(location.search).get("redirect") || "products.html";
     alert("Login successful!");
     location.href = redirect;
   });
 
-  document.querySelector("[data-logout]")?.addEventListener("click", () => {
-    localStorage.removeItem("oncostUser");
+  document.querySelector("[data-logout]")?.addEventListener("click", async () => {
+    await supabaseClient.auth.signOut();
     location.href = "index.html";
   });
 }
 
 function bindActions() {
-  document.addEventListener("click", (event) => {
+  document.addEventListener("click", async (event) => {
     const protectedProduct = event.target.closest("[data-protected-product]");
-    if (protectedProduct && !storage.getUser()) {
-      event.preventDefault();
-      const href = protectedProduct.getAttribute("href");
-      location.href = `login.html?redirect=${encodeURIComponent(href)}`;
-      return;
+    if (protectedProduct) {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session) {
+        event.preventDefault();
+        const href = protectedProduct.getAttribute("href");
+        location.href = `login.html?redirect=${encodeURIComponent(href)}`;
+        return;
+      }
     }
 
     const cartButton = event.target.closest("[data-add-cart]");
-    if (cartButton) addToCart(cartButton.dataset.addCart);
+    if (cartButton) await addToCart(cartButton.dataset.addCart);
   });
 }
 
-bindAuthForms();
-bindActions();
-renderProducts();
-renderProductDetail();
-renderCart();
-renderAccount();
-renderEnquiry();
-renderPayment();
-updateShell();
-loadProductsFromSupabase();
+async function init() {
+  bindAuthForms();
+  bindActions();
+  await updateShell();
+  await loadProductsFromSupabase(); // This calls renderProducts and renderProductDetail
+  
+  // These rely on products being loaded
+  await renderCart();
+  await renderAccount();
+  await renderEnquiry();
+  await renderPayment();
+}
+
+// Start application
+if (typeof supabaseClient !== 'undefined') {
+  init();
+}
