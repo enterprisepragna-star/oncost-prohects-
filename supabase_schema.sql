@@ -226,3 +226,5 @@ ALTER TABLE public.products ADD COLUMN IF NOT EXISTS status text DEFAULT 'Active
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS sku text;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS seo_title text;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS seo_description text;
+ALTER TABLE public.testimonials ADD COLUMN IF NOT EXISTS is_verified boolean DEFAULT false;
+ALTER TABLE public.testimonials ADD COLUMN IF NOT EXISTS image_url text;

@@ -393,6 +393,9 @@ async function loadTestimonials() {
             <option value="Rejected" ${t.status==='Rejected'?'selected':''}>Rejected</option>
           </select>
         </td>
+        <td style="text-align:center;">
+          <input type="checkbox" onchange="updateTestimonialVerified('${t.id}', this.checked)" ${t.is_verified ? 'checked' : ''}>
+        </td>
       </tr>
     `).join('');
   } else {
@@ -403,6 +406,11 @@ async function updateTestimonial(id, status) {
   const { error } = await supabaseClient.from('testimonials').update({ status }).eq('id', id);
   if (error) showToast(error.message, true);
   else { showToast('Testimonial updated!'); loadTestimonials(); }
+}
+async function updateTestimonialVerified(id, is_verified) {
+  const { error } = await supabaseClient.from('testimonials').update({ is_verified }).eq('id', id);
+  if (error) showToast(error.message, true);
+  else { showToast('Verified status updated!'); }
 }
 
 // 10. SEO & Social Settings

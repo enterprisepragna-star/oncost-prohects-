@@ -268,6 +268,9 @@
       white-space: nowrap;
       padding-left: 60px;
     }
+    .marquee-content:hover {
+      animation-play-state: paused;
+    }
     .review-card {
       display: inline-flex;
       align-items: center;
@@ -282,6 +285,17 @@
       font-size: 1.2rem;
       font-style: normal;
       letter-spacing: 2px;
+    }
+    .review-card .verified-tag {
+      font-size: 0.75rem;
+      font-style: normal;
+      background: #E8F5E9;
+      color: #2E7D32;
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin-left: 8px;
+      font-family: "Segoe UI", Arial, sans-serif;
+      font-weight: 700;
     }
     @keyframes marqueeScroll {
       0% { transform: translateX(0); }
@@ -510,14 +524,17 @@
         <div class="hero-badge">Ready for bulk orders</div>
         
         <div class="reviews-kpi-badge">
-          <div class="stars">★★★★★</div>
-          <span>4.9/5 from 10k+ clients</span>
+          <div class="stars" id="kpi-stars">★★★★★</div>
+          <span id="kpi-text">4.9/5 from 10k+ clients</span>
         </div>
       </div>
     </section>
 
     <!-- Scrolling Reviews Marquee -->
     <section class="reviews-marquee-section" aria-label="Customer Reviews">
+      <div class="marquee-header" style="display:flex; justify-content:center; padding: 0 40px 16px;">
+        <button id="write-review-btn" class="button secondary" style="min-height: 36px; padding: 8px 16px; font-size: 0.9rem;">Write a Review</button>
+      </div>
       <div class="marquee-container">
         <div class="marquee-content" id="reviews-marquee">
           <!-- First Set -->
@@ -598,5 +615,33 @@
     <a href="cart.html"><span>Cart</span></a>
     <a href="account.html"><span>Account</span></a>
   </nav>
+
+  <dialog id="review-modal" style="border:none; border-radius:12px; padding:24px; max-width:400px; width:100%; box-shadow:var(--shadow);">
+    <h2 style="margin-top:0; color:var(--burgundy);">Write a Review</h2>
+    <form id="submit-review-form" style="display:flex; flex-direction:column; gap:16px;">
+      <div>
+        <label style="display:block; margin-bottom:4px; font-weight:bold; font-size:0.9rem;">Rating (1-5)</label>
+        <select id="review-rating" required style="width:100%; padding:8px; border:1px solid var(--line); border-radius:4px;">
+          <option value="5">★★★★★ (5/5)</option>
+          <option value="4">★★★★☆ (4/5)</option>
+          <option value="3">★★★☆☆ (3/5)</option>
+          <option value="2">★★☆☆☆ (2/5)</option>
+          <option value="1">★☆☆☆☆ (1/5)</option>
+        </select>
+      </div>
+      <div>
+        <label style="display:block; margin-bottom:4px; font-weight:bold; font-size:0.9rem;">Your Review</label>
+        <textarea id="review-text" required rows="4" style="width:100%; padding:8px; border:1px solid var(--line); border-radius:4px;"></textarea>
+      </div>
+      <div style="display:flex; gap:12px; justify-content:flex-end;">
+        <button type="button" id="close-review-modal" class="button" style="background:#eee; color:#333; padding:8px 16px; min-height:0;">Cancel</button>
+        <button type="submit" class="button primary" style="padding:8px 16px; min-height:0;">Submit Review</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

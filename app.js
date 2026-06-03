@@ -237,7 +237,7 @@ async function renderAccount() {
   const { data: { session } } = await supabaseClient.auth.getSession();
   const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', session.user.id).single();
   const { data: leads } = await supabaseClient.from('leads').select('*').eq('user_id', session.user.id);
-  const { data: orders } = await supabaseClient.from('orders').select('*').eq('customer_email', session.user.email);
+  const { data: orders } = await supabaseClient.from('orders').select('*').eq('user_id', session.user.id);
   
   const leadsCount = leads ? leads.length : 0;
   const ordersCount = orders ? orders.length : 0;
@@ -336,8 +336,8 @@ async function renderPayment() {
     
     // Create an order in Supabase
     const { data: order, error } = await supabaseClient.from('orders').insert([{
-      customer_email: session.user.email,
-      total_items: product ? 1 : (cart ? cart.length : 0),
+      user_id: session.user.id,
+      items: product ? [{ id: product.id, qty: 1 }] : (cart || []),
       status: 'Processing',
       total_amount: amount
     }]).select();
@@ -439,6 +439,9 @@ function bindActions() {
 
 async function loadMarqueeReviews() {
   const marquee = document.getElementById("reviews-marquee");
+  const kpiText = document.getElementById("kpi-text");
+  const kpiStars = document.getElementById("kpi-stars");
+  
   if (!marquee || typeof supabaseClient === 'undefined') return;
 
   try {
@@ -449,10 +452,15 @@ async function loadMarqueeReviews() {
       .order('created_at', { ascending: false });
 
     if (testimonials && testimonials.length > 0) {
+      // Calculate KPI
+      const avgRating = testimonials.reduce((acc, t) => acc + t.rating, 0) / testimonials.length;
+      if (kpiText) kpiText.textContent = `${avgRating.toFixed(1)}/5 from ${testimonials.length} reviews`;
+      
       // Create HTML for reviews
-      const reviewsHtml = testimonials.map(t => 
-        `<div class="review-card">"${t.review_text}" - ${t.customer_name}</div>`
-      ).join('');
+      const reviewsHtml = testimonials.map(t => {
+        const verifiedHtml = t.is_verified ? `<span class="verified-tag">✓ Verified Buyer</span>` : '';
+        return `<div class="review-card">"${t.review_text}" - ${t.customer_name} ${verifiedHtml}</div>`;
+      }).join('');
       
       // Duplicate to ensure seamless marquee scrolling
       marquee.innerHTML = reviewsHtml + reviewsHtml;
@@ -462,9 +470,55 @@ async function loadMarqueeReviews() {
   }
 }
 
+function bindReviews() {
+  const btn = document.getElementById("write-review-btn");
+  const modal = document.getElementById("review-modal");
+  const closeBtn = document.getElementById("close-review-modal");
+  const form = document.getElementById("submit-review-form");
+
+  if (btn && modal) {
+    btn.addEventListener("click", async () => {
+      const loggedIn = await requireLogin();
+      if (loggedIn) modal.showModal();
+    });
+    
+    closeBtn.addEventListener("click", () => modal.close());
+    
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session) return;
+      
+      // Get user profile name
+      const { data: profile } = await supabaseClient.from('profiles').select('name').eq('id', session.user.id).single();
+      const customer_name = profile ? profile.name : session.user.email.split('@')[0];
+      
+      const rating = parseInt(document.getElementById("review-rating").value);
+      const review_text = document.getElementById("review-text").value;
+      
+      const { error } = await supabaseClient.from('testimonials').insert([{
+        user_id: session.user.id,
+        customer_name,
+        rating,
+        review_text,
+        status: 'Pending'
+      }]);
+      
+      if (error) {
+        alert("Failed to submit review: " + error.message);
+      } else {
+        alert("Thank you! Your review has been submitted and is pending approval.");
+        form.reset();
+        modal.close();
+      }
+    });
+  }
+}
+
 async function init() {
   bindAuthForms();
   bindActions();
+  bindReviews();
   await updateShell();
   await loadMarqueeReviews();
   await loadProductsFromSupabase(); // This calls renderProducts and renderProductDetail
