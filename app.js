@@ -1,22 +1,37 @@
 let ONCOST_PRODUCTS = [];
 
+const DUMMY_PRODUCTS = [
+  { id: "brass-diya-set", name: "Brass Diya Set", price: 149, badge: "Best Seller", collection: "Brass Collection", description: "A warm traditional diya set for pooja return gifts and festive gifting." },
+  { id: "decorative-tin-box", name: "Decorative Tin Box", price: 99, badge: "New", collection: "Tin Boxes", description: "Reusable decorative tin packaging for sweets, dry fruits, and party favors." },
+  { id: "german-silver-bowl", name: "German Silver Bowl", price: 199, badge: "Premium", collection: "German Silver", description: "A polished bowl option for elegant pooja and wedding gifting." },
+  { id: "thambulam-gift-set", name: "Thambulam Gift Set", price: 249, badge: "Bulk Ready", collection: "Thambulam Sets", description: "A complete celebration gift set ready for guest distribution." },
+  { id: "birthday-favor-box", name: "Birthday Favor Box", price: 129, badge: "Party Pick", collection: "Birthday Collection", description: "A cheerful birthday return gift box for kids and family parties." }
+];
+
 async function loadProductsFromSupabase() {
+  let hasData = false;
   try {
-    if (typeof supabaseClient === 'undefined') return;
-    const { data: products, error } = await supabaseClient.from('products').select('*').order('id', { ascending: false });
-    if (products && products.length > 0) {
-      ONCOST_PRODUCTS = products.map(p => ({
-        id: p.id.toString(),
-        name: p.name,
-        price: p.price,
-        badge: p.badge || "",
-        collection: p.category,
-        description: "A premium gifting item from ONCOST.",
-        image_url: p.image_url
-      }));
+    if (typeof supabaseClient !== 'undefined') {
+      const { data: products, error } = await supabaseClient.from('products').select('*').order('id', { ascending: false });
+      if (products && products.length > 0) {
+        ONCOST_PRODUCTS = products.map(p => ({
+          id: p.id.toString(),
+          name: p.name,
+          price: p.price,
+          badge: p.badge || "",
+          collection: p.category || "Return Gifts",
+          description: p.description || "A premium gifting item from ONCOST.",
+          image_url: p.image_url
+        }));
+        hasData = true;
+      }
     }
   } catch (err) {
     console.error("Failed to load products from DB", err);
+  }
+  
+  if (!hasData) {
+    ONCOST_PRODUCTS = DUMMY_PRODUCTS;
   }
   
   await renderProducts();
@@ -114,7 +129,7 @@ async function renderProducts() {
     grid.innerHTML = products.map((product) => `
       <article class="product-card">
         <a href="product.html?id=${product.id}" data-protected-product>
-          <div class="product-image" style="background-image: url('${product.image_url}'); background-size: cover; background-position: center;"><span>${product.badge}</span></div>
+          <div class="product-image" ${product.image_url ? `style="background-image: url('${product.image_url}'); background-size: cover; background-position: center;"` : ''}><span>${product.badge}</span></div>
           <div class="product-copy">
             <h3>${product.name}</h3>
             <p>${product.collection}</p>
@@ -140,7 +155,7 @@ async function renderProductDetail() {
   
   mount.innerHTML = `
     <div class="detail-layout">
-      <div class="detail-visual" aria-label="${product.name} preview" style="background-image: url('${product.image_url}'); background-size: cover; background-position: center;"></div>
+      <div class="detail-visual" aria-label="${product.name} preview" ${product.image_url ? `style="background-image: url('${product.image_url}'); background-size: cover; background-position: center;"` : ''}></div>
       <article class="detail-card">
         <p class="eyebrow">${product.collection}</p>
         <h1>${product.name}</h1>
