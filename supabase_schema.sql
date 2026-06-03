@@ -228,3 +228,12 @@ ALTER TABLE public.products ADD COLUMN IF NOT EXISTS seo_title text;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS seo_description text;
 ALTER TABLE public.testimonials ADD COLUMN IF NOT EXISTS is_verified boolean DEFAULT false;
 ALTER TABLE public.testimonials ADD COLUMN IF NOT EXISTS image_url text;
+ALTER TABLE public.orders ALTER COLUMN user_id DROP NOT NULL;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS guest_email text;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS guest_phone text;
+
+-- Webhook Trigger for Emails
+-- You must deploy the edge function first, then create a webhook in the Supabase Dashboard,
+-- or use the pg_net extension to call the edge function directly.
+-- For simplicity, we will create a placeholder trigger that requires the pg_net extension or 
+-- the Supabase Dashboard Webhooks feature to be enabled.

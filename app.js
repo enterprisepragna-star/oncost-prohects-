@@ -98,15 +98,17 @@ async function updateShell() {
   let cartCount = 0;
   if (session) {
     const { data: cart } = await supabaseClient.from('cart_items').select('qty').eq('user_id', session.user.id);
-    if (cart) {
-      cartCount = cart.reduce((sum, item) => sum + item.qty, 0);
-    }
+    if (cart) cartCount = cart.reduce((acc, item) => acc + item.qty, 0);
+  } else {
+    const cart = JSON.parse(localStorage.getItem('guest_cart') || '[]');
+    cartCount = cart.reduce((acc, item) => acc + item.qty, 0);
   }
 
   accountLinks.forEach((link) => {
     link.textContent = session ? "Account" : "Login";
     link.setAttribute("href", session ? "account.html" : "login.html");
   });
+
   cartBadges.forEach((badge) => {
     badge.textContent = cartCount ? `Cart (${cartCount})` : "Cart";
   });
@@ -118,14 +120,22 @@ async function renderProducts() {
 
   const search = document.querySelector("[data-product-search]");
   const collection = document.querySelector("[data-product-filter]");
+  const sortElem = document.querySelector("[data-product-sort]");
   const draw = () => {
     const query = (search?.value || "").toLowerCase();
     const selected = collection?.value || "all";
+    const sortVal = sortElem?.value || "default";
     const products = ONCOST_PRODUCTS.filter((product) => {
       const matchesQuery = `${product.name} ${product.collection}`.toLowerCase().includes(query);
       const matchesCollection = selected === "all" || product.collection === selected;
       return matchesQuery && matchesCollection;
     });
+    
+    if (sortVal === "price_asc") {
+      products.sort((a, b) => a.price - b.price);
+    } else if (sortVal === "price_desc") {
+      products.sort((a, b) => b.price - a.price);
+    }
     grid.innerHTML = products.map((product) => `
       <article class="product-card">
         <a href="product.html?id=${product.id}" data-protected-product>
@@ -142,14 +152,13 @@ async function renderProducts() {
 
   search?.addEventListener("input", draw);
   collection?.addEventListener("change", draw);
+  sortElem?.addEventListener("change", draw);
   draw();
 }
 
 async function renderProductDetail() {
   const mount = document.querySelector("[data-product-detail]");
   if (!mount) return;
-  if (!(await requireLogin())) return;
-
   const product = getProductFromUrl();
   if(!product) return;
   
@@ -175,28 +184,24 @@ async function renderProductDetail() {
 }
 
 async function addToCart(productId) {
-  if (!(await requireLogin())) return;
+  const { data: { session } } = await supabaseClient.auth.getSession();
   const product = ONCOST_PRODUCTS.find((item) => item.id === productId);
   if (!product) return;
   
-  const { data: { session } } = await supabaseClient.auth.getSession();
-  
-  // Check if item exists in cart
-  const { data: existing } = await supabaseClient.from('cart_items')
-    .select('*')
-    .eq('user_id', session.user.id)
-    .eq('product_id', productId)
-    .single();
-    
-  if (existing) {
-    await supabaseClient.from('cart_items')
-      .update({ qty: existing.qty + 1 })
-      .eq('id', existing.id);
+  if (session) {
+    const { data: existing } = await supabaseClient.from('cart_items').select('*').eq('user_id', session.user.id).eq('product_id', productId).single();
+    if (existing) {
+      await supabaseClient.from('cart_items').update({ qty: existing.qty + 1 }).eq('id', existing.id);
+    } else {
+      await supabaseClient.from('cart_items').insert([{ user_id: session.user.id, product_id: productId, qty: 1 }]);
+    }
   } else {
-    await supabaseClient.from('cart_items')
-      .insert([{ user_id: session.user.id, product_id: productId, qty: 1 }]);
+    const cart = JSON.parse(localStorage.getItem('guest_cart') || '[]');
+    const existing = cart.find(i => i.product_id === productId);
+    if (existing) existing.qty++;
+    else cart.push({ product_id: productId, qty: 1 });
+    localStorage.setItem('guest_cart', JSON.stringify(cart));
   }
-  
   await updateShell();
   alert(`${product.name} added to cart.`);
 }
@@ -204,10 +209,16 @@ async function addToCart(productId) {
 async function renderCart() {
   const mount = document.querySelector("[data-cart]");
   if (!mount) return;
-  if (!(await requireLogin())) return;
 
   const { data: { session } } = await supabaseClient.auth.getSession();
-  const { data: cart } = await supabaseClient.from('cart_items').select('*').eq('user_id', session.user.id);
+  let cart = [];
+  
+  if (session) {
+    const { data } = await supabaseClient.from('cart_items').select('*').eq('user_id', session.user.id);
+    cart = data || [];
+  } else {
+    cart = JSON.parse(localStorage.getItem('guest_cart') || '[]');
+  }
 
   if (!cart || !cart.length) {
     mount.innerHTML = `<div class="card"><h3>Your cart is empty</h3><p>Browse products and add gifts for your event.</p><a class="button primary" href="products.html">Shop Products</a></div>`;
@@ -237,15 +248,31 @@ async function renderAccount() {
   const { data: { session } } = await supabaseClient.auth.getSession();
   const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', session.user.id).single();
   const { data: leads } = await supabaseClient.from('leads').select('*').eq('user_id', session.user.id);
-  const { data: orders } = await supabaseClient.from('orders').select('*').eq('user_id', session.user.id);
+  const { data: orders } = await supabaseClient.from('orders').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false });
   
   const leadsCount = leads ? leads.length : 0;
   const ordersCount = orders ? orders.length : 0;
+  
+  const ordersListHtml = orders && orders.length > 0 
+    ? orders.map(o => `
+        <div style="border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <strong style="font-size:0.9rem;">Order ID: ${o.id.split('-')[0]}...</strong>
+            <span style="background:var(--champagne); color:var(--burgundy); font-weight:bold; padding:2px 8px; border-radius:12px; font-size:0.8rem;">${o.status}</span>
+          </div>
+          <p style="margin:0; font-size:0.85rem; color:#666;">Placed on: ${new Date(o.created_at).toLocaleDateString()}</p>
+          <p style="margin:4px 0 0; font-weight:bold;">${money(o.total_amount)}</p>
+        </div>
+      `).join('')
+    : '<p>No orders placed yet.</p>';
 
   mount.innerHTML = `
     <div class="module-grid">
       <article class="card"><h3>Profile</h3><p>${profile ? profile.name : session.user.email}</p><p>${session.user.email}</p></article>
-      <article class="card"><h3>Orders</h3><p>${ordersCount} placed orders.</p></article>
+      <article class="card" style="grid-row: span 2;">
+        <h3>Order History</h3>
+        <div style="margin-top:16px;">${ordersListHtml}</div>
+      </article>
       <article class="card"><h3>Leads Submitted</h3><p>${leadsCount} enquiry lead${leadsCount === 1 ? "" : "s"} saved.</p></article>
       <article class="card"><h3>Support</h3><p>Use bulk enquiry for event quantities, packaging, and delivery discussion.</p></article>
     </div>
@@ -296,48 +323,77 @@ async function renderEnquiry() {
 async function renderPayment() {
   const mount = document.querySelector("[data-payment]");
   if (!mount) return;
-  if (!(await requireLogin())) return;
 
-  const productId = new URLSearchParams(location.search).get("id");
-  const product = productId ? ONCOST_PRODUCTS.find((item) => item.id === productId) : null;
+  const product = getProductFromUrl();
   const { data: { session } } = await supabaseClient.auth.getSession();
-  const { data: cart } = await supabaseClient.from('cart_items').select('*').eq('user_id', session.user.id);
   
-  let cartTotal = 0;
-  if (cart) {
-    cartTotal = cart.reduce((sum, item) => {
-      const entry = ONCOST_PRODUCTS.find((productItem) => productItem.id === item.product_id);
-      return sum + (entry ? entry.price * item.qty : 0);
-    }, 0);
+  let amount = 0;
+  let label = "";
+  let cart = [];
+  
+  if (product && window.location.search.includes("id=")) {
+    amount = product.price;
+    label = `1x ${product.name}`;
+  } else {
+    if (session) {
+      const { data } = await supabaseClient.from('cart_items').select('*').eq('user_id', session.user.id);
+      cart = data || [];
+    } else {
+      cart = JSON.parse(localStorage.getItem('guest_cart') || '[]');
+    }
+    cart.forEach(item => {
+      const p = ONCOST_PRODUCTS.find(p => p.id === item.product_id);
+      if (p) amount += p.price * item.qty;
+    });
+    label = `Cart Checkout (${cart.length} items)`;
   }
   
-  const amount = product ? product.price : cartTotal;
-  const label = product ? product.name : "Cart payment";
+  const guestFormHtml = !session ? `
+    <div style="margin-bottom:16px;">
+      <label style="display:block; margin-bottom:4px; font-weight:bold;">Email for Order Updates</label>
+      <input type="email" id="guest-email" class="field" placeholder="Enter your email" required style="width:100%;">
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="display:block; margin-bottom:4px; font-weight:bold;">Phone Number</label>
+      <input type="tel" id="guest-phone" class="field" placeholder="Enter your phone" style="width:100%;">
+    </div>
+  ` : "";
 
   mount.innerHTML = `
-    <article class="detail-card">
-      <p class="eyebrow">Payment gateway</p>
+    <article class="card">
       <h1>Pay Now</h1>
       <p><strong>${label}</strong></p>
       <p class="price">Estimated amount: ${money(amount || 0)}</p>
       <ul class="meta-list">
         <li>Use this page for MyBillBook invoice payment link or your payment gateway checkout.</li>
-        <li>For production, the server should create an invoice/payment link and redirect the customer securely.</li>
-        <li>This static demo can request the invoice by email until credentials are connected.</li>
       </ul>
-      <button class="button pay" id="complete-order-btn">Complete Order (Simulation)</button>
+      ${guestFormHtml}
+      <button class="button pay" id="complete-order-btn">Complete Order</button>
     </article>
   `;
   
   document.getElementById('complete-order-btn')?.addEventListener('click', async () => {
+    let guestEmail = null;
+    let guestPhone = null;
+    
+    if (!session) {
+      guestEmail = document.getElementById('guest-email')?.value;
+      guestPhone = document.getElementById('guest-phone')?.value;
+      if (!guestEmail) {
+        alert("Please enter an email address.");
+        return;
+      }
+    }
+
     const btn = document.getElementById('complete-order-btn');
     btn.textContent = "Processing...";
     btn.disabled = true;
     
-    // Create an order in Supabase
     const { data: order, error } = await supabaseClient.from('orders').insert([{
-      user_id: session.user.id,
-      items: product ? [{ id: product.id, qty: 1 }] : (cart || []),
+      user_id: session ? session.user.id : null,
+      guest_email: session ? session.user.email : guestEmail,
+      guest_phone: guestPhone,
+      items: product && window.location.search.includes("id=") ? [{ id: product.id, qty: 1 }] : cart,
       status: 'Processing',
       total_amount: amount
     }]).select();
@@ -349,13 +405,14 @@ async function renderPayment() {
       return;
     }
     
-    // Clear cart if it was a cart checkout
-    if (!product && cart && cart.length > 0) {
+    if (session) {
       await supabaseClient.from('cart_items').delete().eq('user_id', session.user.id);
+    } else {
+      localStorage.removeItem('guest_cart');
     }
     
     alert("Order completed successfully!");
-    location.href = "account.html";
+    location.href = session ? "account.html" : "index.html";
   });
 }
 
