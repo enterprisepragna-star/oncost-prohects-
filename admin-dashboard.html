@@ -9,45 +9,59 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-client.js"></script>
   <style>
-    body { background-color: #F8F9FA; margin: 0; display: flex; min-height: 100vh; }
+    body { background-color: #F8F9FA; margin: 0; display: flex; min-height: 100vh; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     /* Sidebar */
-    .admin-sidebar { width: 260px; background: white; border-right: 1px solid #EAEAEA; padding: 24px 0; display: flex; flex-direction: column; }
-    .admin-logo { font-family: var(--font-heading); font-size: 1.8rem; color: var(--deep-maroon); text-align: center; margin-bottom: 40px; letter-spacing: 2px; }
-    .admin-nav { display: flex; flex-direction: column; gap: 8px; padding: 0 16px; }
-    .admin-nav button { background: none; border: none; text-align: left; padding: 12px 16px; border-radius: 8px; font-size: 0.95rem; font-weight: 500; color: var(--charcoal); cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 12px; }
+    .admin-sidebar { width: 280px; background: white; border-right: 1px solid #EAEAEA; padding: 24px 0; display: flex; flex-direction: column; overflow-y: auto; }
+    .admin-logo { font-family: var(--font-heading, Georgia, serif); font-size: 1.8rem; color: var(--deep-maroon, #7a1f35); text-align: center; margin-bottom: 30px; letter-spacing: 2px; }
+    .admin-nav { display: flex; flex-direction: column; gap: 6px; padding: 0 16px; margin-bottom: 20px;}
+    .admin-nav button { background: none; border: none; text-align: left; padding: 12px 16px; border-radius: 8px; font-size: 0.95rem; font-weight: 500; color: #4A4A4A; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 12px; }
     .admin-nav button:hover { background: #F5F5F5; }
-    .admin-nav button.active { background: var(--warm-beige); color: var(--deep-maroon); font-weight: 600; }
+    .admin-nav button.active { background: #fdf6f7; color: var(--deep-maroon, #7a1f35); font-weight: 600; }
+    .nav-divider { height: 1px; background: #EAEAEA; margin: 10px 16px; }
     .logout-btn { margin-top: auto; margin-left: 16px; margin-right: 16px; margin-bottom: 24px; padding: 12px; background: #FFF0F0; color: #D32F2F; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
     
     /* Main Content */
     .admin-main { flex: 1; padding: 40px; overflow-y: auto; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
-    .page-title { font-family: var(--font-heading); font-size: 2rem; color: var(--charcoal); margin-bottom: 32px; }
+    .page-title { font-family: var(--font-heading, Georgia, serif); font-size: 2rem; color: #2C2C2C; margin-bottom: 32px; margin-top: 0; }
     
     /* Metrics */
-    .metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 40px; }
-    .metric-card { background: white; padding: 24px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); }
-    .metric-title { font-size: 0.9rem; color: var(--grey-text); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-    .metric-value { font-size: 2.2rem; font-weight: 600; color: var(--charcoal); }
+    .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; margin-bottom: 40px; }
+    .metric-card { background: white; padding: 24px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); border: 1px solid #f0f0f0; }
+    .metric-title { font-size: 0.85rem; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .metric-value { font-size: 2.2rem; font-weight: 700; color: #2C2C2C; }
     
     /* Data Tables */
-    .data-table-card { background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); overflow: hidden; }
+    .data-table-card { background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); overflow-x: auto; border: 1px solid #f0f0f0; margin-bottom: 30px; }
+    .table-header { padding: 20px 24px; border-bottom: 1px solid #EAEAEA; display: flex; justify-content: space-between; align-items: center; }
+    .table-header h3 { margin: 0; font-size: 1.1rem; color: #2C2C2C; }
     table { width: 100%; border-collapse: collapse; }
     th, td { padding: 16px 24px; text-align: left; border-bottom: 1px solid #EAEAEA; }
-    th { background: #FAFAFA; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; color: var(--grey-text); }
-    td { font-size: 0.95rem; color: var(--charcoal); }
-    .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+    th { background: #FAFAFA; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; color: #888; font-weight: 600; }
+    td { font-size: 0.95rem; color: #4A4A4A; vertical-align: middle; }
+    .status-badge { padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
     .status-delivered { background: #E8F5E9; color: #2E7D32; }
     .status-processing { background: #FFF3E0; color: #EF6C00; }
+    .status-shipped { background: #E3F2FD; color: #1565C0; }
+    .status-cancelled { background: #FFEBEE; color: #C62828; }
     
-    /* Add Product Form */
+    /* Forms */
+    .form-card { background: white; padding: 24px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); border: 1px solid #f0f0f0; margin-bottom: 30px; }
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-    .form-group { margin-bottom: 20px; }
+    .form-group { margin-bottom: 16px; }
     .form-group.full-width { grid-column: span 2; }
-    .form-group label { display: block; font-size: 0.9rem; font-weight: 600; margin-bottom: 8px; color: var(--charcoal); }
-    .form-group input, .form-group select { width: 100%; padding: 12px; border: 1px solid #E0E0E0; border-radius: 8px; font-family: var(--font-body); }
-    .submit-btn { padding: 16px 32px; background: var(--deep-maroon); color: white; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; }
+    .form-group label { display: block; font-size: 0.9rem; font-weight: 600; margin-bottom: 8px; color: #2C2C2C; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 12px; border: 1px solid #E0E0E0; border-radius: 8px; font-family: inherit; font-size: 0.95rem; box-sizing: border-box; }
+    .form-group textarea { resize: vertical; min-height: 80px; }
+    .submit-btn { padding: 12px 24px; background: var(--deep-maroon, #7a1f35); color: white; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+    .submit-btn:hover { background: #5c1627; }
+    .action-btn { background: none; border: none; cursor: pointer; padding: 6px; border-radius: 4px; transition: 0.2s; }
+    .action-btn.delete { color: #D32F2F; }
+    .action-btn.edit { color: #1976D2; }
+    .action-btn:hover { background: #F5F5F5; }
+    .select-sm { padding: 6px; border-radius: 4px; border: 1px solid #ccc; font-size: 0.85rem; }
+    .toast { position: fixed; bottom: 20px; right: 20px; background: #333; color: white; padding: 12px 24px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: none; z-index: 1000; }
   </style>
 </head>
 <body>
@@ -55,21 +69,46 @@
   <!-- Sidebar -->
   <aside class="admin-sidebar">
     <div class="admin-logo">ONCOST</div>
+    
+    <div style="padding: 0 16px 8px; font-size: 0.75rem; color: #888; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Store Management</div>
     <nav class="admin-nav">
-      <button class="active" onclick="switchTab('dashboard', this)"><i class="fa-solid fa-chart-line"></i> Overview</button>
-      <button onclick="switchTab('orders', this)"><i class="fa-solid fa-box"></i> All Orders</button>
-      <button onclick="switchTab('products', this)"><i class="fa-solid fa-tags"></i> Manage Products</button>
+      <button class="active" onclick="switchTab('dashboard', this)"><i class="fa-solid fa-chart-line"></i> Dashboard</button>
+      <button onclick="switchTab('orders', this)"><i class="fa-solid fa-box"></i> Orders</button>
+      <button onclick="switchTab('products', this)"><i class="fa-solid fa-tags"></i> Products</button>
+      <button onclick="switchTab('categories', this)"><i class="fa-solid fa-layer-group"></i> Categories</button>
     </nav>
+    
+    <div class="nav-divider"></div>
+    <div style="padding: 16px 16px 8px; font-size: 0.75rem; color: #888; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Marketing</div>
+    <nav class="admin-nav">
+      <button onclick="switchTab('coupons', this)"><i class="fa-solid fa-ticket"></i> Coupons & Offers</button>
+      <button onclick="switchTab('sales', this)"><i class="fa-solid fa-bullhorn"></i> Sale Events</button>
+    </nav>
+
+    <div class="nav-divider"></div>
+    <div style="padding: 16px 16px 8px; font-size: 0.75rem; color: #888; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Customers</div>
+    <nav class="admin-nav">
+      <button onclick="switchTab('customers', this)"><i class="fa-solid fa-users"></i> Customers</button>
+      <button onclick="switchTab('leads', this)"><i class="fa-solid fa-envelope"></i> Leads & Bulk</button>
+      <button onclick="switchTab('testimonials', this)"><i class="fa-solid fa-star"></i> Testimonials <span id="pending-reviews-badge" style="background:var(--deep-maroon, #7a1f35);color:white;border-radius:50%;padding:2px 6px;font-size:0.7rem;margin-left:auto;display:none;">0</span></button>
+    </nav>
+
+    <div class="nav-divider"></div>
+    <div style="padding: 16px 16px 8px; font-size: 0.75rem; color: #888; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Configuration</div>
+    <nav class="admin-nav" style="margin-bottom: auto;">
+      <button onclick="switchTab('seo', this)"><i class="fa-solid fa-magnifying-glass"></i> SEO Settings</button>
+      <button onclick="switchTab('social', this)"><i class="fa-solid fa-share-nodes"></i> Social Media</button>
+    </nav>
+
     <button class="logout-btn" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout Admin</button>
   </aside>
 
   <!-- Main Content -->
   <main class="admin-main">
     
-    <!-- Dashboard Overview -->
+    <!-- DASHBOARD -->
     <div id="dashboard" class="tab-content active">
       <h1 class="page-title">Dashboard Overview</h1>
-      
       <div class="metrics-grid">
         <div class="metric-card">
           <div class="metric-title">Total Revenue</div>
@@ -80,85 +119,87 @@
           <div class="metric-value" id="metric-orders">0</div>
         </div>
         <div class="metric-card">
-          <div class="metric-title">Products Sold</div>
-          <div class="metric-value" id="metric-sold">0</div>
+          <div class="metric-title">Active Products</div>
+          <div class="metric-value" id="metric-products">0</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title">Total Leads</div>
+          <div class="metric-value" id="metric-leads">0</div>
         </div>
       </div>
       
-      <h3 style="margin-bottom: 16px;">Recent Orders</h3>
       <div class="data-table-card">
+        <div class="table-header">
+          <h3>Recent Orders</h3>
+        </div>
         <table>
           <thead>
             <tr>
               <th>Order ID</th>
-              <th>Customer</th>
-              <th>Date</th>
+              <th>Customer ID</th>
+              <th>Total (₹)</th>
               <th>Status</th>
-              <th>Total</th>
+              <th>Date</th>
             </tr>
           </thead>
           <tbody id="recent-orders-table">
-            <tr><td colspan="5" style="text-align: center; color: #888;">Loading orders...</td></tr>
+            <tr><td colspan="5" style="text-align: center;">Loading...</td></tr>
           </tbody>
         </table>
       </div>
     </div>
 
-    <!-- Orders Tab -->
+    <!-- ORDERS -->
     <div id="orders" class="tab-content">
-      <h1 class="page-title">All Orders</h1>
+      <h1 class="page-title">Manage Orders</h1>
       <div class="data-table-card">
         <table>
           <thead>
             <tr>
               <th>Order ID</th>
-              <th>Customer Email</th>
-              <th>Items</th>
-              <th>Status</th>
+              <th>Customer ID</th>
+              <th>Items (JSON)</th>
               <th>Total (₹)</th>
-              <th>Action</th>
+              <th>Status</th>
+              <th>Date</th>
             </tr>
           </thead>
           <tbody id="all-orders-table">
-            <tr><td colspan="6" style="text-align: center; color: #888;">Loading orders...</td></tr>
+            <tr><td colspan="6" style="text-align: center;">Loading...</td></tr>
           </tbody>
         </table>
       </div>
     </div>
 
-    <!-- Products Tab -->
+    <!-- PRODUCTS -->
     <div id="products" class="tab-content">
       <h1 class="page-title">Manage Products</h1>
-      
-      <div class="data-table-card" style="padding: 24px; margin-bottom: 40px;">
-        <h3 style="margin-bottom: 24px;">Add New Product</h3>
-        <form id="add-product-form">
+      <div class="form-card">
+        <h3 style="margin-top:0;">Add / Edit Product</h3>
+        <form id="product-form">
+          <input type="hidden" id="p-id">
           <div class="form-grid">
-            <div class="form-group full-width">
-              <label>Product Name</label>
-              <input type="text" id="p-name" required>
-            </div>
             <div class="form-group">
-              <label>Category</label>
-              <select id="p-category">
-                <option value="Brass">Brass</option>
-                <option value="Tin Boxes">Tin Boxes</option>
-                <option value="Thambulam">Thambulam</option>
-                <option value="German Silver">German Silver</option>
-                <option value="Return Gifts">Return Gifts</option>
-              </select>
+              <label>Product Name *</label>
+              <input type="text" id="p-name" required>
             </div>
             <div class="form-group">
               <label>SKU</label>
               <input type="text" id="p-sku">
             </div>
             <div class="form-group">
-              <label>Price (₹)</label>
+              <label>Price (₹) *</label>
               <input type="number" id="p-price" required>
             </div>
             <div class="form-group">
               <label>Offer Price (₹)</label>
               <input type="number" id="p-offer">
+            </div>
+            <div class="form-group">
+              <label>Category</label>
+              <select id="p-category">
+                <!-- Populated dynamically -->
+              </select>
             </div>
             <div class="form-group">
               <label>Stock</label>
@@ -168,183 +209,288 @@
               <label>Badge</label>
               <input type="text" id="p-badge" placeholder="e.g. Bestseller">
             </div>
+            <div class="form-group">
+              <label>Status</label>
+              <select id="p-status">
+                <option value="Active">Active</option>
+                <option value="Draft">Draft</option>
+                <option value="Archived">Archived</option>
+              </select>
+            </div>
             <div class="form-group full-width">
-              <label>Image URL</label>
+              <label>Image URL *</label>
               <input type="url" id="p-image" required>
             </div>
+            <div class="form-group full-width">
+              <label>Description</label>
+              <textarea id="p-desc"></textarea>
+            </div>
+            <div class="form-group">
+              <label>SEO Title</label>
+              <input type="text" id="p-seo-title">
+            </div>
+            <div class="form-group">
+              <label>SEO Description</label>
+              <input type="text" id="p-seo-desc">
+            </div>
           </div>
-          <button type="submit" class="submit-btn" id="add-btn">Save Product</button>
-          <span id="add-status" style="margin-left: 16px; font-weight: 600;"></span>
+          <button type="submit" class="submit-btn" id="product-btn">Save Product</button>
+          <button type="button" class="submit-btn" style="background:#888;" onclick="resetProductForm()">Clear Form</button>
         </form>
       </div>
 
-      <h3 style="margin-bottom: 16px;">Live Products</h3>
       <div class="data-table-card">
         <table>
           <thead>
             <tr>
               <th>Image</th>
-              <th>Name</th>
-              <th>Category</th>
-              <th>Price</th>
+              <th>Name & SKU</th>
+              <th>Pricing</th>
               <th>Stock</th>
-              <th>Action</th>
+              <th>Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
-          <tbody id="all-products-table">
-            <tr><td colspan="6" style="text-align: center; color: #888;">Loading products...</td></tr>
+          <tbody id="products-table">
+            <tr><td colspan="6" style="text-align: center;">Loading...</td></tr>
           </tbody>
         </table>
       </div>
     </div>
 
+    <!-- CATEGORIES -->
+    <div id="categories" class="tab-content">
+      <h1 class="page-title">Manage Categories</h1>
+      <div class="form-card">
+        <h3 style="margin-top:0;">Add Category</h3>
+        <form id="category-form">
+          <div class="form-grid">
+            <div class="form-group full-width">
+              <label>Category Name *</label>
+              <input type="text" id="c-name" required>
+            </div>
+            <div class="form-group full-width">
+              <label>Description</label>
+              <input type="text" id="c-desc">
+            </div>
+            <div class="form-group full-width">
+              <label>Image URL</label>
+              <input type="url" id="c-img">
+            </div>
+          </div>
+          <button type="submit" class="submit-btn">Save Category</button>
+        </form>
+      </div>
+      <div class="data-table-card">
+        <table>
+          <thead><tr><th>Image</th><th>Name</th><th>Description</th><th>Actions</th></tr></thead>
+          <tbody id="categories-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- COUPONS -->
+    <div id="coupons" class="tab-content">
+      <h1 class="page-title">Coupons & Offers</h1>
+      <div class="form-card">
+        <form id="coupon-form">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Code * (e.g. FESTIVAL20)</label>
+              <input type="text" id="cp-code" required style="text-transform:uppercase;">
+            </div>
+            <div class="form-group">
+              <label>Discount Type</label>
+              <select id="cp-type"><option value="percent">Percentage (%)</option><option value="flat">Flat Amount (₹)</option></select>
+            </div>
+            <div class="form-group">
+              <label>Discount Value *</label>
+              <input type="number" id="cp-value" required>
+            </div>
+            <div class="form-group">
+              <label>Min Order Amount (₹)</label>
+              <input type="number" id="cp-min" value="0">
+            </div>
+            <div class="form-group">
+              <label>Usage Limit</label>
+              <input type="number" id="cp-limit" placeholder="Leave blank for unlimited">
+            </div>
+            <div class="form-group">
+              <label>Expiry Date</label>
+              <input type="datetime-local" id="cp-expiry">
+            </div>
+          </div>
+          <button type="submit" class="submit-btn">Create Coupon</button>
+        </form>
+      </div>
+      <div class="data-table-card">
+        <table>
+          <thead><tr><th>Code</th><th>Discount</th><th>Min Order</th><th>Usage</th><th>Expiry</th><th>Actions</th></tr></thead>
+          <tbody id="coupons-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SALES -->
+    <div id="sales" class="tab-content">
+      <h1 class="page-title">Sale Events</h1>
+      <div class="form-card">
+        <form id="sale-form">
+          <div class="form-grid">
+            <div class="form-group full-width">
+              <label>Sale Name *</label>
+              <input type="text" id="s-name" required placeholder="e.g. Diwali Super Sale">
+            </div>
+            <div class="form-group full-width">
+              <label>Banner Text *</label>
+              <input type="text" id="s-banner" required placeholder="e.g. Flat 20% off on all items! Use code DIWALI">
+            </div>
+            <div class="form-group">
+              <label>Global Discount (%)</label>
+              <input type="number" id="s-discount" value="0">
+            </div>
+            <div class="form-group">
+              <label>Status</label>
+              <select id="s-active"><option value="true">Active</option><option value="false">Inactive</option></select>
+            </div>
+            <div class="form-group">
+              <label>Start Date *</label>
+              <input type="datetime-local" id="s-start" required>
+            </div>
+            <div class="form-group">
+              <label>End Date *</label>
+              <input type="datetime-local" id="s-end" required>
+            </div>
+          </div>
+          <button type="submit" class="submit-btn">Save Sale Event</button>
+        </form>
+      </div>
+      <div class="data-table-card">
+        <table>
+          <thead><tr><th>Name</th><th>Discount</th><th>Dates</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="sales-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- CUSTOMERS -->
+    <div id="customers" class="tab-content">
+      <h1 class="page-title">Registered Customers</h1>
+      <div class="data-table-card">
+        <table>
+          <thead><tr><th>Customer ID (UUID)</th><th>Name</th><th>Phone</th><th>Joined</th></tr></thead>
+          <tbody id="customers-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- LEADS -->
+    <div id="leads" class="tab-content">
+      <h1 class="page-title">Leads & Enquiries</h1>
+      <div class="data-table-card">
+        <table>
+          <thead><tr><th>Date</th><th>Customer ID</th><th>Product ID</th><th>Message / Summary</th></tr></thead>
+          <tbody id="leads-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TESTIMONIALS -->
+    <div id="testimonials" class="tab-content">
+      <h1 class="page-title">Manage Testimonials</h1>
+      <div class="data-table-card">
+        <table>
+          <thead><tr><th>Date</th><th>Customer</th><th>Rating</th><th>Review</th><th>Status</th></tr></thead>
+          <tbody id="testimonials-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SEO -->
+    <div id="seo" class="tab-content">
+      <h1 class="page-title">SEO Settings</h1>
+      <div class="form-card">
+        <form id="seo-form">
+          <input type="hidden" id="seo-id">
+          <div class="form-grid">
+            <div class="form-group full-width">
+              <label>Site Title</label>
+              <input type="text" id="seo-title">
+            </div>
+            <div class="form-group full-width">
+              <label>Meta Description</label>
+              <textarea id="seo-desc"></textarea>
+            </div>
+            <div class="form-group full-width">
+              <label>Keywords</label>
+              <input type="text" id="seo-keys" placeholder="comma separated">
+            </div>
+            <div class="form-group full-width">
+              <label>OG Image URL</label>
+              <input type="url" id="seo-og">
+            </div>
+            <div class="form-group">
+              <label>Canonical URL</label>
+              <input type="url" id="seo-canon">
+            </div>
+            <div class="form-group">
+              <label>Google Analytics ID</label>
+              <input type="text" id="seo-ga">
+            </div>
+            <div class="form-group full-width">
+              <label>Google Search Console Verification</label>
+              <input type="text" id="seo-gsc">
+            </div>
+          </div>
+          <button type="submit" class="submit-btn">Save SEO Settings</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- SOCIAL MEDIA -->
+    <div id="social" class="tab-content">
+      <h1 class="page-title">Social Media Links</h1>
+      <div class="form-card">
+        <form id="social-form">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>WhatsApp Number</label>
+              <input type="text" id="soc-wa-num">
+            </div>
+            <div class="form-group">
+              <label>WhatsApp Button Text</label>
+              <input type="text" id="soc-wa-txt">
+            </div>
+            <div class="form-group">
+              <label>Instagram URL</label>
+              <input type="url" id="soc-ig">
+            </div>
+            <div class="form-group">
+              <label>Facebook URL</label>
+              <input type="url" id="soc-fb">
+            </div>
+            <div class="form-group">
+              <label>YouTube URL</label>
+              <input type="url" id="soc-yt">
+            </div>
+            <div class="form-group">
+              <label>Twitter/X URL</label>
+              <input type="url" id="soc-tw">
+            </div>
+            <div class="form-group full-width">
+              <label>Pinterest URL</label>
+              <input type="url" id="soc-pin">
+            </div>
+          </div>
+          <button type="submit" class="submit-btn">Save Social Links</button>
+        </form>
+      </div>
+    </div>
+
   </main>
 
-  <script>
-    const ADMIN_EMAIL = 'enterprisepragna@gmail.com';
+  <div id="toast" class="toast">Action completed successfully</div>
 
-    // Protect Page
-    async function checkAuth() {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      if (!session || session.user.email !== ADMIN_EMAIL) {
-        window.location.href = 'admin-login.html';
-      } else {
-        loadData();
-      }
-    }
-    checkAuth();
-
-    async function logout() {
-      await supabaseClient.auth.signOut();
-      window.location.href = 'admin-login.html';
-    }
-
-    function switchTab(tabId, btn) {
-      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-      document.getElementById(tabId).classList.add('active');
-      document.querySelectorAll('.admin-nav button').forEach(el => el.classList.remove('active'));
-      btn.classList.add('active');
-    }
-
-    async function loadData() {
-      // Load Products
-      const { data: products } = await supabaseClient.from('products').select('*').order('id', { ascending: false });
-      const pTable = document.getElementById('all-products-table');
-      if (products && products.length > 0) {
-        pTable.innerHTML = products.map(p => `
-          <tr>
-            <td><img src="${p.image_url}" style="width:50px; height:50px; object-fit:cover; border-radius:6px;"></td>
-            <td><strong>${p.name}</strong><br><span style="font-size:0.8rem; color:#888;">${p.sku || ''}</span></td>
-            <td>${p.category}</td>
-            <td>₹${p.price}</td>
-            <td>${p.stock}</td>
-            <td><button onclick="deleteProduct(${p.id})" style="color:red; background:none; border:none; cursor:pointer;"><i class="fa-solid fa-trash"></i></button></td>
-          </tr>
-        `).join('');
-      } else {
-        pTable.innerHTML = '<tr><td colspan="6" style="text-align:center;">No products found.</td></tr>';
-      }
-
-      // Load Orders
-      const { data: orders, error } = await supabaseClient.from('orders').select('*').order('created_at', { ascending: false });
-      
-      const rTable = document.getElementById('recent-orders-table');
-      const oTable = document.getElementById('all-orders-table');
-      
-      if (error && error.code === '42P01') {
-        // Table doesn't exist yet
-        rTable.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#D32F2F;">Please run the SQL script to create the Orders table.</td></tr>';
-        oTable.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#D32F2F;">Please run the SQL script to create the Orders table.</td></tr>';
-        return;
-      }
-
-      if (orders && orders.length > 0) {
-        let totalRevenue = 0;
-        let totalSold = 0;
-
-        orders.forEach(o => {
-          totalRevenue += o.total_amount;
-          totalSold += o.total_items;
-        });
-
-        document.getElementById('metric-revenue').textContent = `₹${totalRevenue.toLocaleString()}`;
-        document.getElementById('metric-orders').textContent = orders.length;
-        document.getElementById('metric-sold').textContent = totalSold;
-
-        const orderRows = orders.map(o => `
-          <tr>
-            <td>#${o.id.substring(0,8)}</td>
-            <td>${o.customer_email}</td>
-            <td>${new Date(o.created_at).toLocaleDateString()}</td>
-            <td><span class="status-badge status-${o.status.toLowerCase()}">${o.status}</span></td>
-            <td><strong>₹${o.total_amount}</strong></td>
-          </tr>
-        `).join('');
-        
-        rTable.innerHTML = orderRows;
-        
-        oTable.innerHTML = orders.map(o => `
-          <tr>
-            <td>#${o.id.substring(0,8)}</td>
-            <td>${o.customer_email}</td>
-            <td>${o.total_items} items</td>
-            <td><span class="status-badge status-${o.status.toLowerCase()}">${o.status}</span></td>
-            <td>₹${o.total_amount}</td>
-            <td><select onchange="updateOrder('${o.id}', this.value)" style="padding:4px; border-radius:4px;">
-              <option value="Processing" ${o.status==='Processing'?'selected':''}>Processing</option>
-              <option value="Shipped" ${o.status==='Shipped'?'selected':''}>Shipped</option>
-              <option value="Delivered" ${o.status==='Delivered'?'selected':''}>Delivered</option>
-            </select></td>
-          </tr>
-        `).join('');
-      } else {
-        rTable.innerHTML = '<tr><td colspan="5" style="text-align:center;">No orders yet.</td></tr>';
-        oTable.innerHTML = '<tr><td colspan="6" style="text-align:center;">No orders yet.</td></tr>';
-      }
-    }
-
-    // Add Product Form Handler
-    document.getElementById('add-product-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const btn = document.getElementById('add-btn');
-      const status = document.getElementById('add-status');
-      btn.textContent = 'Saving...'; btn.disabled = true;
-
-      const product = {
-        name: document.getElementById('p-name').value,
-        category: document.getElementById('p-category').value,
-        sku: document.getElementById('p-sku').value,
-        price: parseInt(document.getElementById('p-price').value),
-        offer_price: document.getElementById('p-offer').value ? parseInt(document.getElementById('p-offer').value) : null,
-        stock: parseInt(document.getElementById('p-stock').value || '0'),
-        badge: document.getElementById('p-badge').value || null,
-        image_url: document.getElementById('p-image').value
-      };
-
-      const { error } = await supabaseClient.from('products').insert([product]);
-      if (error) {
-        status.textContent = 'Error: ' + error.message; status.style.color = 'red';
-      } else {
-        status.textContent = 'Product Added!'; status.style.color = 'green';
-        document.getElementById('add-product-form').reset();
-        loadData(); // Refresh table
-      }
-      btn.textContent = 'Save Product'; btn.disabled = false;
-      setTimeout(() => status.textContent = '', 3000);
-    });
-
-    async function deleteProduct(id) {
-      if(confirm('Are you sure you want to delete this product?')) {
-        await supabaseClient.from('products').delete().eq('id', id);
-        loadData();
-      }
-    }
-    
-    async function updateOrder(id, newStatus) {
-      await supabaseClient.from('orders').update({ status: newStatus }).eq('id', id);
-      loadData();
-    }
-  </script>
-
+  <script src="admin.js"></script>
 </body>
 </html>
