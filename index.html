@@ -228,6 +228,66 @@
       font-weight: 900;
     }
 
+    .reviews-kpi-badge {
+      position: absolute;
+      right: -20px;
+      top: 40px;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 14px 20px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.95);
+      color: var(--ink);
+      box-shadow: 0 15px 35px rgba(122, 31, 53, 0.15);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(212, 175, 55, 0.3);
+      z-index: 10;
+      transform: rotate(3deg);
+    }
+    .reviews-kpi-badge .stars { color: #f5b041; font-size: 1.3rem; letter-spacing: 2px; margin-bottom: 4px; }
+    .reviews-kpi-badge span { font-size: 0.85rem; font-weight: 800; color: var(--burgundy); }
+
+    .reviews-marquee-section {
+      background: var(--burgundy);
+      color: var(--cream);
+      padding: 24px 0;
+      overflow: hidden;
+      position: relative;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .marquee-container {
+      display: flex;
+      width: 200%;
+    }
+    .marquee-content {
+      display: flex;
+      gap: 60px;
+      animation: marqueeScroll 25s linear infinite;
+      white-space: nowrap;
+      padding-left: 60px;
+    }
+    .review-card {
+      display: inline-flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 1.1rem;
+      font-family: Georgia, "Times New Roman", serif;
+      font-style: italic;
+    }
+    .review-card::before {
+      content: '★★★★★';
+      color: var(--gold);
+      font-size: 1.2rem;
+      font-style: normal;
+      letter-spacing: 2px;
+    }
+    @keyframes marqueeScroll {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+
     .section { padding: clamp(54px, 8vw, 92px) clamp(20px, 8vw, 112px); }
     .section-heading {
       max-width: 720px;
@@ -448,6 +508,32 @@
         <div class="gift-stack gift-stack-two"></div>
         <div class="gift-stack gift-stack-three"></div>
         <div class="hero-badge">Ready for bulk orders</div>
+        
+        <div class="reviews-kpi-badge">
+          <div class="stars">★★★★★</div>
+          <span>4.9/5 from 10k+ clients</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Scrolling Reviews Marquee -->
+    <section class="reviews-marquee-section" aria-label="Customer Reviews">
+      <div class="marquee-container">
+        <div class="marquee-content" id="reviews-marquee">
+          <!-- First Set -->
+          <div class="review-card">"Absolutely stunning packaging!" - Priya S.</div>
+          <div class="review-card">"Perfect return gifts for our wedding." - Rahul K.</div>
+          <div class="review-card">"Great quality brass items, highly recommend." - Ananya T.</div>
+          <div class="review-card">"Super fast delivery for my bulk order." - Vikram M.</div>
+          <div class="review-card">"The guests loved the thambulam sets!" - Sneha R.</div>
+          
+          <!-- Duplicate Set for seamless loop -->
+          <div class="review-card">"Absolutely stunning packaging!" - Priya S.</div>
+          <div class="review-card">"Perfect return gifts for our wedding." - Rahul K.</div>
+          <div class="review-card">"Great quality brass items, highly recommend." - Ananya T.</div>
+          <div class="review-card">"Super fast delivery for my bulk order." - Vikram M.</div>
+          <div class="review-card">"The guests loved the thambulam sets!" - Sneha R.</div>
+        </div>
       </div>
     </section>
 

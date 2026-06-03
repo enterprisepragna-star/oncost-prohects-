@@ -437,10 +437,36 @@ function bindActions() {
   });
 }
 
+async function loadMarqueeReviews() {
+  const marquee = document.getElementById("reviews-marquee");
+  if (!marquee || typeof supabaseClient === 'undefined') return;
+
+  try {
+    const { data: testimonials } = await supabaseClient
+      .from('testimonials')
+      .select('*')
+      .eq('status', 'Approved')
+      .order('created_at', { ascending: false });
+
+    if (testimonials && testimonials.length > 0) {
+      // Create HTML for reviews
+      const reviewsHtml = testimonials.map(t => 
+        `<div class="review-card">"${t.review_text}" - ${t.customer_name}</div>`
+      ).join('');
+      
+      // Duplicate to ensure seamless marquee scrolling
+      marquee.innerHTML = reviewsHtml + reviewsHtml;
+    }
+  } catch (err) {
+    console.error("Failed to load testimonials:", err);
+  }
+}
+
 async function init() {
   bindAuthForms();
   bindActions();
   await updateShell();
+  await loadMarqueeReviews();
   await loadProductsFromSupabase(); // This calls renderProducts and renderProductDetail
   
   // These rely on products being loaded
