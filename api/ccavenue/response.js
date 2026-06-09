@@ -1,0 +1,81 @@
+// POST /api/ccavenue/response
+// CCAvenue posts back to this endpoint with `encResp` (encrypted payload).
+// We decrypt, verify, update Supabase order, redirect to thank-you / failure page.
+
+const { decrypt, parseResponse } = require('./lib/ccavenue-crypto');
+
+module.exports = async function handler(req, res) {
+  if (req.method !== 'POST' && req.method !== 'GET') { res.status(405).send('Method Not Allowed'); return; }
+
+  const WORKING_KEY = process.env.CCAVENUE_WORKING_KEY;
+  const SUPABASE_URL = process.env.SUPABASE_URL;
+  const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const SITE_URL     = process.env.SITE_URL || `https://${req.headers.host}`;
+
+  if (!WORKING_KEY) {
+    res.status(500).send('CCAvenue Working Key not configured.'); return;
+  }
+
+  // Vercel parses POST form bodies automatically when content-type is form-urlencoded
+  const encResp = (req.body && req.body.encResp) || (req.query && req.query.encResp);
+  if (!encResp) {
+    res.redirect(302, `${SITE_URL}/thank-you.html?status=invalid`);
+    return;
+  }
+
+  let data = {};
+  try {
+    const plaintext = decrypt(String(encResp), WORKING_KEY);
+    data = parseResponse(plaintext);
+  } catch (err) {
+    res.redirect(302, `${SITE_URL}/thank-you.html?status=invalid`);
+    return;
+  }
+
+  const orderId    = data.order_id;
+  const status     = (data.order_status || '').toLowerCase();   // success | aborted | failure
+  const trackingId = data.tracking_id;
+  const amount     = data.amount;
+  const failureMsg = data.failure_message || '';
+
+  // Map CCAvenue status → our order status
+  let dbStatus = 'Processing';
+  if (status === 'success')        dbStatus = 'Paid';
+  else if (status === 'aborted')   dbStatus = 'Cancelled';
+  else if (status === 'failure')   dbStatus = 'Failed';
+
+  // Update Supabase order if credentials present
+  if (SUPABASE_URL && SERVICE_KEY && orderId) {
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/orders?ccavenue_order_id=eq.${encodeURIComponent(orderId)}`, {
+        method: 'PATCH',
+        headers: {
+          apikey: SERVICE_KEY,
+          Authorization: `Bearer ${SERVICE_KEY}`,
+          'Content-Type': 'application/json',
+          Prefer: 'return=minimal',
+        },
+        body: JSON.stringify({
+          status: dbStatus,
+          payment_tracking_id: trackingId || null,
+          payment_response: { status, amount, failure_message: failureMsg, raw: data },
+        }),
+      });
+    } catch (e) {
+      // Even if DB update fails, customer should see status — log via Vercel and continue
+      console.error('Supabase order update failed:', e.message);
+    }
+  }
+
+  // Redirect to thank-you page with status (no secrets in URL)
+  const params = new URLSearchParams({
+    status,
+    order_id: orderId || '',
+    tracking_id: trackingId || '',
+    amount: amount || '',
+  }).toString();
+  res.redirect(302, `${SITE_URL}/thank-you.html?${params}`);
+};
+
+// Tell Vercel to parse form-urlencoded body
+module.exports.config = { api: { bodyParser: true } };

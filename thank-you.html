@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Order Status · ONCOST</title>
+  <link rel="stylesheet" href="storefront.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
+</head>
+<body>
+  <div class="topbar"><span><i class="fas fa-check-circle"></i> Payment Status</span></div>
+  <header class="site-header">
+    <a class="logo" href="index.html">ONCOST</a>
+    <nav class="desktop-nav"><a href="index.html">Home</a><a href="products.html">Shop</a><a href="account.html">My Orders</a></nav>
+    <div class="header-actions">
+      <a class="icon-btn" href="account.html"><i class="fas fa-user"></i></a>
+    </div>
+  </header>
+
+  <main>
+    <section class="section" style="max-width:680px;margin:0 auto;text-align:center;padding-top:60px;padding-bottom:60px;">
+      <div id="status-icon" style="font-size:80px;margin-bottom:20px;"></div>
+      <h1 id="status-title" style="font-size:2.4rem;margin-bottom:14px;"></h1>
+      <p id="status-msg" style="color:var(--muted);font-size:1.1rem;margin-bottom:32px;"></p>
+
+      <div id="order-card" style="background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:24px;text-align:left;margin-bottom:32px;display:none;">
+        <h3 style="font-size:1.1rem;margin-bottom:14px;">Order Details</h3>
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 18px;font-size:14px;">
+          <div style="color:var(--muted);">Order ID</div><div id="d-order" style="font-family:monospace;"></div>
+          <div style="color:var(--muted);">Tracking ID</div><div id="d-track" style="font-family:monospace;"></div>
+          <div style="color:var(--muted);">Amount</div><div id="d-amt" style="font-weight:700;color:var(--burgundy);"></div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+        <a class="btn primary" href="account.html?tab=orders" data-testid="ty-view-orders"><i class="fas fa-receipt"></i> View My Orders</a>
+        <a class="btn outline" href="products.html"><i class="fas fa-store"></i> Continue Shopping</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-grid">
+      <div class="footer-col"><div class="brand">ONCOST</div><p>Premium gifting collections for every occasion.</p></div>
+      <div class="footer-col"><h4>Shop</h4><ul><li><a href="products.html">All Products</a></li><li><a href="bulk.html">Bulk Orders</a></li></ul></div>
+      <div class="footer-col"><h4>Account</h4><ul><li><a href="login.html">Sign in</a></li><li><a href="account.html">My Orders</a></li></ul></div>
+      <div class="footer-col"><h4>Help</h4><ul><li><a href="bulk.html">Contact</a></li><li><a href="bulk.html">Shipping</a></li></ul></div>
+    </div>
+    <div class="footer-bottom"><div>© <span id="copy-year"></span> ONCOST.</div></div>
+  </footer>
+
+  <script>
+    document.getElementById('copy-year').textContent = new Date().getFullYear();
+    const params = new URLSearchParams(location.search);
+    const status     = (params.get('status') || '').toLowerCase();
+    const orderId    = params.get('order_id') || '';
+    const trackingId = params.get('tracking_id') || '';
+    const amount     = params.get('amount') || '';
+    const fmtINR = (n) => '₹' + (Number(n) || 0).toLocaleString('en-IN');
+
+    const view = {
+      success: {
+        icon: '<i class="fas fa-circle-check" style="color:#2E7D32;"></i>',
+        title: 'Payment Successful!',
+        msg: 'Thank you for your order — we’ll start packing it right away. You’ll receive an email and WhatsApp update once shipped.',
+      },
+      aborted: {
+        icon: '<i class="fas fa-circle-xmark" style="color:#C47B25;"></i>',
+        title: 'Payment Cancelled',
+        msg: 'You cancelled the payment. Your cart is still saved — feel free to try again anytime.',
+      },
+      failure: {
+        icon: '<i class="fas fa-triangle-exclamation" style="color:#C62828;"></i>',
+        title: 'Payment Failed',
+        msg: 'Something went wrong during payment. No amount was debited (or it will be refunded by your bank within 5-7 days). Please try again or use a different payment method.',
+      },
+      invalid: {
+        icon: '<i class="fas fa-circle-question" style="color:#7A726B;"></i>',
+        title: 'Status Unknown',
+        msg: 'We could not read the payment confirmation. If money was debited, please contact us with your order details.',
+      },
+    };
+    const v = view[status] || view.invalid;
+    document.getElementById('status-icon').innerHTML = v.icon;
+    document.getElementById('status-title').textContent = v.title;
+    document.getElementById('status-msg').textContent = v.msg;
+
+    if (orderId || trackingId || amount) {
+      document.getElementById('order-card').style.display = 'block';
+      document.getElementById('d-order').textContent = orderId || '—';
+      document.getElementById('d-track').textContent = trackingId || '—';
+      document.getElementById('d-amt').textContent = amount ? fmtINR(amount) : '—';
+    }
+
+    // Clear cart on success
+    if (status === 'success') {
+      try {
+        localStorage.removeItem('oncost_cart');
+        // Also clear server-side cart if logged in
+        supabaseClient.auth.getSession().then(({ data: { session } }) => {
+          if (session) supabaseClient.from('cart_items').delete().eq('user_id', session.user.id);
+        });
+      } catch (e) { /* noop */ }
+    }
+  </script>
+</body>
+</html>

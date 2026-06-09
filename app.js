@@ -517,32 +517,8 @@ window.applyCoupon = async function() {
 
 window.placeOrder = async function() {
   if (!state.cart.length) return;
-  if (!state.user) {
-    toast('Please log in to place an order', '');
-    setTimeout(() => location.href = 'login.html?redirect=cart.html', 1000);
-    return;
-  }
-  const { subtotal, discount, shipping, total } = cartTotals();
-  const items = state.cart.map(it => ({
-    product_id: it.product_id, name: it.product?.name,
-    qty: it.qty, price: (it.product?.offer_price && it.product.offer_price < it.product.price) ? it.product.offer_price : it.product?.price,
-  }));
-  try {
-    const { error } = await supabaseClient.from('orders').insert({
-      user_id: state.user.id,
-      items, total_amount: total, status: 'Processing',
-      guest_email: state.user.email,
-      shipping_address: { note: 'Provided after checkout' },
-    });
-    if (error) return toast('Order failed: ' + error.message, 'err');
-    // Clear cart
-    if (state.cart.some(it => !String(it.id).startsWith('g-'))) {
-      await supabaseClient.from('cart_items').delete().eq('user_id', state.user.id);
-    }
-    state.cart = []; saveGuestCart();
-    toast('Order placed! 🎉', 'ok');
-    setTimeout(() => location.href = 'account.html?tab=orders', 1200);
-  } catch (e) { toast('Order failed: ' + e.message, 'err'); }
+  // Redirect to checkout page where customer enters shipping + pays via CCAvenue
+  location.href = 'checkout.html';
 };
 
 // ---------- Testimonials ----------

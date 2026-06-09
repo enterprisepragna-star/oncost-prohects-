@@ -2,6 +2,10 @@ node_modules/
 .next/
 dist/
 build/
+.env
+.env.local
+.env.production
+.env.development
 
 # Emergent preview-only directories (not part of storefront repo)
 frontend/

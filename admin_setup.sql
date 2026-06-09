@@ -47,3 +47,15 @@ DROP POLICY IF EXISTS "wishlist_delete_own"   ON public.wishlists;
 CREATE POLICY "wishlist_select_own" ON public.wishlists FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "wishlist_insert_own" ON public.wishlists FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "wishlist_delete_own" ON public.wishlists FOR DELETE USING (auth.uid() = user_id);
+
+-- 4. CCAvenue payment tracking columns on orders
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS ccavenue_order_id   text;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS payment_tracking_id text;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS payment_response    jsonb;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS guest_phone         text;
+CREATE INDEX IF NOT EXISTS idx_orders_ccavenue ON public.orders(ccavenue_order_id);
+
+-- 5. Allow anon to INSERT orders (guest checkout) and update payment_response (server uses service_role)
+DROP POLICY IF EXISTS "orders_insert_self" ON public.orders;
+CREATE POLICY "orders_insert_self" ON public.orders FOR INSERT
+  WITH CHECK (auth.uid() = user_id OR user_id IS NULL);

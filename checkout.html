@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Checkout · ONCOST</title>
+  <link rel="stylesheet" href="storefront.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
+</head>
+<body>
+  <div id="sale-banner" class="sale-banner"></div>
+  <div class="topbar"><span><i class="fas fa-lock"></i> Secure Checkout</span><span><i class="fas fa-shield-halved"></i> CCAvenue Encrypted</span><span><i class="fas fa-credit-card"></i> Cards · UPI · Netbanking · Wallets</span></div>
+  <header class="site-header">
+    <a class="logo" href="index.html">ONCOST</a>
+    <nav class="desktop-nav"><a href="index.html">Home</a><a href="products.html">Shop</a><a href="cart.html"><i class="fas fa-arrow-left"></i> Back to Cart</a></nav>
+    <div class="header-actions">
+      <a class="icon-btn" href="cart.html" data-cart-count><i class="fas fa-cart-shopping"></i></a>
+      <a class="icon-btn" href="account.html" data-account-link><i class="fas fa-user"></i></a>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-hero">
+      <div><span class="eyebrow">Step 2 of 3</span><h1>Shipping &amp; Payment</h1><p>Enter your delivery details. Payment is handled securely by CCAvenue.</p></div>
+      <a class="btn outline" href="cart.html"><i class="fas fa-arrow-left"></i> Edit Cart</a>
+    </section>
+
+    <section class="section">
+      <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:32px;max-width:1100px;margin:0 auto;align-items:start;">
+        <form id="checkout-form" style="background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:28px;">
+          <h2 style="font-size:1.4rem;margin-bottom:18px;">Delivery Details</h2>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            <label style="font-size:13px;font-weight:600;color:var(--ink-soft);">Full Name *<input class="field" required id="ck-name" style="width:100%;margin-top:4px;"></label>
+            <label style="font-size:13px;font-weight:600;color:var(--ink-soft);">Phone *<input class="field" required id="ck-phone" placeholder="+91" style="width:100%;margin-top:4px;"></label>
+            <label style="font-size:13px;font-weight:600;color:var(--ink-soft);grid-column:1/-1;">Email *<input class="field" type="email" required id="ck-email" style="width:100%;margin-top:4px;"></label>
+            <label style="font-size:13px;font-weight:600;color:var(--ink-soft);grid-column:1/-1;">Address *<textarea class="field" required id="ck-address" rows="2" style="width:100%;margin-top:4px;"></textarea></label>
+            <label style="font-size:13px;font-weight:600;color:var(--ink-soft);">City *<input class="field" required id="ck-city" style="width:100%;margin-top:4px;"></label>
+            <label style="font-size:13px;font-weight:600;color:var(--ink-soft);">State *<input class="field" required id="ck-state" style="width:100%;margin-top:4px;"></label>
+            <label style="font-size:13px;font-weight:600;color:var(--ink-soft);">PIN Code *<input class="field" required id="ck-zip" pattern="[0-9]{6}" style="width:100%;margin-top:4px;"></label>
+            <label style="font-size:13px;font-weight:600;color:var(--ink-soft);">Country<input class="field" id="ck-country" value="India" readonly style="width:100%;margin-top:4px;background:#f9f4ec;"></label>
+          </div>
+
+          <h3 style="font-size:1.1rem;margin:24px 0 12px;color:var(--burgundy);">Payment Method</h3>
+          <div style="border:1px solid var(--line);border-radius:8px;padding:16px;background:linear-gradient(135deg,#fff,var(--cream));">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <i class="fas fa-shield-halved" style="font-size:24px;color:var(--burgundy);"></i>
+              <div>
+                <div style="font-weight:700;">Secure payment via CCAvenue</div>
+                <div style="font-size:12px;color:var(--muted);">Credit/Debit Cards · UPI · Netbanking · Wallets · 256-bit SSL</div>
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn primary block lg" style="margin-top:24px;" id="ck-pay-btn" data-testid="checkout-pay-btn">
+            <i class="fas fa-lock"></i> <span id="ck-pay-label">Pay Securely</span>
+          </button>
+          <div style="text-align:center;margin-top:10px;font-size:11px;color:var(--muted);"><i class="fas fa-lock"></i> Your card details are never stored on our servers.</div>
+        </form>
+
+        <aside style="background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:24px;position:sticky;top:90px;">
+          <h3 style="font-size:1.2rem;margin-bottom:14px;">Order Summary</h3>
+          <div id="ck-items" style="margin-bottom:14px;font-size:13px;"></div>
+          <div id="ck-totals" style="border-top:1px solid var(--line);padding-top:14px;"></div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-grid">
+      <div class="footer-col"><div class="brand">ONCOST</div><p>Premium gifting collections for every occasion.</p>
+        <div class="social-row"><a id="social-instagram" target="_blank"><i class="fab fa-instagram"></i></a><a id="social-facebook" target="_blank"><i class="fab fa-facebook-f"></i></a><a id="social-youtube" target="_blank"><i class="fab fa-youtube"></i></a><a id="social-whatsapp" target="_blank"><i class="fab fa-whatsapp"></i></a></div>
+      </div>
+      <div class="footer-col"><h4>Shop</h4><ul><li><a href="products.html">All Products</a></li><li><a href="bulk.html">Bulk Orders</a></li></ul></div>
+      <div class="footer-col"><h4>Account</h4><ul><li><a href="login.html">Sign in</a></li><li><a href="account.html">My Orders</a></li></ul></div>
+      <div class="footer-col"><h4>Help</h4><ul><li><a href="bulk.html">Contact</a></li><li><a href="bulk.html">Shipping</a></li></ul></div>
+    </div>
+    <div class="footer-bottom"><div>© <span id="copy-year"></span> ONCOST.</div><div><a class="admin-link" href="admin-dashboard.html"><i class="fas fa-shield-halved"></i> Admin Console</a></div></div>
+  </footer>
+
+  <script>document.getElementById('copy-year').textContent = new Date().getFullYear();</script>
+  <script src="app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Wait for app.js to finish loading state
+      await new Promise(r => setTimeout(r, 1500));
+
+      // Prefill from profile if logged in
+      if (state.user) {
+        document.getElementById('ck-email').value = state.user.email;
+      }
+      if (state.profile) {
+        if (state.profile.name)  document.getElementById('ck-name').value  = state.profile.name;
+        if (state.profile.phone) document.getElementById('ck-phone').value = state.profile.phone;
+      }
+
+      if (!state.cart.length) {
+        document.querySelector('main').innerHTML = `
+          <section class="section"><div class="empty-state" style="margin:0 auto;max-width:520px;">
+            <i class="fas fa-cart-shopping"></i><h3>Your cart is empty</h3>
+            <p>Add items to your cart before checking out.</p>
+            <a class="btn primary" href="products.html"><i class="fas fa-store"></i> Continue Shopping</a>
+          </div></section>`;
+        return;
+      }
+
+      const t = cartTotals();
+      document.getElementById('ck-items').innerHTML = state.cart.map(it => {
+        if (!it.product) return '';
+        const eff = (it.product.offer_price && it.product.offer_price < it.product.price) ? it.product.offer_price : it.product.price;
+        return `<div style="display:flex;justify-content:space-between;padding:6px 0;">
+          <div style="min-width:0;"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px;">${escapeHTML(it.product.name)}</div><div style="color:var(--muted);font-size:11px;">Qty ${it.qty}</div></div>
+          <div style="font-weight:600;">${fmtINR(eff * it.qty)}</div>
+        </div>`;
+      }).join('');
+      document.getElementById('ck-totals').innerHTML = `
+        <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;"><span>Subtotal</span><span>${fmtINR(t.subtotal)}</span></div>
+        ${t.discount > 0 ? `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:var(--success);"><span>Discount</span><span>−${fmtINR(t.discount)}</span></div>` : ''}
+        <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;"><span>Shipping</span><span>${t.shipping === 0 ? 'Free' : fmtINR(t.shipping)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:10px 0 0;border-top:1px solid var(--line);margin-top:8px;font-weight:700;font-size:16px;color:var(--burgundy);"><span>Total</span><span>${fmtINR(t.total)}</span></div>`;
+      document.getElementById('ck-pay-label').textContent = `Pay ${fmtINR(t.total)}`;
+    });
+
+    document.getElementById('checkout-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('ck-pay-btn');
+      btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Preparing payment…';
+
+      const t = cartTotals();
+      const ship = {
+        name:    document.getElementById('ck-name').value.trim(),
+        phone:   document.getElementById('ck-phone').value.trim(),
+        email:   document.getElementById('ck-email').value.trim(),
+        address: document.getElementById('ck-address').value.trim(),
+        city:    document.getElementById('ck-city').value.trim(),
+        state:   document.getElementById('ck-state').value.trim(),
+        zip:     document.getElementById('ck-zip').value.trim(),
+        country: 'India',
+      };
+      const orderId = 'OC-' + Date.now() + '-' + Math.floor(Math.random()*9999);
+      const items = state.cart.map(it => ({
+        product_id: it.product_id, name: it.product?.name, qty: it.qty,
+        price: (it.product?.offer_price && it.product.offer_price < it.product.price) ? it.product.offer_price : it.product?.price,
+      }));
+
+      // Create pending order in Supabase first (so we can update its status from /api/ccavenue/response)
+      try {
+        await supabaseClient.from('orders').insert({
+          user_id: state.user?.id || null,
+          ccavenue_order_id: orderId,
+          items, total_amount: t.total, status: 'Processing',
+          guest_email: ship.email,
+          guest_phone: ship.phone,
+          shipping_address: ship,
+        });
+      } catch (err) {
+        toast('Could not create order: ' + err.message, 'err');
+        btn.disabled = false; btn.innerHTML = '<i class="fas fa-lock"></i> Pay Securely';
+        return;
+      }
+
+      // Build form & POST to our /api/ccavenue/initiate (which redirects to CCAvenue)
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/api/ccavenue/initiate';
+      form.style.display = 'none';
+      const fields = {
+        order_id: orderId,
+        total_amount: t.total.toFixed(2),
+        shipping_address: JSON.stringify(ship),
+        user_id: state.user?.id || '',
+        applied_coupon: state.appliedCoupon?.code || '',
+      };
+      // Vercel handles JSON body automatically — use fetch instead for cleaner POST
+      try {
+        const r = await fetch('/api/ccavenue/initiate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            order_id: orderId,
+            total_amount: t.total,
+            shipping_address: ship,
+            user_id: state.user?.id || '',
+            applied_coupon: state.appliedCoupon?.code || '',
+          }),
+        });
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({ error: 'Payment server error' }));
+          throw new Error(err.error || `HTTP ${r.status}`);
+        }
+        const html = await r.text();
+        // Replace document with the auto-submit form returned by the function
+        document.open(); document.write(html); document.close();
+      } catch (err) {
+        toast('Payment init failed: ' + err.message, 'err');
+        btn.disabled = false; btn.innerHTML = '<i class="fas fa-lock"></i> Pay Securely';
+      }
+    });
+  </script>
+</body>
+</html>
