@@ -1,7 +1,16 @@
+node_modules/
+.next/
+dist/
+build/
 
-node_modules
-node_modules
-
-
-
-.vercel
+# Emergent preview-only directories (not part of storefront repo)
+frontend/
+backend/
+memory/
+test_reports/
+_archive_react_admin/
+.emergent/
+.git_storefront/
+.pytest_cache/
+.ruff_cache/
+design_guidelines.json

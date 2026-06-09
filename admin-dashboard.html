@@ -1,495 +1,398 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Dashboard | ONCOST Luxury</title>
-  <link rel="stylesheet" href="luxury.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Console · ONCOST</title>
+  <link rel="stylesheet" href="luxury.css" />
+  <link rel="stylesheet" href="admin.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-client.js"></script>
-  <style>
-    body { background-color: #F8F9FA; margin: 0; display: flex; min-height: 100vh; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    /* Sidebar */
-    .admin-sidebar { width: 280px; background: white; border-right: 1px solid #EAEAEA; padding: 24px 0; display: flex; flex-direction: column; overflow-y: auto; }
-    .admin-logo { font-family: var(--font-heading, Georgia, serif); font-size: 1.8rem; color: var(--deep-maroon, #7a1f35); text-align: center; margin-bottom: 30px; letter-spacing: 2px; }
-    .admin-nav { display: flex; flex-direction: column; gap: 6px; padding: 0 16px; margin-bottom: 20px;}
-    .admin-nav button { background: none; border: none; text-align: left; padding: 12px 16px; border-radius: 8px; font-size: 0.95rem; font-weight: 500; color: #4A4A4A; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 12px; }
-    .admin-nav button:hover { background: #F5F5F5; }
-    .admin-nav button.active { background: #fdf6f7; color: var(--deep-maroon, #7a1f35); font-weight: 600; }
-    .nav-divider { height: 1px; background: #EAEAEA; margin: 10px 16px; }
-    .logout-btn { margin-top: auto; margin-left: 16px; margin-right: 16px; margin-bottom: 24px; padding: 12px; background: #FFF0F0; color: #D32F2F; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
-    
-    /* Main Content */
-    .admin-main { flex: 1; padding: 40px; overflow-y: auto; }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
-    .page-title { font-family: var(--font-heading, Georgia, serif); font-size: 2rem; color: #2C2C2C; margin-bottom: 32px; margin-top: 0; }
-    
-    /* Metrics */
-    .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; margin-bottom: 40px; }
-    .metric-card { background: white; padding: 24px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); border: 1px solid #f0f0f0; }
-    .metric-title { font-size: 0.85rem; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-    .metric-value { font-size: 2.2rem; font-weight: 700; color: #2C2C2C; }
-    
-    /* Data Tables */
-    .data-table-card { background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); overflow-x: auto; border: 1px solid #f0f0f0; margin-bottom: 30px; }
-    .table-header { padding: 20px 24px; border-bottom: 1px solid #EAEAEA; display: flex; justify-content: space-between; align-items: center; }
-    .table-header h3 { margin: 0; font-size: 1.1rem; color: #2C2C2C; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 16px 24px; text-align: left; border-bottom: 1px solid #EAEAEA; }
-    th { background: #FAFAFA; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; color: #888; font-weight: 600; }
-    td { font-size: 0.95rem; color: #4A4A4A; vertical-align: middle; }
-    .status-badge { padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-    .status-delivered { background: #E8F5E9; color: #2E7D32; }
-    .status-processing { background: #FFF3E0; color: #EF6C00; }
-    .status-shipped { background: #E3F2FD; color: #1565C0; }
-    .status-cancelled { background: #FFEBEE; color: #C62828; }
-    
-    /* Forms */
-    .form-card { background: white; padding: 24px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); border: 1px solid #f0f0f0; margin-bottom: 30px; }
-    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-    .form-group { margin-bottom: 16px; }
-    .form-group.full-width { grid-column: span 2; }
-    .form-group label { display: block; font-size: 0.9rem; font-weight: 600; margin-bottom: 8px; color: #2C2C2C; }
-    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 12px; border: 1px solid #E0E0E0; border-radius: 8px; font-family: inherit; font-size: 0.95rem; box-sizing: border-box; }
-    .form-group textarea { resize: vertical; min-height: 80px; }
-    .submit-btn { padding: 12px 24px; background: var(--deep-maroon, #7a1f35); color: white; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; transition: 0.2s; }
-    .submit-btn:hover { background: #5c1627; }
-    .action-btn { background: none; border: none; cursor: pointer; padding: 6px; border-radius: 4px; transition: 0.2s; }
-    .action-btn.delete { color: #D32F2F; }
-    .action-btn.edit { color: #1976D2; }
-    .action-btn:hover { background: #F5F5F5; }
-    .select-sm { padding: 6px; border-radius: 4px; border: 1px solid #ccc; font-size: 0.85rem; }
-    .toast { position: fixed; bottom: 20px; right: 20px; background: #333; color: white; padding: 12px 24px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: none; z-index: 1000; }
-  </style>
+  <!-- Excel/CSV parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
-<body>
+<body class="admin-body">
 
-  <!-- Sidebar -->
-  <aside class="admin-sidebar">
-    <div class="admin-logo">ONCOST</div>
-    
-    <div style="padding: 0 16px 8px; font-size: 0.75rem; color: #888; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Store Management</div>
-    <nav class="admin-nav">
-      <button class="active" onclick="switchTab('dashboard', this)"><i class="fa-solid fa-chart-line"></i> Dashboard</button>
-      <button onclick="switchTab('orders', this)"><i class="fa-solid fa-box"></i> Orders</button>
-      <button onclick="switchTab('products', this)"><i class="fa-solid fa-tags"></i> Products</button>
-      <button onclick="switchTab('categories', this)"><i class="fa-solid fa-layer-group"></i> Categories</button>
-    </nav>
-    
-    <div class="nav-divider"></div>
-    <div style="padding: 16px 16px 8px; font-size: 0.75rem; color: #888; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Marketing</div>
-    <nav class="admin-nav">
-      <button onclick="switchTab('coupons', this)"><i class="fa-solid fa-ticket"></i> Coupons & Offers</button>
-      <button onclick="switchTab('sales', this)"><i class="fa-solid fa-bullhorn"></i> Sale Events</button>
-    </nav>
-
-    <div class="nav-divider"></div>
-    <div style="padding: 16px 16px 8px; font-size: 0.75rem; color: #888; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Customers</div>
-    <nav class="admin-nav">
-      <button onclick="switchTab('customers', this)"><i class="fa-solid fa-users"></i> Customers</button>
-      <button onclick="switchTab('leads', this)"><i class="fa-solid fa-envelope"></i> Leads & Bulk</button>
-      <button onclick="switchTab('testimonials', this)"><i class="fa-solid fa-star"></i> Testimonials <span id="pending-reviews-badge" style="background:var(--deep-maroon, #7a1f35);color:white;border-radius:50%;padding:2px 6px;font-size:0.7rem;margin-left:auto;display:none;">0</span></button>
-    </nav>
-
-    <div class="nav-divider"></div>
-    <div style="padding: 16px 16px 8px; font-size: 0.75rem; color: #888; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Configuration</div>
-    <nav class="admin-nav" style="margin-bottom: auto;">
-      <button onclick="switchTab('seo', this)"><i class="fa-solid fa-magnifying-glass"></i> SEO Settings</button>
-      <button onclick="switchTab('social', this)"><i class="fa-solid fa-share-nodes"></i> Social Media</button>
-    </nav>
-
-    <button class="logout-btn" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout Admin</button>
-  </aside>
-
-  <!-- Main Content -->
-  <main class="admin-main">
-    
-    <!-- DASHBOARD -->
-    <div id="dashboard" class="tab-content active">
-      <h1 class="page-title">Dashboard Overview</h1>
-      <div class="metrics-grid">
-        <div class="metric-card">
-          <div class="metric-title">Total Revenue</div>
-          <div class="metric-value" id="metric-revenue">₹0</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-title">Total Orders</div>
-          <div class="metric-value" id="metric-orders">0</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-title">Active Products</div>
-          <div class="metric-value" id="metric-products">0</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-title">Total Leads</div>
-          <div class="metric-value" id="metric-leads">0</div>
+  <div class="admin-shell">
+    <!-- Sidebar -->
+    <aside class="admin-sidebar" id="sidebar">
+      <div class="admin-brand">
+        <div class="admin-brand-logo">O</div>
+        <div class="admin-brand-text">
+          <div class="b-name">ONCOST</div>
+          <div class="b-sub">Admin Console</div>
         </div>
       </div>
-      
-      <div class="data-table-card">
-        <div class="table-header">
-          <h3>Recent Orders</h3>
+
+      <nav class="admin-nav" id="nav">
+        <div class="admin-nav-group">
+          <div class="admin-nav-group-title">Overview</div>
+          <button class="admin-nav-link active" data-view="dashboard" data-testid="nav-dashboard"><i class="fas fa-chart-line"></i>Dashboard</button>
         </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Order ID</th>
-              <th>Customer ID</th>
-              <th>Total (₹)</th>
-              <th>Status</th>
-              <th>Date</th>
-            </tr>
-          </thead>
-          <tbody id="recent-orders-table">
-            <tr><td colspan="5" style="text-align: center;">Loading...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+        <div class="admin-nav-group">
+          <div class="admin-nav-group-title">Catalog</div>
+          <button class="admin-nav-link" data-view="products" data-testid="nav-products"><i class="fas fa-box"></i>Products</button>
+          <button class="admin-nav-link" data-view="categories" data-testid="nav-categories"><i class="fas fa-layer-group"></i>Categories</button>
+          <button class="admin-nav-link" data-view="inventory" data-testid="nav-inventory"><i class="fas fa-warehouse"></i>Inventory</button>
+          <button class="admin-nav-link" data-view="import" data-testid="nav-import"><i class="fas fa-file-import"></i>Bulk Import</button>
+        </div>
+        <div class="admin-nav-group">
+          <div class="admin-nav-group-title">Commerce</div>
+          <button class="admin-nav-link" data-view="orders" data-testid="nav-orders"><i class="fas fa-receipt"></i>Orders</button>
+          <button class="admin-nav-link" data-view="coupons" data-testid="nav-coupons"><i class="fas fa-tags"></i>Coupons</button>
+          <button class="admin-nav-link" data-view="sales" data-testid="nav-sales"><i class="fas fa-bullhorn"></i>Sale Events</button>
+        </div>
+        <div class="admin-nav-group">
+          <div class="admin-nav-group-title">Engagement</div>
+          <button class="admin-nav-link" data-view="leads" data-testid="nav-leads"><i class="fas fa-envelope"></i>Enquiries</button>
+          <button class="admin-nav-link" data-view="testimonials" data-testid="nav-testimonials"><i class="fas fa-star"></i>Testimonials</button>
+        </div>
+        <div class="admin-nav-group">
+          <div class="admin-nav-group-title">Configuration</div>
+          <button class="admin-nav-link" data-view="settings" data-testid="nav-settings"><i class="fas fa-gear"></i>Site Settings</button>
+        </div>
+      </nav>
 
-    <!-- ORDERS -->
-    <div id="orders" class="tab-content">
-      <h1 class="page-title">Manage Orders</h1>
-      <div class="data-table-card">
-        <table>
-          <thead>
-            <tr>
-              <th>Order ID</th>
-              <th>Customer ID</th>
-              <th>Items (JSON)</th>
-              <th>Total (₹)</th>
-              <th>Status</th>
-              <th>Date</th>
-            </tr>
-          </thead>
-          <tbody id="all-orders-table">
-            <tr><td colspan="6" style="text-align: center;">Loading...</td></tr>
-          </tbody>
-        </table>
+      <div class="admin-sidebar-footer">
+        <div class="admin-user-mini">
+          <div class="avatar" id="user-avatar">A</div>
+          <div class="who">
+            <div id="user-name">Admin</div>
+            <div class="e" id="user-email"></div>
+          </div>
+        </div>
+        <button class="icon-btn" title="Sign out" onclick="adminLogout()" data-testid="logout-btn"><i class="fas fa-right-from-bracket"></i></button>
       </div>
-    </div>
+    </aside>
 
-    <!-- PRODUCTS -->
-    <div id="products" class="tab-content">
-      <h1 class="page-title">Manage Products</h1>
-      <div class="form-card">
-        <h3 style="margin-top:0;">Add / Edit Product</h3>
-        <form id="product-form">
-          <input type="hidden" id="p-id">
-          <div class="form-grid">
-            <div class="form-group">
-              <label>Product Name *</label>
-              <input type="text" id="p-name" required>
+    <!-- Main -->
+    <div class="admin-main">
+      <header class="admin-topbar">
+        <button class="menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')"><i class="fas fa-bars"></i></button>
+        <div class="crumb" id="topbar-crumb">Dashboard</div>
+        <div class="right">
+          <span class="tag-live">Live</span>
+          <a href="index.html" target="_blank" class="btn btn-secondary btn-sm" data-testid="open-storefront"><i class="fas fa-arrow-up-right-from-square"></i> View Storefront</a>
+        </div>
+      </header>
+
+      <main class="admin-content">
+        <!-- ============ DASHBOARD ============ -->
+        <section class="view active" data-view-pane="dashboard">
+          <div class="page-head">
+            <div>
+              <h1 class="page-title">Dashboard</h1>
+              <p class="page-sub">A neat snapshot of your store’s heartbeat.</p>
             </div>
-            <div class="form-group">
-              <label>SKU</label>
-              <input type="text" id="p-sku">
+            <button class="btn btn-primary" onclick="goView('products')" data-testid="dash-manage-products"><i class="fas fa-box"></i> Manage Products</button>
+          </div>
+
+          <div class="kpi-grid" id="kpi-grid">
+            <!-- KPIs rendered by JS -->
+          </div>
+
+          <div style="display:grid;grid-template-columns: 2fr 1fr; gap:18px;" id="dash-bottom">
+            <div class="card" data-testid="recent-orders">
+              <div class="card-head"><h3 class="card-title">Recent Orders</h3><button class="btn btn-ghost btn-sm" onclick="goView('orders')">View all →</button></div>
+              <div id="recent-orders-list"></div>
             </div>
-            <div class="form-group">
-              <label>Price (₹) *</label>
-              <input type="number" id="p-price" required>
+            <div class="card" data-testid="low-stock">
+              <div class="card-head"><h3 class="card-title">Low Stock</h3><button class="btn btn-ghost btn-sm" onclick="goView('inventory')">Manage →</button></div>
+              <div id="low-stock-list"></div>
             </div>
-            <div class="form-group">
-              <label>Offer Price (₹)</label>
-              <input type="number" id="p-offer">
+          </div>
+        </section>
+
+        <!-- ============ PRODUCTS ============ -->
+        <section class="view" data-view-pane="products">
+          <div class="page-head">
+            <div>
+              <h1 class="page-title">Products</h1>
+              <p class="page-sub" id="products-sub">Manage your catalog.</p>
             </div>
-            <div class="form-group">
-              <label>Category</label>
-              <select id="p-category">
-                <!-- Populated dynamically -->
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-secondary" onclick="goView('import')" data-testid="open-import"><i class="fas fa-file-import"></i> Bulk Import</button>
+              <button class="btn btn-primary" onclick="openProductForm()" data-testid="new-product"><i class="fas fa-plus"></i> New Product</button>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <div class="table-toolbar">
+              <div class="search">
+                <i class="fas fa-search"></i>
+                <input class="input" id="products-search" placeholder="Search name, SKU, category..." data-testid="products-search" />
+              </div>
+              <select class="select" id="products-cat-filter" style="max-width:200px" data-testid="products-cat-filter">
+                <option value="">All categories</option>
               </select>
-            </div>
-            <div class="form-group">
-              <label>Stock</label>
-              <input type="number" id="p-stock" value="100">
-            </div>
-            <div class="form-group">
-              <label>Badge</label>
-              <input type="text" id="p-badge" placeholder="e.g. Bestseller">
-            </div>
-            <div class="form-group">
-              <label>Status</label>
-              <select id="p-status">
+              <select class="select" id="products-status-filter" style="max-width:160px" data-testid="products-status-filter">
+                <option value="">All status</option>
                 <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
                 <option value="Draft">Draft</option>
-                <option value="Archived">Archived</option>
               </select>
             </div>
-            <div class="form-group full-width">
-              <label>Image URL *</label>
-              <input type="url" id="p-image" required>
-            </div>
-            <div class="form-group full-width">
-              <label>Description</label>
-              <textarea id="p-desc"></textarea>
-            </div>
-            <div class="form-group">
-              <label>SEO Title</label>
-              <input type="text" id="p-seo-title">
-            </div>
-            <div class="form-group">
-              <label>SEO Description</label>
-              <input type="text" id="p-seo-desc">
-            </div>
-          </div>
-          <button type="submit" class="submit-btn" id="product-btn">Save Product</button>
-          <button type="button" class="submit-btn" style="background:#888;" onclick="resetProductForm()">Clear Form</button>
-        </form>
-      </div>
-
-      <div class="data-table-card">
-        <table>
-          <thead>
-            <tr>
-              <th>Image</th>
-              <th>Name & SKU</th>
-              <th>Pricing</th>
-              <th>Stock</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="products-table">
-            <tr><td colspan="6" style="text-align: center;">Loading...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- CATEGORIES -->
-    <div id="categories" class="tab-content">
-      <h1 class="page-title">Manage Categories</h1>
-      <div class="form-card">
-        <h3 style="margin-top:0;">Add Category</h3>
-        <form id="category-form">
-          <div class="form-grid">
-            <div class="form-group full-width">
-              <label>Category Name *</label>
-              <input type="text" id="c-name" required>
-            </div>
-            <div class="form-group full-width">
-              <label>Description</label>
-              <input type="text" id="c-desc">
-            </div>
-            <div class="form-group full-width">
-              <label>Image URL</label>
-              <input type="url" id="c-img">
+            <table class="data" data-testid="products-table">
+              <thead><tr>
+                <th style="width:60px"></th>
+                <th>Name</th><th>SKU</th><th>Category</th>
+                <th style="text-align:right">Price</th>
+                <th style="text-align:right">Stock</th>
+                <th>Status</th><th style="width:80px"></th>
+              </tr></thead>
+              <tbody id="products-tbody"></tbody>
+            </table>
+            <div class="pagination" id="products-pagination" style="display:none">
+              <div id="products-count"></div>
+              <div style="display:flex;gap:6px;">
+                <button class="btn btn-secondary btn-sm" id="products-prev" data-testid="products-prev">Prev</button>
+                <button class="btn btn-secondary btn-sm" id="products-next" data-testid="products-next">Next</button>
+              </div>
             </div>
           </div>
-          <button type="submit" class="submit-btn">Save Category</button>
-        </form>
-      </div>
-      <div class="data-table-card">
-        <table>
-          <thead><tr><th>Image</th><th>Name</th><th>Description</th><th>Actions</th></tr></thead>
-          <tbody id="categories-table"></tbody>
-        </table>
-      </div>
-    </div>
+        </section>
 
-    <!-- COUPONS -->
-    <div id="coupons" class="tab-content">
-      <h1 class="page-title">Coupons & Offers</h1>
-      <div class="form-card">
-        <form id="coupon-form">
-          <div class="form-grid">
-            <div class="form-group">
-              <label>Code * (e.g. FESTIVAL20)</label>
-              <input type="text" id="cp-code" required style="text-transform:uppercase;">
+        <!-- ============ CATEGORIES ============ -->
+        <section class="view" data-view-pane="categories">
+          <div class="page-head">
+            <div>
+              <h1 class="page-title">Categories</h1>
+              <p class="page-sub" id="categories-sub">Organize your catalog.</p>
             </div>
-            <div class="form-group">
-              <label>Discount Type</label>
-              <select id="cp-type"><option value="percent">Percentage (%)</option><option value="flat">Flat Amount (₹)</option></select>
-            </div>
-            <div class="form-group">
-              <label>Discount Value *</label>
-              <input type="number" id="cp-value" required>
-            </div>
-            <div class="form-group">
-              <label>Min Order Amount (₹)</label>
-              <input type="number" id="cp-min" value="0">
-            </div>
-            <div class="form-group">
-              <label>Usage Limit</label>
-              <input type="number" id="cp-limit" placeholder="Leave blank for unlimited">
-            </div>
-            <div class="form-group">
-              <label>Expiry Date</label>
-              <input type="datetime-local" id="cp-expiry">
+            <button class="btn btn-primary" onclick="openCategoryForm()" data-testid="new-category"><i class="fas fa-plus"></i> New Category</button>
+          </div>
+          <div class="table-wrap">
+            <table class="data">
+              <thead><tr><th>Name</th><th>Description</th><th>Products</th><th style="width:90px"></th></tr></thead>
+              <tbody id="categories-tbody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ============ INVENTORY ============ -->
+        <section class="view" data-view-pane="inventory">
+          <div class="page-head">
+            <div>
+              <h1 class="page-title">Inventory</h1>
+              <p class="page-sub">Live stock levels with one-click adjustments.</p>
             </div>
           </div>
-          <button type="submit" class="submit-btn">Create Coupon</button>
-        </form>
-      </div>
-      <div class="data-table-card">
-        <table>
-          <thead><tr><th>Code</th><th>Discount</th><th>Min Order</th><th>Usage</th><th>Expiry</th><th>Actions</th></tr></thead>
-          <tbody id="coupons-table"></tbody>
-        </table>
-      </div>
-    </div>
+          <div class="table-wrap">
+            <div class="table-toolbar">
+              <div class="search">
+                <i class="fas fa-search"></i>
+                <input class="input" id="inv-search" placeholder="Search product, SKU..." data-testid="inv-search" />
+              </div>
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;cursor:pointer;">
+                <input type="checkbox" id="inv-low-only" data-testid="inv-low-only" />
+                <i class="fas fa-triangle-exclamation" style="color:var(--admin-warn)"></i> Low stock only
+              </label>
+            </div>
+            <table class="data">
+              <thead><tr><th>Product</th><th>SKU</th><th>Category</th><th style="text-align:center">Stock</th><th style="text-align:right;width:280px">Adjust</th></tr></thead>
+              <tbody id="inv-tbody"></tbody>
+            </table>
+          </div>
+        </section>
 
-    <!-- SALES -->
-    <div id="sales" class="tab-content">
-      <h1 class="page-title">Sale Events</h1>
-      <div class="form-card">
-        <form id="sale-form">
-          <div class="form-grid">
-            <div class="form-group full-width">
-              <label>Sale Name *</label>
-              <input type="text" id="s-name" required placeholder="e.g. Diwali Super Sale">
-            </div>
-            <div class="form-group full-width">
-              <label>Banner Text *</label>
-              <input type="text" id="s-banner" required placeholder="e.g. Flat 20% off on all items! Use code DIWALI">
-            </div>
-            <div class="form-group">
-              <label>Global Discount (%)</label>
-              <input type="number" id="s-discount" value="0">
-            </div>
-            <div class="form-group">
-              <label>Status</label>
-              <select id="s-active"><option value="true">Active</option><option value="false">Inactive</option></select>
-            </div>
-            <div class="form-group">
-              <label>Start Date *</label>
-              <input type="datetime-local" id="s-start" required>
-            </div>
-            <div class="form-group">
-              <label>End Date *</label>
-              <input type="datetime-local" id="s-end" required>
+        <!-- ============ BULK IMPORT ============ -->
+        <section class="view" data-view-pane="import">
+          <div class="page-head">
+            <div>
+              <h1 class="page-title">Bulk Import</h1>
+              <p class="page-sub">Upload a GoDaddy-style CSV or Excel file. Categories are auto-created from SHORTCODE.</p>
             </div>
           </div>
-          <button type="submit" class="submit-btn">Save Sale Event</button>
-        </form>
-      </div>
-      <div class="data-table-card">
-        <table>
-          <thead><tr><th>Name</th><th>Discount</th><th>Dates</th><th>Status</th><th>Actions</th></tr></thead>
-          <tbody id="sales-table"></tbody>
-        </table>
-      </div>
-    </div>
+          <div class="card" style="max-width:760px;">
+            <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px">
+              <div style="width:46px;height:46px;border-radius:6px;background:#F6E9DE;color:var(--admin-primary);display:flex;align-items:center;justify-content:center;font-size:20px;"><i class="fas fa-file-csv"></i></div>
+              <div>
+                <h3 class="card-title" style="margin:0;">CSV / Excel Upload</h3>
+                <div style="font-size:12px;color:var(--admin-text-mute);">Supports <code>.csv</code> and <code>.xlsx</code>. Max 10 MB.</div>
+              </div>
+            </div>
 
-    <!-- CUSTOMERS -->
-    <div id="customers" class="tab-content">
-      <h1 class="page-title">Registered Customers</h1>
-      <div class="data-table-card">
-        <table>
-          <thead><tr><th>Customer ID (UUID)</th><th>Name</th><th>Phone</th><th>Joined</th></tr></thead>
-          <tbody id="customers-table"></tbody>
-        </table>
-      </div>
-    </div>
+            <div class="dropzone" id="import-drop" data-testid="import-drop">
+              <div class="big-icon"><i class="fas fa-cloud-arrow-up"></i></div>
+              <div style="font-weight:600;margin-bottom:4px" id="import-droptext">Drop file here or click to browse</div>
+              <div style="font-size:12px;color:var(--admin-text-mute)" id="import-dropsub">Mapping: NAME, SKU, SHORTCODE→Category, PRICE, SALE PRICE, ON HAND→Stock, IMAGE URL, STATUS, DESCRIPTION</div>
+              <input type="file" id="import-file" accept=".csv,.xlsx,.xls" hidden data-testid="import-file" />
+            </div>
 
-    <!-- LEADS -->
-    <div id="leads" class="tab-content">
-      <h1 class="page-title">Leads & Enquiries</h1>
-      <div class="data-table-card">
-        <table>
-          <thead><tr><th>Date</th><th>Customer ID</th><th>Product ID</th><th>Message / Summary</th></tr></thead>
-          <tbody id="leads-table"></tbody>
-        </table>
-      </div>
-    </div>
+            <div style="display:flex;gap:8px;margin-top:14px;">
+              <button class="btn btn-secondary" id="import-preview-btn" disabled data-testid="import-preview-btn"><i class="fas fa-eye"></i> Preview</button>
+              <button class="btn btn-primary"  id="import-commit-btn"  disabled data-testid="import-commit-btn"><i class="fas fa-check"></i> Import All</button>
+              <a class="btn btn-ghost" href="https://customer-assets.emergentagent.com/job_admin-build-2/artifacts/4vg6twql_godaddy-products-export%20%282%29.csv" target="_blank" data-testid="import-sample"><i class="fas fa-download"></i> Sample CSV</a>
+            </div>
 
-    <!-- TESTIMONIALS -->
-    <div id="testimonials" class="tab-content">
-      <h1 class="page-title">Manage Testimonials</h1>
-      <div class="data-table-card">
-        <table>
-          <thead><tr><th>Date</th><th>Customer</th><th>Rating</th><th>Review</th><th>Status</th><th>Verified</th></tr></thead>
-          <tbody id="testimonials-table"></tbody>
-        </table>
-      </div>
-    </div>
+            <div id="import-result" style="margin-top:16px;"></div>
+          </div>
 
-    <!-- SEO -->
-    <div id="seo" class="tab-content">
-      <h1 class="page-title">SEO Settings</h1>
-      <div class="form-card">
-        <form id="seo-form">
-          <input type="hidden" id="seo-id">
-          <div class="form-grid">
-            <div class="form-group full-width">
-              <label>Site Title</label>
-              <input type="text" id="seo-title">
-            </div>
-            <div class="form-group full-width">
-              <label>Meta Description</label>
-              <textarea id="seo-desc"></textarea>
-            </div>
-            <div class="form-group full-width">
-              <label>Keywords</label>
-              <input type="text" id="seo-keys" placeholder="comma separated">
-            </div>
-            <div class="form-group full-width">
-              <label>OG Image URL</label>
-              <input type="url" id="seo-og">
-            </div>
-            <div class="form-group">
-              <label>Canonical URL</label>
-              <input type="url" id="seo-canon">
-            </div>
-            <div class="form-group">
-              <label>Google Analytics ID</label>
-              <input type="text" id="seo-ga">
-            </div>
-            <div class="form-group full-width">
-              <label>Google Search Console Verification</label>
-              <input type="text" id="seo-gsc">
+          <div id="import-preview-block" style="margin-top:20px;display:none;">
+            <h3 class="card-title" style="margin-bottom:10px">Preview · first 20 rows</h3>
+            <div class="table-wrap">
+              <table class="data">
+                <thead><tr><th>Name</th><th>SKU</th><th>Category</th><th style="text-align:right">Price</th><th style="text-align:right">Stock</th><th>Status</th></tr></thead>
+                <tbody id="import-preview-tbody"></tbody>
+              </table>
             </div>
           </div>
-          <button type="submit" class="submit-btn">Save SEO Settings</button>
-        </form>
-      </div>
-    </div>
+        </section>
 
-    <!-- SOCIAL MEDIA -->
-    <div id="social" class="tab-content">
-      <h1 class="page-title">Social Media Links</h1>
-      <div class="form-card">
-        <form id="social-form">
-          <div class="form-grid">
-            <div class="form-group">
-              <label>WhatsApp Number</label>
-              <input type="text" id="soc-wa-num">
-            </div>
-            <div class="form-group">
-              <label>WhatsApp Button Text</label>
-              <input type="text" id="soc-wa-txt">
-            </div>
-            <div class="form-group">
-              <label>Instagram URL</label>
-              <input type="url" id="soc-ig">
-            </div>
-            <div class="form-group">
-              <label>Facebook URL</label>
-              <input type="url" id="soc-fb">
-            </div>
-            <div class="form-group">
-              <label>YouTube URL</label>
-              <input type="url" id="soc-yt">
-            </div>
-            <div class="form-group">
-              <label>Twitter/X URL</label>
-              <input type="url" id="soc-tw">
-            </div>
-            <div class="form-group full-width">
-              <label>Pinterest URL</label>
-              <input type="url" id="soc-pin">
+        <!-- ============ ORDERS ============ -->
+        <section class="view" data-view-pane="orders">
+          <div class="page-head">
+            <div>
+              <h1 class="page-title">Orders</h1>
+              <p class="page-sub" id="orders-sub">Manage incoming orders.</p>
             </div>
           </div>
-          <button type="submit" class="submit-btn">Save Social Links</button>
-        </form>
-      </div>
+          <div class="table-wrap">
+            <div class="table-toolbar">
+              <div class="search">
+                <i class="fas fa-search"></i>
+                <input class="input" id="orders-search" placeholder="Search by order ID, email..." data-testid="orders-search" />
+              </div>
+              <select class="select" id="orders-status-filter" style="max-width:180px">
+                <option value="">All status</option>
+                <option>Processing</option><option>Packed</option><option>Shipped</option><option>Delivered</option><option>Cancelled</option>
+              </select>
+            </div>
+            <table class="data">
+              <thead><tr><th>Order #</th><th>Customer</th><th style="text-align:right">Total</th><th>Items</th><th>Status</th><th>Date</th><th style="width:80px"></th></tr></thead>
+              <tbody id="orders-tbody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ============ COUPONS ============ -->
+        <section class="view" data-view-pane="coupons">
+          <div class="page-head">
+            <div>
+              <h1 class="page-title">Coupons</h1>
+              <p class="page-sub">Create and manage discount codes.</p>
+            </div>
+            <button class="btn btn-primary" onclick="openCouponForm()" data-testid="new-coupon"><i class="fas fa-plus"></i> New Coupon</button>
+          </div>
+          <div class="table-wrap">
+            <table class="data">
+              <thead><tr><th>Code</th><th>Discount</th><th>Min Order</th><th>Usage</th><th>Expires</th><th style="width:90px"></th></tr></thead>
+              <tbody id="coupons-tbody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ============ SALE EVENTS ============ -->
+        <section class="view" data-view-pane="sales">
+          <div class="page-head">
+            <div>
+              <h1 class="page-title">Sale Events</h1>
+              <p class="page-sub">Plan and schedule promotional campaigns.</p>
+            </div>
+            <button class="btn btn-primary" onclick="openSaleForm()" data-testid="new-sale"><i class="fas fa-plus"></i> New Sale Event</button>
+          </div>
+          <div class="table-wrap">
+            <table class="data">
+              <thead><tr><th>Name</th><th>Banner</th><th>Discount</th><th>Start</th><th>End</th><th>Active</th><th style="width:90px"></th></tr></thead>
+              <tbody id="sales-tbody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ============ LEADS / ENQUIRIES ============ -->
+        <section class="view" data-view-pane="leads">
+          <div class="page-head">
+            <div>
+              <h1 class="page-title">Enquiries</h1>
+              <p class="page-sub">Customer enquiries and bulk-order leads.</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data">
+              <thead><tr><th>Date</th><th>Product</th><th>Summary</th><th>User</th></tr></thead>
+              <tbody id="leads-tbody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ============ TESTIMONIALS ============ -->
+        <section class="view" data-view-pane="testimonials">
+          <div class="page-head">
+            <div>
+              <h1 class="page-title">Testimonials</h1>
+              <p class="page-sub">Approve customer reviews before they appear on the storefront.</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data">
+              <thead><tr><th>Customer</th><th>Rating</th><th>Review</th><th>Status</th><th>Date</th><th style="width:200px;text-align:right">Action</th></tr></thead>
+              <tbody id="testimonials-tbody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ============ SITE SETTINGS ============ -->
+        <section class="view" data-view-pane="settings">
+          <div class="page-head">
+            <div>
+              <h1 class="page-title">Site Settings</h1>
+              <p class="page-sub">SEO, analytics, social links, image upload config.</p>
+            </div>
+            <button class="btn btn-primary" onclick="saveSettings()" data-testid="save-settings"><i class="fas fa-save"></i> Save Settings</button>
+          </div>
+
+          <div class="card" style="max-width:900px;">
+            <h3 class="card-title">SEO &amp; Meta</h3>
+            <div class="grid-2">
+              <div class="field"><label>Site Title</label><input class="input" id="set-site_title" data-testid="set-site_title" /></div>
+              <div class="field"><label>Canonical URL</label><input class="input" id="set-canonical_url" placeholder="https://www.oncost.shop" /></div>
+              <div class="field" style="grid-column:1/-1"><label>Meta Description</label><textarea class="textarea" id="set-meta_description"></textarea></div>
+              <div class="field" style="grid-column:1/-1"><label>Keywords (comma separated)</label><input class="input" id="set-keywords" /></div>
+              <div class="field"><label>OG Image URL</label><input class="input" id="set-og_image" /></div>
+              <div class="field"><label>GA Measurement ID</label><input class="input" id="set-ga_id" placeholder="G-XXXXXXX" /></div>
+              <div class="field"><label>GSC Verification</label><input class="input" id="set-gsc_verification" /></div>
+              <div class="field" style="grid-column:1/-1"><label>robots.txt</label><textarea class="textarea" id="set-robots_txt"></textarea></div>
+            </div>
+          </div>
+
+          <div class="card" style="max-width:900px; margin-top:18px;">
+            <h3 class="card-title">Social &amp; Contact</h3>
+            <div class="grid-2">
+              <div class="field"><label>WhatsApp Number</label><input class="input" id="set-whatsapp_number" placeholder="+91XXXXXXXXXX" /></div>
+              <div class="field"><label>WhatsApp Default Message</label><input class="input" id="set-whatsapp_text" /></div>
+              <div class="field"><label>Instagram URL</label><input class="input" id="set-instagram_url" /></div>
+              <div class="field"><label>Facebook URL</label><input class="input" id="set-facebook_url" /></div>
+              <div class="field"><label>YouTube URL</label><input class="input" id="set-youtube_url" /></div>
+              <div class="field"><label>Pinterest URL</label><input class="input" id="set-pinterest_url" /></div>
+              <div class="field"><label>Twitter / X URL</label><input class="input" id="set-twitter_url" /></div>
+            </div>
+          </div>
+
+          <div class="card" style="max-width:900px; margin-top:18px;">
+            <h3 class="card-title">Image Upload Configuration</h3>
+            <p style="font-size:13px;color:var(--admin-text-mute);margin:0 0 12px;">
+              To upload JPG images directly from the admin (instead of pasting URLs), add a free
+              <a href="https://api.imgbb.com/" target="_blank" style="color:var(--admin-primary);font-weight:600;">imgbb.com</a>
+              API key below. Without it, you can still paste image URLs manually.
+            </p>
+            <div class="field" style="max-width:480px;">
+              <label>imgbb API Key</label>
+              <input class="input" id="set-imgbb_api_key" placeholder="Paste your imgbb API key here" data-testid="set-imgbb_api_key" />
+              <div class="hint">Get it free at imgbb.com → Account → API → Add key. Stored in your Supabase site_settings.</div>
+            </div>
+          </div>
+        </section>
+      </main>
     </div>
+  </div>
 
-  </main>
+  <!-- Modal container (injected) -->
+  <div id="modal-root"></div>
 
-  <div id="toast" class="toast">Action completed successfully</div>
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
 
   <script src="admin.js"></script>
 </body>

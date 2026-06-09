@@ -1,481 +1,1117 @@
-const ADMIN_EMAIL = 'enterprisepragna@gmail.com';
+/* =============================================================
+   ONCOST Admin Console · admin.js
+   Vanilla JS · Supabase JS v2 · Single-file SPA
+   ============================================================= */
+'use strict';
 
-// Setup Toast Notification
-function showToast(msg, isError = false) {
-  const t = document.getElementById('toast');
+const ADMIN_EMAILS = ['enterprisepragna@gmail.com'];
+
+// ------------------------- State -------------------------
+const state = {
+  user: null,
+  settings: {},
+  products: [],         // full list (paged client-side for simplicity)
+  productsFiltered: [],
+  productsPage: 1,
+  productsPageSize: 20,
+  categories: [],
+  orders: [],
+  coupons: [],
+  sales: [],
+  leads: [],
+  testimonials: [],
+  inv: [],
+  imgbbKey: '',
+};
+
+// ------------------------- Utilities -------------------------
+const $ = (id) => document.getElementById(id);
+const el = (tag, attrs = {}, html = '') => {
+  const n = document.createElement(tag);
+  Object.entries(attrs).forEach(([k, v]) => {
+    if (k === 'class') n.className = v;
+    else if (k === 'style') n.style.cssText = v;
+    else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+    else n.setAttribute(k, v);
+  });
+  if (html) n.innerHTML = html;
+  return n;
+};
+const fmtINR = (n) => '₹' + (Number(n) || 0).toLocaleString('en-IN');
+const escapeHTML = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const slugify = (s) => String(s || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || ('id-' + Date.now());
+
+function showToast(msg, kind = 'success') {
+  const t = $('toast');
   t.textContent = msg;
-  t.style.background = isError ? '#D32F2F' : '#2E7D32';
+  t.className = 'toast ' + (kind === 'error' ? 'error' : kind === 'success' ? 'success' : '');
   t.style.display = 'block';
-  setTimeout(() => { t.style.display = 'none'; }, 3000);
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => { t.style.display = 'none'; }, 3000);
 }
 
-// Check Authentication
-async function checkAuth() {
-  if (typeof supabaseClient === 'undefined') return;
-  const { data: { session } } = await supabaseClient.auth.getSession();
-  if (!session || session.user.email !== ADMIN_EMAIL) {
-    window.location.href = 'admin-login.html';
-  } else {
-    loadAllData();
+function confirmDialog(message, { confirmLabel = 'Confirm', danger = false } = {}) {
+  return new Promise((resolve) => {
+    const root = $('modal-root');
+    root.innerHTML = `
+      <div class="modal-backdrop" data-testid="confirm-overlay">
+        <div class="modal sm">
+          <div class="modal-head"><h3>Confirm</h3></div>
+          <div class="modal-body"><p style="margin:0;color:var(--admin-text-mute)">${escapeHTML(message)}</p></div>
+          <div class="modal-foot">
+            <button class="btn btn-secondary" id="cnf-no" data-testid="confirm-no">Cancel</button>
+            <button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" id="cnf-yes" data-testid="confirm-yes">${escapeHTML(confirmLabel)}</button>
+          </div>
+        </div>
+      </div>`;
+    root.querySelector('.modal-backdrop').addEventListener('click', (e) => {
+      if (e.target.classList.contains('modal-backdrop')) { close(false); }
+    });
+    $('cnf-no').onclick = () => close(false);
+    $('cnf-yes').onclick = () => close(true);
+    function close(v) { root.innerHTML = ''; resolve(v); }
+  });
+}
+
+function openModal({ title, size = '', body, footer, testid = 'modal' }) {
+  const root = $('modal-root');
+  const wrap = el('div', { class: 'modal-backdrop', 'data-testid': testid + '-overlay' });
+  wrap.innerHTML = `
+    <div class="modal ${size}">
+      <div class="modal-head">
+        <h3>${escapeHTML(title)}</h3>
+        <button class="icon-btn" id="${testid}-close" data-testid="${testid}-close"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" id="${testid}-body"></div>
+      <div class="modal-foot" id="${testid}-foot"></div>
+    </div>`;
+  root.appendChild(wrap);
+  if (typeof body === 'string') $(`${testid}-body`).innerHTML = body;
+  else if (body) $(`${testid}-body`).appendChild(body);
+  if (footer) $(`${testid}-foot`).appendChild(footer);
+  $(`${testid}-close`).onclick = () => close();
+  wrap.addEventListener('click', (e) => { if (e.target === wrap) close(); });
+  function close() { wrap.remove(); }
+  return { close, root: wrap };
+}
+
+// ------------------------- Auth & Boot -------------------------
+async function bootstrap() {
+  try {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session || !ADMIN_EMAILS.includes(session.user.email.toLowerCase())) {
+      window.location.href = 'admin-login.html'; return;
+    }
+    state.user = session.user;
+    $('user-name').textContent = session.user.user_metadata?.name || 'Admin';
+    $('user-email').textContent = session.user.email;
+    $('user-avatar').textContent = (session.user.email || 'A').charAt(0).toUpperCase();
+
+    setupNav();
+    setupSearches();
+    setupImport();
+
+    await Promise.all([
+      loadSettings(),
+      loadCategories(),
+      loadProducts(),
+      loadOrders(),
+      loadCoupons(),
+      loadSales(),
+      loadLeads(),
+      loadTestimonials(),
+    ]);
+    renderAllOnce();
+  } catch (err) {
+    console.error(err);
+    showToast('Failed to load admin: ' + err.message, 'error');
   }
 }
 
-async function logout() {
+async function adminLogout() {
+  if (!await confirmDialog('Sign out of the admin console?', { confirmLabel: 'Sign out' })) return;
   await supabaseClient.auth.signOut();
   window.location.href = 'admin-login.html';
 }
+window.adminLogout = adminLogout;
 
-function switchTab(tabId, btn) {
-  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-  document.getElementById(tabId).classList.add('active');
-  document.querySelectorAll('.admin-nav button').forEach(el => el.classList.remove('active'));
-  btn.classList.add('active');
+// ------------------------- Navigation -------------------------
+const VIEW_TITLES = {
+  dashboard: 'Dashboard', products: 'Products', categories: 'Categories',
+  inventory: 'Inventory', import: 'Bulk Import', orders: 'Orders',
+  coupons: 'Coupons', sales: 'Sale Events', leads: 'Enquiries',
+  testimonials: 'Testimonials', settings: 'Site Settings',
+};
+
+function setupNav() {
+  document.querySelectorAll('[data-view]').forEach(btn => {
+    btn.addEventListener('click', () => goView(btn.dataset.view));
+  });
 }
-
-// Master Load Function
-async function loadAllData() {
-  await Promise.all([
-    loadDashboard(),
-    loadProducts(),
-    loadCategories(),
-    loadOrders(),
-    loadCoupons(),
-    loadSales(),
-    loadCustomers(),
-    loadLeads(),
-    loadTestimonials(),
-    loadSettings()
-  ]);
-}
-
-// 1. Dashboard
-async function loadDashboard() {
-  const { data: orders } = await supabaseClient.from('orders').select('*').order('created_at', { ascending: false });
-  const { data: products } = await supabaseClient.from('products').select('*').eq('status', 'Active');
-  const { data: leads } = await supabaseClient.from('leads').select('*');
-  
-  let revenue = 0;
-  if (orders) {
-    revenue = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
-  }
-  
-  document.getElementById('metric-revenue').textContent = `₹${revenue.toLocaleString()}`;
-  document.getElementById('metric-orders').textContent = orders ? orders.length : 0;
-  document.getElementById('metric-products').textContent = products ? products.length : 0;
-  document.getElementById('metric-leads').textContent = leads ? leads.length : 0;
-  
-  const rTable = document.getElementById('recent-orders-table');
-  if (orders && orders.length > 0) {
-    rTable.innerHTML = orders.slice(0, 5).map(o => `
-      <tr>
-        <td>#${o.id.substring(0,8)}</td>
-        <td style="font-size:0.8rem">${o.user_id}</td>
-        <td><strong>₹${o.total_amount}</strong></td>
-        <td><span class="status-badge status-${o.status.toLowerCase()}">${o.status}</span></td>
-        <td>${new Date(o.created_at).toLocaleDateString()}</td>
-      </tr>
-    `).join('');
-  } else {
-    rTable.innerHTML = '<tr><td colspan="5" style="text-align:center;">No recent orders.</td></tr>';
-  }
-}
-
-// 2. Categories
-async function loadCategories() {
-  const { data: categories } = await supabaseClient.from('categories').select('*').order('created_at', { ascending: false });
-  const select = document.getElementById('p-category');
-  const table = document.getElementById('categories-table');
-  
-  if (categories && categories.length > 0) {
-    select.innerHTML = categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
-    table.innerHTML = categories.map(c => `
-      <tr>
-        <td>${c.image_url ? `<img src="${c.image_url}" width="40" height="40" style="object-fit:cover;border-radius:4px;">` : 'No Img'}</td>
-        <td><strong>${c.name}</strong></td>
-        <td>${c.description || '-'}</td>
-        <td><button class="action-btn delete" onclick="deleteCategory('${c.id}')"><i class="fa-solid fa-trash"></i></button></td>
-      </tr>
-    `).join('');
-  } else {
-    select.innerHTML = '<option value="">Create a category first</option>';
-    table.innerHTML = '<tr><td colspan="4" style="text-align:center;">No categories found.</td></tr>';
-  }
-}
-
-document.getElementById('category-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const name = document.getElementById('c-name').value;
-  const description = document.getElementById('c-desc').value;
-  const image_url = document.getElementById('c-img').value;
-  const { error } = await supabaseClient.from('categories').insert([{ name, description, image_url }]);
-  if (error) return showToast(error.message, true);
-  showToast('Category saved!');
-  document.getElementById('category-form').reset();
-  loadCategories();
-});
-
-async function deleteCategory(id) {
-  if (confirm('Delete this category?')) {
-    await supabaseClient.from('categories').delete().eq('id', id);
-    loadCategories();
-  }
-}
-
-// 3. Products
-let editingProductId = null;
-async function loadProducts() {
-  const { data: products } = await supabaseClient.from('products').select('*').order('created_at', { ascending: false });
-  const table = document.getElementById('products-table');
-  if (products && products.length > 0) {
-    table.innerHTML = products.map(p => `
-      <tr>
-        <td>${p.image_url ? `<img src="${p.image_url}" width="50" height="50" style="object-fit:cover;border-radius:6px;">` : ''}</td>
-        <td><strong>${p.name}</strong><br><span style="font-size:0.8rem;color:#888;">${p.sku || 'No SKU'}</span></td>
-        <td>₹${p.price} <br><span style="font-size:0.8rem;color:green;">${p.offer_price ? `Offer: ₹${p.offer_price}` : ''}</span></td>
-        <td>${p.stock}</td>
-        <td><span style="font-size:0.8rem;padding:4px 8px;border-radius:4px;background:#eee;">${p.status}</span></td>
-        <td>
-          <button class="action-btn edit" onclick='editProduct(${JSON.stringify(p).replace(/'/g, "&#39;")})'><i class="fa-solid fa-pen"></i></button>
-          <button class="action-btn delete" onclick="deleteProduct('${p.id}')"><i class="fa-solid fa-trash"></i></button>
-        </td>
-      </tr>
-    `).join('');
-  } else {
-    table.innerHTML = '<tr><td colspan="6" style="text-align:center;">No products found.</td></tr>';
-  }
-}
-
-document.getElementById('product-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const product = {
-    name: document.getElementById('p-name').value,
-    category: document.getElementById('p-category').value,
-    sku: document.getElementById('p-sku').value,
-    price: parseFloat(document.getElementById('p-price').value),
-    offer_price: document.getElementById('p-offer').value ? parseFloat(document.getElementById('p-offer').value) : null,
-    stock: parseInt(document.getElementById('p-stock').value || '0'),
-    badge: document.getElementById('p-badge').value,
-    status: document.getElementById('p-status').value,
-    image_url: document.getElementById('p-image').value,
-    description: document.getElementById('p-desc').value,
-    seo_title: document.getElementById('p-seo-title').value,
-    seo_description: document.getElementById('p-seo-desc').value,
-  };
-  
-  if (!product.id && !editingProductId) {
-    product.id = product.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-  }
-
-  let error;
-  if (editingProductId) {
-    const { error: err } = await supabaseClient.from('products').update(product).eq('id', editingProductId);
-    error = err;
-  } else {
-    const { error: err } = await supabaseClient.from('products').insert([product]);
-    error = err;
-  }
-  
-  if (error) return showToast(error.message, true);
-  showToast(editingProductId ? 'Product updated!' : 'Product added!');
-  resetProductForm();
-  loadProducts();
-  loadDashboard();
-});
-
-function editProduct(p) {
-  editingProductId = p.id;
-  document.getElementById('p-name').value = p.name;
-  document.getElementById('p-category').value = p.category || '';
-  document.getElementById('p-sku').value = p.sku || '';
-  document.getElementById('p-price').value = p.price;
-  document.getElementById('p-offer').value = p.offer_price || '';
-  document.getElementById('p-stock').value = p.stock || 0;
-  document.getElementById('p-badge').value = p.badge || '';
-  document.getElementById('p-status').value = p.status || 'Active';
-  document.getElementById('p-image').value = p.image_url || '';
-  document.getElementById('p-desc').value = p.description || '';
-  document.getElementById('p-seo-title').value = p.seo_title || '';
-  document.getElementById('p-seo-desc').value = p.seo_description || '';
-  document.getElementById('product-btn').textContent = 'Update Product';
+function goView(view) {
+  document.querySelectorAll('[data-view-pane]').forEach(p => p.classList.toggle('active', p.dataset.viewPane === view));
+  document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  $('topbar-crumb').textContent = VIEW_TITLES[view] || 'Admin';
+  if (window.innerWidth < 800) document.getElementById('sidebar').classList.remove('open');
+  // Re-render views that need fresh data
+  if (view === 'inventory') renderInventory();
+  if (view === 'orders') renderOrders();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
+window.goView = goView;
 
-function resetProductForm() {
-  editingProductId = null;
-  document.getElementById('product-form').reset();
-  document.getElementById('product-btn').textContent = 'Save Product';
+// ------------------------- Settings -------------------------
+async function loadSettings() {
+  const { data } = await supabaseClient.from('site_settings').select('*').limit(1);
+  state.settings = (data && data[0]) || {};
+  state.imgbbKey = state.settings.imgbb_api_key || '';
+  // Populate form
+  ['site_title','meta_description','keywords','og_image','canonical_url','ga_id','gsc_verification','robots_txt',
+   'whatsapp_number','whatsapp_text','instagram_url','facebook_url','youtube_url','pinterest_url','twitter_url',
+   'imgbb_api_key'].forEach(k => {
+    const node = $(`set-${k}`);
+    if (node) node.value = state.settings[k] || '';
+  });
+}
+async function saveSettings() {
+  const payload = {};
+  ['site_title','meta_description','keywords','og_image','canonical_url','ga_id','gsc_verification','robots_txt',
+   'whatsapp_number','whatsapp_text','instagram_url','facebook_url','youtube_url','pinterest_url','twitter_url',
+   'imgbb_api_key'].forEach(k => {
+    const node = $(`set-${k}`);
+    if (node) payload[k] = node.value.trim();
+  });
+  let res;
+  if (state.settings.id) {
+    res = await supabaseClient.from('site_settings').update(payload).eq('id', state.settings.id).select().single();
+  } else {
+    res = await supabaseClient.from('site_settings').insert(payload).select().single();
+  }
+  if (res.error) {
+    if (res.error.message?.includes('imgbb_api_key')) {
+      showToast('Run the schema update SQL to add imgbb_api_key column to site_settings (see admin_setup.sql).', 'error');
+    } else {
+      showToast('Failed: ' + res.error.message, 'error');
+    }
+    return;
+  }
+  state.settings = res.data;
+  state.imgbbKey = res.data.imgbb_api_key || '';
+  showToast('Settings saved.');
+}
+window.saveSettings = saveSettings;
+
+// ------------------------- Image upload (imgbb) -------------------------
+async function uploadImageToImgbb(file) {
+  if (!state.imgbbKey) {
+    throw new Error('Add an imgbb API key in Site Settings to enable JPG upload.');
+  }
+  const fd = new FormData();
+  fd.append('image', file);
+  const r = await fetch(`https://api.imgbb.com/1/upload?key=${encodeURIComponent(state.imgbbKey)}`, { method: 'POST', body: fd });
+  const j = await r.json();
+  if (!j.success) throw new Error(j.error?.message || 'imgbb upload failed');
+  return j.data.url; // direct image url
+}
+
+// ------------------------- Dashboard -------------------------
+function renderDashboard() {
+  const totalProducts = state.products.length;
+  const active = state.products.filter(p => (p.status || 'Active') === 'Active').length;
+  const totalCats = state.categories.length;
+  const lowStock = state.products.filter(p => (p.stock ?? 0) <= 5).length;
+  const outStock = state.products.filter(p => (p.stock ?? 0) === 0).length;
+  const totalOrders = state.orders.length;
+  const revenue = state.orders.reduce((s, o) => s + Number(o.total_amount || 0), 0);
+  const pendingOrders = state.orders.filter(o => o.status === 'Processing').length;
+  const newLeads = state.leads.length;
+  const invValue = state.products.reduce((s, p) => s + (Number(p.stock || 0) * Number(p.price || 0)), 0);
+  const liveSales = state.sales.filter(s => s.is_active).length;
+
+  $('kpi-grid').innerHTML = [
+    kpi('Revenue', fmtINR(revenue), 'fa-indian-rupee-sign', `${totalOrders} orders`),
+    kpi('Orders Pending', pendingOrders, 'fa-clock', `${totalOrders} total`),
+    kpi('Total Products', totalProducts, 'fa-box', `${active} active`),
+    kpi('Low Stock', lowStock, 'fa-triangle-exclamation', `${outStock} out of stock`, lowStock > 0 ? 'warn' : ''),
+    kpi('Categories', totalCats, 'fa-layer-group'),
+    kpi('Inventory Value', fmtINR(invValue), 'fa-warehouse'),
+    kpi('Live Sales', liveSales, 'fa-bullhorn'),
+    kpi('New Enquiries', newLeads, 'fa-envelope'),
+  ].join('');
+
+  // Recent orders
+  const ro = $('recent-orders-list');
+  if (state.orders.length === 0) {
+    ro.innerHTML = `<div class="empty"><div class="ic"><i class="fas fa-receipt"></i></div><h4>No orders yet</h4><p>When customers place orders, they’ll appear here.</p></div>`;
+  } else {
+    ro.innerHTML = `<table class="data" style="border:none;"><tbody>` + state.orders.slice(0, 6).map(o => `
+      <tr>
+        <td><div style="font-weight:600;">#${escapeHTML(String(o.id).substring(0,8))}</div><div style="font-size:11px;color:var(--admin-text-mute);">${escapeHTML(o.guest_email || (o.user_id||'').substring(0,12))}</div></td>
+        <td style="text-align:right;font-weight:600">${fmtINR(o.total_amount)}</td>
+        <td>${statusBadge(o.status)}</td>
+        <td style="font-size:11px;color:var(--admin-text-mute)">${new Date(o.created_at).toLocaleDateString()}</td>
+      </tr>`).join('') + '</tbody></table>';
+  }
+
+  // Low stock list
+  const lo = $('low-stock-list');
+  const lows = state.products.filter(p => (p.stock ?? 0) <= 5).sort((a,b) => (a.stock||0)-(b.stock||0)).slice(0, 7);
+  if (lows.length === 0) {
+    lo.innerHTML = `<div class="empty"><div class="ic"><i class="fas fa-circle-check"></i></div><h4>All healthy</h4><p>No products below threshold.</p></div>`;
+  } else {
+    lo.innerHTML = lows.map(p => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--admin-border)">
+        <div style="min-width:0;">
+          <div style="font-weight:500;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHTML(p.name)}</div>
+          <div style="font-size:11px;color:var(--admin-text-mute)">${escapeHTML(p.category || 'Uncategorized')}</div>
+        </div>
+        <span class="badge ${p.stock === 0 ? 'b-error' : 'b-warn'}">${p.stock ?? 0} left</span>
+      </div>`).join('');
+  }
+}
+
+function kpi(label, value, icon, sub = '', tone = '') {
+  return `<div class="kpi" data-testid="kpi-${slugify(label)}">
+    <div class="kpi-icon" ${tone === 'warn' ? 'style="background:#FBF1E3;color:var(--admin-warn);"' : ''}><i class="fas ${icon}"></i></div>
+    <div class="kpi-label">${escapeHTML(label)}</div>
+    <div class="kpi-value">${escapeHTML(String(value))}</div>
+    ${sub ? `<div class="kpi-sub">${escapeHTML(sub)}</div>` : ''}
+  </div>`;
+}
+function statusBadge(s) {
+  s = s || '';
+  const cls = ({
+    'Active': 'b-success', 'Live': 'b-success', 'Delivered': 'b-success', 'Approved': 'b-success',
+    'Inactive': 'b-muted', 'Ended': 'b-muted',
+    'Draft': 'b-warn', 'Processing': 'b-warn', 'Packed': 'b-warn', 'Shipped': 'b-warn', 'Pending': 'b-warn',
+    'Cancelled': 'b-error', 'Rejected': 'b-error',
+  })[s] || 'b-muted';
+  return `<span class="badge ${cls}">${escapeHTML(s)}</span>`;
+}
+
+// ------------------------- Products -------------------------
+async function loadProducts() {
+  const { data, error } = await supabaseClient.from('products').select('*').order('created_at', { ascending: false });
+  if (error) { showToast('Load products failed: ' + error.message, 'error'); return; }
+  state.products = data || [];
+}
+
+function applyProductFilters() {
+  const q = ($('products-search').value || '').toLowerCase().trim();
+  const cat = $('products-cat-filter').value;
+  const st = $('products-status-filter').value;
+  state.productsFiltered = state.products.filter(p => {
+    if (cat && (p.category || '') !== cat) return false;
+    if (st && (p.status || 'Active') !== st) return false;
+    if (q) {
+      const hay = `${p.name || ''} ${p.sku || ''} ${p.category || ''} ${p.id || ''}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+  state.productsPage = 1;
+  renderProducts();
+}
+
+function renderProducts() {
+  // Populate category filter dropdown
+  const catSel = $('products-cat-filter');
+  const cats = state.categories.map(c => c.name);
+  const current = catSel.value;
+  catSel.innerHTML = '<option value="">All categories</option>' + cats.map(c => `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join('');
+  catSel.value = current;
+
+  $('products-sub').textContent = `${state.productsFiltered.length} of ${state.products.length} products shown.`;
+
+  const page = state.productsPage;
+  const ps = state.productsPageSize;
+  const slice = state.productsFiltered.slice((page-1) * ps, page * ps);
+
+  if (slice.length === 0 && state.products.length === 0) {
+    $('products-tbody').innerHTML = `<tr><td colspan="8"><div class="empty"><div class="ic"><i class="fas fa-box-open"></i></div><h4>No products yet</h4><p>Add manually or use Bulk Import.</p><button class="btn btn-primary" onclick="openProductForm()"><i class="fas fa-plus"></i> Add product</button></div></td></tr>`;
+    $('products-pagination').style.display = 'none';
+    return;
+  }
+  if (slice.length === 0) {
+    $('products-tbody').innerHTML = `<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--admin-text-mute);">No products match these filters.</td></tr>`;
+    $('products-pagination').style.display = 'none';
+    return;
+  }
+
+  $('products-tbody').innerHTML = slice.map(p => {
+    const img = p.image_url ? `<img class="product-thumb" src="${escapeHTML(p.image_url)}" alt="" onerror="this.style.display='none'" />` :
+      `<div class="product-thumb" style="display:flex;align-items:center;justify-content:center;color:var(--admin-text-mute);"><i class="fas fa-image"></i></div>`;
+    const stock = Number(p.stock || 0);
+    const stockBadge = stock === 0 ? 'b-error' : stock <= 5 ? 'b-warn' : 'b-muted';
+    const offer = (p.offer_price && Number(p.offer_price) !== Number(p.price));
+    return `<tr data-testid="product-row-${escapeHTML(p.id)}">
+      <td>${img}</td>
+      <td><div style="font-weight:600">${escapeHTML(p.name)}</div><div style="font-size:11px;color:var(--admin-text-mute)">${escapeHTML((p.description||'').substring(0,60))}</div></td>
+      <td><code style="font-size:11px;color:var(--admin-text-mute)">${escapeHTML(p.sku || '—')}</code></td>
+      <td>${escapeHTML(p.category || '—')}</td>
+      <td style="text-align:right"><div style="font-weight:600">${fmtINR(p.price)}</div>${offer ? `<div style="font-size:11px;color:var(--admin-primary)">Sale ${fmtINR(p.offer_price)}</div>` : ''}</td>
+      <td style="text-align:right"><span class="badge ${stockBadge}">${stock}</span></td>
+      <td>${statusBadge(p.status || 'Active')}</td>
+      <td>
+        <div class="row-actions">
+          <button class="icon-btn" onclick="openProductForm('${escapeHTML(p.id)}')" data-testid="edit-product-${escapeHTML(p.id)}" title="Edit"><i class="fas fa-pen"></i></button>
+          <button class="icon-btn danger" onclick="deleteProduct('${escapeHTML(p.id)}')" data-testid="delete-product-${escapeHTML(p.id)}" title="Delete"><i class="fas fa-trash"></i></button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(state.productsFiltered.length / ps));
+  if (totalPages > 1) {
+    $('products-pagination').style.display = 'flex';
+    $('products-count').textContent = `Page ${page} / ${totalPages} · ${state.productsFiltered.length} products`;
+    $('products-prev').disabled = page <= 1;
+    $('products-next').disabled = page >= totalPages;
+    $('products-prev').onclick = () => { state.productsPage = Math.max(1, page-1); renderProducts(); };
+    $('products-next').onclick = () => { state.productsPage = Math.min(totalPages, page+1); renderProducts(); };
+  } else {
+    $('products-pagination').style.display = 'none';
+  }
 }
 
 async function deleteProduct(id) {
-  if (confirm('Delete this product?')) {
-    await supabaseClient.from('products').delete().eq('id', id);
-    loadProducts();
-    loadDashboard();
+  const p = state.products.find(x => x.id === id);
+  if (!p) return;
+  if (!await confirmDialog(`Permanently delete "${p.name}"?`, { confirmLabel: 'Delete', danger: true })) return;
+  const { error } = await supabaseClient.from('products').delete().eq('id', id);
+  if (error) return showToast('Delete failed: ' + error.message, 'error');
+  state.products = state.products.filter(x => x.id !== id);
+  applyProductFilters();
+  showToast('Product deleted.');
+}
+window.deleteProduct = deleteProduct;
+
+function openProductForm(id) {
+  const p = id ? state.products.find(x => x.id === id) : null;
+  const isEdit = !!p;
+  const formId = 'pf';
+  const html = `
+    <div class="tabs">
+      <button type="button" class="tab-btn active" data-tab="general" data-testid="pf-tab-general">General</button>
+      <button type="button" class="tab-btn" data-tab="media" data-testid="pf-tab-media">Media</button>
+      <button type="button" class="tab-btn" data-tab="inventory" data-testid="pf-tab-inventory">Inventory</button>
+      <button type="button" class="tab-btn" data-tab="seo" data-testid="pf-tab-seo">SEO</button>
+    </div>
+    <form id="${formId}-form">
+      <div class="tab-pane active" data-pane="general">
+        <div class="grid-2">
+          <div class="field" style="grid-column:1/-1"><label>Name *</label><input class="input" id="${formId}-name" required data-testid="pf-name" value="${escapeHTML(p?.name||'')}" /></div>
+          <div class="field"><label>SKU</label><input class="input" id="${formId}-sku" data-testid="pf-sku" value="${escapeHTML(p?.sku||'')}" /></div>
+          <div class="field"><label>Status</label>
+            <select class="select" id="${formId}-status" data-testid="pf-status">
+              ${['Active','Inactive','Draft'].map(s => `<option ${(p?.status||'Active')===s?'selected':''}>${s}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field"><label>Category</label>
+            <input class="input" list="${formId}-catlist" id="${formId}-category" data-testid="pf-category" value="${escapeHTML(p?.category||'')}" placeholder="e.g. Brass Collection" />
+            <datalist id="${formId}-catlist">${state.categories.map(c => `<option value="${escapeHTML(c.name)}">`).join('')}</datalist>
+          </div>
+          <div class="field"><label>Badge (e.g. "Best Seller")</label><input class="input" id="${formId}-badge" data-testid="pf-badge" value="${escapeHTML(p?.badge||'')}" /></div>
+          <div class="field"><label>Price (₹) *</label><input class="input" id="${formId}-price" type="number" min="0" step="0.01" required data-testid="pf-price" value="${p?.price ?? ''}" /></div>
+          <div class="field"><label>Offer / Sale Price (₹)</label><input class="input" id="${formId}-offer_price" type="number" min="0" step="0.01" data-testid="pf-offer" value="${p?.offer_price ?? ''}" /></div>
+          <div class="field" style="grid-column:1/-1"><label>Description</label><textarea class="textarea" id="${formId}-description" data-testid="pf-description">${escapeHTML(p?.description||'')}</textarea></div>
+        </div>
+      </div>
+
+      <div class="tab-pane" data-pane="media">
+        <div id="${formId}-img-block">
+          ${p?.image_url ? `<div style="margin-bottom:12px;"><img src="${escapeHTML(p.image_url)}" alt="" style="max-width:240px;border-radius:6px;border:1px solid var(--admin-border);" /></div>` : ''}
+        </div>
+        <div class="field"><label>Image URL</label><input class="input" id="${formId}-image_url" data-testid="pf-image_url" value="${escapeHTML(p?.image_url||'')}" placeholder="https://..." /></div>
+        <div style="margin:14px 0 6px;font-size:12px;color:var(--admin-text-mute);text-align:center;">— or —</div>
+        <div class="dropzone" id="${formId}-drop" data-testid="pf-drop">
+          <div class="big-icon"><i class="fas fa-image"></i></div>
+          <div style="font-weight:600;margin-bottom:4px">Drop a JPG/PNG to upload</div>
+          <div style="font-size:12px;color:var(--admin-text-mute)" id="${formId}-drop-sub">Uses imgbb (configure key in Site Settings → Image Upload)</div>
+          <input type="file" id="${formId}-file" accept="image/jpeg,image/png,image/webp" hidden />
+        </div>
+      </div>
+
+      <div class="tab-pane" data-pane="inventory">
+        <div class="grid-2">
+          <div class="field"><label>Stock On Hand</label><input class="input" id="${formId}-stock" type="number" min="0" data-testid="pf-stock" value="${p?.stock ?? 0}" /></div>
+        </div>
+      </div>
+
+      <div class="tab-pane" data-pane="seo">
+        <div class="field"><label>SEO Title <span class="hint" style="float:right;" id="${formId}-seoTL"></span></label><input class="input" id="${formId}-seo_title" data-testid="pf-seo_title" value="${escapeHTML(p?.seo_title||'')}" placeholder="${escapeHTML(p?.name||'Product name shown in Google')}" /></div>
+        <div class="field"><label>SEO Description <span class="hint" style="float:right;" id="${formId}-seoDL"></span></label><textarea class="textarea" id="${formId}-seo_description" data-testid="pf-seo_description">${escapeHTML(p?.seo_description||'')}</textarea></div>
+        <div class="field"><label>Storefront URL</label><div class="hint">www.oncost.shop/product.html?id=<b>${escapeHTML(p?.id || slugify(p?.name || 'new-product'))}</b></div></div>
+      </div>
+    </form>`;
+
+  const footer = el('div', { style: 'display:flex;gap:8px;' });
+  footer.innerHTML = `
+    <button class="btn btn-secondary" id="${formId}-cancel" data-testid="pf-cancel">Cancel</button>
+    <button class="btn btn-primary" id="${formId}-save" data-testid="pf-save"><i class="fas fa-save"></i> ${isEdit ? 'Save changes' : 'Create product'}</button>`;
+
+  const m = openModal({ title: isEdit ? `Edit · ${p.name}` : 'New Product', size: 'lg', body: html, footer, testid: 'pf' });
+
+  // tabs
+  m.root.querySelectorAll('.tab-btn').forEach(b => b.onclick = () => {
+    m.root.querySelectorAll('.tab-btn').forEach(x => x.classList.remove('active'));
+    m.root.querySelectorAll('.tab-pane').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    m.root.querySelector(`[data-pane="${b.dataset.tab}"]`).classList.add('active');
+  });
+
+  // SEO counters
+  const upd = () => {
+    $(`${formId}-seoTL`).textContent = `${$(`${formId}-seo_title`).value.length}/60`;
+    $(`${formId}-seoDL`).textContent = `${$(`${formId}-seo_description`).value.length}/160`;
+  };
+  $(`${formId}-seo_title`).addEventListener('input', upd);
+  $(`${formId}-seo_description`).addEventListener('input', upd);
+  upd();
+
+  // Upload
+  const drop = $(`${formId}-drop`), file = $(`${formId}-file`);
+  drop.addEventListener('click', () => file.click());
+  drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('drag'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
+  drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('drag'); if (e.dataTransfer.files[0]) handleUpload(e.dataTransfer.files[0]); });
+  file.addEventListener('change', (e) => e.target.files[0] && handleUpload(e.target.files[0]));
+  async function handleUpload(f) {
+    if (!state.imgbbKey) { showToast('Add an imgbb API key in Site Settings first.', 'error'); return; }
+    $(`${formId}-drop-sub`).innerHTML = '<span class="spin"></span> Uploading…';
+    try {
+      const url = await uploadImageToImgbb(f);
+      $(`${formId}-image_url`).value = url;
+      $(`${formId}-img-block`).innerHTML = `<div style="margin-bottom:12px;"><img src="${escapeHTML(url)}" alt="" style="max-width:240px;border-radius:6px;border:1px solid var(--admin-border);" /></div>`;
+      $(`${formId}-drop-sub`).textContent = 'Uploaded · ready to save';
+      showToast('Image uploaded.');
+    } catch (e) {
+      showToast(e.message, 'error');
+      $(`${formId}-drop-sub`).textContent = 'Uses imgbb (configure key in Site Settings)';
+    }
+  }
+
+  // Save
+  $(`${formId}-cancel`).onclick = () => m.close();
+  $(`${formId}-save`).onclick = async () => {
+    const name = $(`${formId}-name`).value.trim();
+    if (!name) return showToast('Name is required.', 'error');
+    const newId = isEdit ? p.id : slugify(name);
+    const payload = {
+      id: newId, name,
+      sku: $(`${formId}-sku`).value.trim() || null,
+      status: $(`${formId}-status`).value,
+      category: $(`${formId}-category`).value.trim() || null,
+      badge: $(`${formId}-badge`).value.trim() || null,
+      price: Number($(`${formId}-price`).value) || 0,
+      offer_price: $(`${formId}-offer_price`).value ? Number($(`${formId}-offer_price`).value) : null,
+      description: $(`${formId}-description`).value.trim() || null,
+      image_url: $(`${formId}-image_url`).value.trim() || null,
+      stock: Number($(`${formId}-stock`).value) || 0,
+      seo_title: $(`${formId}-seo_title`).value.trim() || null,
+      seo_description: $(`${formId}-seo_description`).value.trim() || null,
+    };
+    let res;
+    if (isEdit) {
+      res = await supabaseClient.from('products').update(payload).eq('id', p.id).select().single();
+    } else {
+      res = await supabaseClient.from('products').upsert(payload).select().single();
+    }
+    if (res.error) return showToast('Save failed: ' + res.error.message, 'error');
+    // Update local cache
+    const idx = state.products.findIndex(x => x.id === res.data.id);
+    if (idx >= 0) state.products[idx] = res.data; else state.products.unshift(res.data);
+    applyProductFilters();
+    renderDashboard();
+    showToast(isEdit ? 'Product saved.' : 'Product created.');
+    m.close();
+  };
+}
+window.openProductForm = openProductForm;
+
+// ------------------------- Categories -------------------------
+async function loadCategories() {
+  const { data } = await supabaseClient.from('categories').select('*').order('name', { ascending: true });
+  state.categories = data || [];
+}
+function renderCategories() {
+  $('categories-sub').textContent = `${state.categories.length} categories.`;
+  const tbody = $('categories-tbody');
+  if (!state.categories.length) {
+    tbody.innerHTML = `<tr><td colspan="4"><div class="empty"><div class="ic"><i class="fas fa-layer-group"></i></div><h4>No categories yet</h4><p>Add one manually or import a CSV — categories auto-create from SHORTCODE column.</p><button class="btn btn-primary" onclick="openCategoryForm()"><i class="fas fa-plus"></i> Add category</button></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = state.categories.map(c => {
+    const used = state.products.filter(p => (p.category||'') === c.name).length;
+    return `<tr data-testid="cat-row-${escapeHTML(c.id)}">
+      <td style="font-weight:600">${escapeHTML(c.name)}</td>
+      <td style="color:var(--admin-text-mute)">${escapeHTML(c.description||'—')}</td>
+      <td><span class="badge b-maroon">${used} products</span></td>
+      <td>
+        <div class="row-actions">
+          <button class="icon-btn" onclick="openCategoryForm('${escapeHTML(c.id)}')" title="Edit"><i class="fas fa-pen"></i></button>
+          <button class="icon-btn danger" onclick="deleteCategory('${escapeHTML(c.id)}')" title="Delete"><i class="fas fa-trash"></i></button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+function openCategoryForm(id) {
+  const c = id ? state.categories.find(x => x.id === id) : null;
+  const isEdit = !!c;
+  const html = `
+    <div class="field"><label>Name *</label><input class="input" id="cf-name" required data-testid="cf-name" value="${escapeHTML(c?.name||'')}" /></div>
+    <div class="field"><label>Description</label><textarea class="textarea" id="cf-description" data-testid="cf-description">${escapeHTML(c?.description||'')}</textarea></div>
+    <div class="field"><label>Image URL</label><input class="input" id="cf-image_url" data-testid="cf-image_url" value="${escapeHTML(c?.image_url||'')}" placeholder="https://..." /></div>`;
+  const footer = el('div', {});
+  footer.innerHTML = `<button class="btn btn-secondary" id="cf-cancel" data-testid="cf-cancel">Cancel</button><button class="btn btn-primary" id="cf-save" data-testid="cf-save"><i class="fas fa-save"></i> ${isEdit ? 'Save' : 'Create'}</button>`;
+  const m = openModal({ title: isEdit ? `Edit Category` : 'New Category', size: 'sm', body: html, footer, testid: 'cf' });
+  $('cf-cancel').onclick = () => m.close();
+  $('cf-save').onclick = async () => {
+    const name = $('cf-name').value.trim();
+    if (!name) return showToast('Name required.', 'error');
+    const payload = { name, description: $('cf-description').value.trim() || null, image_url: $('cf-image_url').value.trim() || null };
+    let res;
+    if (isEdit) res = await supabaseClient.from('categories').update(payload).eq('id', c.id).select().single();
+    else        res = await supabaseClient.from('categories').insert(payload).select().single();
+    if (res.error) return showToast('Save failed: ' + res.error.message, 'error');
+    if (isEdit) {
+      const idx = state.categories.findIndex(x => x.id === c.id);
+      state.categories[idx] = res.data;
+    } else state.categories.push(res.data);
+    state.categories.sort((a,b) => a.name.localeCompare(b.name));
+    renderCategories();
+    renderProducts();
+    showToast(isEdit ? 'Category saved.' : 'Category created.');
+    m.close();
+  };
+}
+window.openCategoryForm = openCategoryForm;
+async function deleteCategory(id) {
+  const c = state.categories.find(x => x.id === id);
+  if (!c) return;
+  if (!await confirmDialog(`Delete category "${c.name}"? Products keep their category text.`, { confirmLabel: 'Delete', danger: true })) return;
+  const { error } = await supabaseClient.from('categories').delete().eq('id', id);
+  if (error) return showToast('Delete failed: ' + error.message, 'error');
+  state.categories = state.categories.filter(x => x.id !== id);
+  renderCategories();
+  showToast('Category deleted.');
+}
+window.deleteCategory = deleteCategory;
+
+// ------------------------- Inventory -------------------------
+function renderInventory() {
+  const q = ($('inv-search').value || '').toLowerCase().trim();
+  const lowOnly = $('inv-low-only').checked;
+  const rows = state.products.filter(p => {
+    if (lowOnly && (p.stock ?? 0) > 5) return false;
+    if (q) {
+      const hay = `${p.name} ${p.sku || ''} ${p.category || ''}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+  const tbody = $('inv-tbody');
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--admin-text-mute);">No products match.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(p => {
+    const stock = Number(p.stock || 0);
+    const sb = stock === 0 ? 'b-error' : stock <= 5 ? 'b-warn' : 'b-success';
+    return `<tr data-testid="inv-row-${escapeHTML(p.id)}">
+      <td style="font-weight:600">${escapeHTML(p.name)}</td>
+      <td><code style="font-size:11px">${escapeHTML(p.sku||'—')}</code></td>
+      <td>${escapeHTML(p.category||'—')}</td>
+      <td style="text-align:center"><span class="badge ${sb}" data-testid="inv-stock-${escapeHTML(p.id)}">${stock}</span></td>
+      <td style="text-align:right">
+        ${[-10,-1,1,10].map(d => `<button class="btn btn-secondary btn-sm" style="min-width:46px;padding:5px 8px" onclick="adjustStock('${escapeHTML(p.id)}',${d})" data-testid="inv-adj-${escapeHTML(p.id)}-${d}">${d>0?'+'+d:d}</button>`).join(' ')}
+      </td>
+    </tr>`;
+  }).join('');
+}
+async function adjustStock(id, delta) {
+  const p = state.products.find(x => x.id === id);
+  if (!p) return;
+  const newStock = Math.max(0, Number(p.stock||0) + delta);
+  const { error } = await supabaseClient.from('products').update({ stock: newStock }).eq('id', id);
+  if (error) return showToast('Adjust failed: ' + error.message, 'error');
+  p.stock = newStock;
+  renderInventory();
+  renderDashboard();
+}
+window.adjustStock = adjustStock;
+
+// ------------------------- Bulk Import -------------------------
+function setupImport() {
+  const drop = $('import-drop'), file = $('import-file');
+  drop.addEventListener('click', () => file.click());
+  drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('drag'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
+  drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('drag'); if (e.dataTransfer.files[0]) onImportFile(e.dataTransfer.files[0]); });
+  file.addEventListener('change', (e) => e.target.files[0] && onImportFile(e.target.files[0]));
+  $('import-preview-btn').addEventListener('click', doImportPreview);
+  $('import-commit-btn').addEventListener('click', doImportCommit);
+}
+
+let importFile = null, importRows = null;
+function onImportFile(f) {
+  importFile = f; importRows = null;
+  $('import-droptext').textContent = f.name;
+  $('import-dropsub').textContent = `${(f.size/1024).toFixed(1)} KB · click to replace`;
+  $('import-preview-btn').disabled = false;
+  $('import-commit-btn').disabled = false;
+  $('import-result').innerHTML = '';
+  $('import-preview-block').style.display = 'none';
+}
+
+function parseImportFile() {
+  return new Promise((resolve, reject) => {
+    if (!importFile) return reject(new Error('No file'));
+    const name = importFile.name.toLowerCase();
+    if (name.endsWith('.csv')) {
+      Papa.parse(importFile, {
+        header: true, skipEmptyLines: true,
+        transformHeader: h => (h || '').trim().toUpperCase(),
+        complete: (r) => resolve(r.data),
+        error: (e) => reject(e),
+      });
+    } else {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+          // Normalize keys
+          const normalized = rows.map(r => {
+            const o = {};
+            Object.entries(r).forEach(([k, v]) => o[(k || '').trim().toUpperCase()] = v);
+            return o;
+          });
+          resolve(normalized);
+        } catch (err) { reject(err); }
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsArrayBuffer(importFile);
+    }
+  });
+}
+
+function mapRow(r) {
+  const status = (r.STATUS || 'ACTIVE').toString().trim().toUpperCase();
+  const statusUI = status === 'ACTIVE' ? 'Active' : status === 'INACTIVE' ? 'Inactive' : status === 'DRAFT' ? 'Draft' : 'Active';
+  const name = (r.NAME || '').toString().trim();
+  return {
+    name,
+    sku: (r.SKU || '').toString().trim() || null,
+    category: (r.SHORTCODE || r.CATEGORY || '').toString().trim() || null,
+    badge: (r.BADGE || '').toString().trim() || null,
+    description: (r.DESCRIPTION || '').toString().trim() || null,
+    price: Number(String(r.PRICE || '').replace(/,/g,'')) || 0,
+    offer_price: Number(String(r['SALE PRICE'] || '').replace(/,/g,'')) || null,
+    stock: parseInt(String(r['ON HAND'] || r.AVAILABLE || '').replace(/,/g,''), 10) || 0,
+    status: statusUI,
+    image_url: (r['IMAGE URL'] || '').toString().trim() || null,
+    seo_title: null, seo_description: null,
+  };
+}
+
+async function doImportPreview() {
+  try {
+    if (!importRows) importRows = await parseImportFile();
+    const preview = importRows.slice(0, 20).map(mapRow);
+    $('import-preview-block').style.display = 'block';
+    $('import-preview-tbody').innerHTML = preview.map(r => `
+      <tr>
+        <td style="font-weight:500">${escapeHTML(r.name || '(blank)')}</td>
+        <td><code style="font-size:11px">${escapeHTML(r.sku||'—')}</code></td>
+        <td>${escapeHTML(r.category||'—')}</td>
+        <td style="text-align:right">${fmtINR(r.price)}</td>
+        <td style="text-align:right">${r.stock}</td>
+        <td>${statusBadge(r.status)}</td>
+      </tr>`).join('');
+    $('import-result').innerHTML = `<div style="font-size:13px;color:var(--admin-text-mute);">Detected <b>${importRows.length}</b> rows in the file.</div>`;
+  } catch (e) {
+    showToast('Preview failed: ' + e.message, 'error');
   }
 }
 
-// 4. Orders
-async function loadOrders() {
-  const { data: orders } = await supabaseClient.from('orders').select('*').order('created_at', { ascending: false });
-  const table = document.getElementById('all-orders-table');
-  if (orders && orders.length > 0) {
-    table.innerHTML = orders.map(o => `
-      <tr>
-        <td>#${o.id.substring(0,8)}</td>
-        <td style="font-size:0.8rem">${o.user_id}</td>
-        <td style="font-size:0.75rem">${JSON.stringify(o.items).substring(0,40)}...</td>
-        <td><strong>₹${o.total_amount}</strong></td>
-        <td>
-          <select class="select-sm" onchange="updateOrderStatus('${o.id}', this.value)">
-            <option value="Processing" ${o.status==='Processing'?'selected':''}>Processing</option>
-            <option value="Shipped" ${o.status==='Shipped'?'selected':''}>Shipped</option>
-            <option value="Delivered" ${o.status==='Delivered'?'selected':''}>Delivered</option>
-            <option value="Cancelled" ${o.status==='Cancelled'?'selected':''}>Cancelled</option>
-          </select>
-        </td>
-        <td>${new Date(o.created_at).toLocaleDateString()}</td>
-      </tr>
-    `).join('');
-  } else {
-    table.innerHTML = '<tr><td colspan="6" style="text-align:center;">No orders found.</td></tr>';
+async function doImportCommit() {
+  try {
+    $('import-commit-btn').disabled = true;
+    $('import-commit-btn').innerHTML = '<span class="spin"></span> Importing…';
+    if (!importRows) importRows = await parseImportFile();
+    const mapped = importRows.map(mapRow).filter(r => r.name);
+
+    // Auto-create missing categories
+    const existingCatNames = new Set(state.categories.map(c => c.name));
+    const newCats = [...new Set(mapped.map(r => r.category).filter(Boolean).filter(c => !existingCatNames.has(c)))];
+    let catsCreated = 0;
+    if (newCats.length) {
+      const ins = newCats.map(name => ({ name }));
+      const { data, error } = await supabaseClient.from('categories').insert(ins).select();
+      if (!error && data) { state.categories = state.categories.concat(data); catsCreated = data.length; }
+    }
+
+    // Upsert products in batches of 50 (PK by id - we generate slug-based id)
+    let created = 0, updated = 0, skipped = 0;
+    const seen = new Set(state.products.map(p => p.id));
+    // build payload with stable ids
+    const idCount = {};
+    const toUpsert = mapped.map(r => {
+      // pick id: if sku exists, prefer slug from sku; else from name
+      let base = slugify(r.sku || r.name);
+      idCount[base] = (idCount[base] || 0) + 1;
+      const id = idCount[base] > 1 ? `${base}-${idCount[base]}` : base;
+      const isUpdate = seen.has(id);
+      if (isUpdate) updated++; else created++;
+      return { id, ...r };
+    });
+
+    // Upsert in chunks
+    const CHUNK = 50;
+    for (let i = 0; i < toUpsert.length; i += CHUNK) {
+      const slice = toUpsert.slice(i, i + CHUNK);
+      const { error } = await supabaseClient.from('products').upsert(slice, { onConflict: 'id' });
+      if (error) {
+        skipped += slice.length;
+        console.error('Upsert error:', error);
+      }
+    }
+
+    await loadProducts();
+    applyProductFilters();
+    renderCategories();
+    renderDashboard();
+
+    $('import-result').innerHTML = `
+      <div style="background:#E8F4E9;border:1px solid #C2DFC4;color:var(--admin-success);padding:12px 14px;border-radius:6px;display:flex;gap:10px;align-items:center;">
+        <i class="fas fa-circle-check" style="font-size:18px"></i>
+        <div>
+          <div style="font-weight:600;">Import complete</div>
+          <div style="font-size:12px;">Created: <b>${created - updated < 0 ? 0 : created - updated}</b> · Updated: <b>${updated}</b> · Skipped: <b>${skipped}</b> · New categories: <b>${catsCreated}</b></div>
+        </div>
+      </div>`;
+    showToast('Import complete.');
+  } catch (e) {
+    showToast('Import failed: ' + e.message, 'error');
+    $('import-result').innerHTML = `<div style="background:#FBECEC;border:1px solid #E8C1C1;color:var(--admin-error);padding:12px 14px;border-radius:6px;">${escapeHTML(e.message)}</div>`;
+  } finally {
+    $('import-commit-btn').disabled = false;
+    $('import-commit-btn').innerHTML = '<i class="fas fa-check"></i> Import All';
   }
+}
+
+// ------------------------- Orders -------------------------
+async function loadOrders() {
+  const { data } = await supabaseClient.from('orders').select('*').order('created_at', { ascending: false });
+  state.orders = data || [];
+}
+function renderOrders() {
+  $('orders-sub').textContent = `${state.orders.length} orders to date.`;
+  const tbody = $('orders-tbody');
+  const q = ($('orders-search').value || '').toLowerCase();
+  const st = $('orders-status-filter').value;
+  const filtered = state.orders.filter(o => {
+    if (st && o.status !== st) return false;
+    if (q) {
+      const hay = `${o.id} ${o.guest_email||''} ${o.user_id||''}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty"><div class="ic"><i class="fas fa-receipt"></i></div><h4>No orders ${state.orders.length ? 'match filters' : 'yet'}</h4><p>Orders placed through the storefront will appear here.</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = filtered.map(o => {
+    const items = Array.isArray(o.items) ? o.items : (o.items?.items || []);
+    const qty = items.reduce((s, it) => s + Number(it.qty || it.quantity || 1), 0);
+    return `<tr data-testid="order-row-${escapeHTML(o.id)}">
+      <td><code style="font-size:11px">#${escapeHTML(String(o.id).substring(0,8))}</code></td>
+      <td><div style="font-size:12px">${escapeHTML(o.guest_email || o.user_id || '—')}</div><div style="font-size:11px;color:var(--admin-text-mute)">${escapeHTML(o.guest_phone || '')}</div></td>
+      <td style="text-align:right;font-weight:600">${fmtINR(o.total_amount)}</td>
+      <td>${qty} item${qty===1?'':'s'}</td>
+      <td>
+        <select class="select" style="padding:5px 8px;font-size:12px;min-width:130px;" onchange="updateOrderStatus('${escapeHTML(o.id)}', this.value)" data-testid="order-status-${escapeHTML(o.id)}">
+          ${['Processing','Packed','Shipped','Delivered','Cancelled'].map(s => `<option ${o.status===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </td>
+      <td style="font-size:12px;color:var(--admin-text-mute)">${new Date(o.created_at).toLocaleDateString()}</td>
+      <td><div class="row-actions"><button class="icon-btn" onclick="viewOrder('${escapeHTML(o.id)}')" title="View"><i class="fas fa-eye"></i></button></div></td>
+    </tr>`;
+  }).join('');
 }
 async function updateOrderStatus(id, status) {
   const { error } = await supabaseClient.from('orders').update({ status }).eq('id', id);
-  if (error) showToast(error.message, true);
-  else showToast('Status updated!');
-  loadDashboard();
+  if (error) return showToast('Update failed: ' + error.message, 'error');
+  const o = state.orders.find(x => x.id === id); if (o) o.status = status;
+  showToast(`Order #${id.substring(0,8)} → ${status}`);
+  renderDashboard();
 }
+window.updateOrderStatus = updateOrderStatus;
+function viewOrder(id) {
+  const o = state.orders.find(x => x.id === id); if (!o) return;
+  const items = Array.isArray(o.items) ? o.items : (o.items?.items || []);
+  const ship = o.shipping_address || {};
+  const body = `
+    <div class="grid-2">
+      <div><div class="field"><label>Order ID</label><div><code>${escapeHTML(o.id)}</code></div></div></div>
+      <div><div class="field"><label>Status</label><div>${statusBadge(o.status)}</div></div></div>
+      <div><div class="field"><label>Customer Email</label><div>${escapeHTML(o.guest_email||o.user_id||'—')}</div></div></div>
+      <div><div class="field"><label>Phone</label><div>${escapeHTML(o.guest_phone||'—')}</div></div></div>
+      <div style="grid-column:1/-1"><div class="field"><label>Shipping Address</label><div style="white-space:pre-wrap;font-size:13px;">${escapeHTML(JSON.stringify(ship, null, 2))}</div></div></div>
+    </div>
+    <h4 class="card-title" style="margin:16px 0 8px;">Items</h4>
+    <table class="data">
+      <thead><tr><th>Product</th><th style="text-align:right">Qty</th><th style="text-align:right">Price</th><th style="text-align:right">Subtotal</th></tr></thead>
+      <tbody>${items.map(it => `<tr><td>${escapeHTML(it.name || it.product_id || '—')}</td><td style="text-align:right">${it.qty || it.quantity || 1}</td><td style="text-align:right">${fmtINR(it.price)}</td><td style="text-align:right">${fmtINR((it.price||0) * (it.qty||it.quantity||1))}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td colspan="3" style="text-align:right;font-weight:600">Total</td><td style="text-align:right;font-weight:700;color:var(--admin-primary)">${fmtINR(o.total_amount)}</td></tr></tfoot>
+    </table>`;
+  const footer = el('div', {});
+  footer.innerHTML = `<button class="btn btn-secondary" id="ov-close">Close</button>`;
+  const m = openModal({ title: `Order #${o.id.substring(0,8)}`, body, footer, size: 'lg', testid: 'order-view' });
+  $('ov-close').onclick = () => m.close();
+}
+window.viewOrder = viewOrder;
 
-// 5. Coupons
+// ------------------------- Coupons -------------------------
 async function loadCoupons() {
-  const { data: coupons } = await supabaseClient.from('coupons').select('*').order('created_at', { ascending: false });
-  const table = document.getElementById('coupons-table');
-  if (coupons && coupons.length > 0) {
-    table.innerHTML = coupons.map(c => `
-      <tr>
-        <td><strong>${c.code}</strong></td>
-        <td>${c.discount_type === 'percent' ? c.discount_value + '%' : '₹' + c.discount_value}</td>
-        <td>₹${c.min_order_amount}</td>
-        <td>${c.used_count} / ${c.usage_limit || '∞'}</td>
-        <td>${c.expires_at ? new Date(c.expires_at).toLocaleDateString() : 'Never'}</td>
-        <td><button class="action-btn delete" onclick="deleteCoupon('${c.id}')"><i class="fa-solid fa-trash"></i></button></td>
-      </tr>
-    `).join('');
-  } else {
-    table.innerHTML = '<tr><td colspan="6" style="text-align:center;">No coupons found.</td></tr>';
-  }
+  const { data } = await supabaseClient.from('coupons').select('*').order('created_at', { ascending: false });
+  state.coupons = data || [];
 }
-document.getElementById('coupon-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const data = {
-    code: document.getElementById('cp-code').value.toUpperCase(),
-    discount_type: document.getElementById('cp-type').value,
-    discount_value: parseFloat(document.getElementById('cp-value').value),
-    min_order_amount: parseFloat(document.getElementById('cp-min').value || 0),
-    usage_limit: document.getElementById('cp-limit').value ? parseInt(document.getElementById('cp-limit').value) : null,
-    expires_at: document.getElementById('cp-expiry').value || null
+function renderCoupons() {
+  const tbody = $('coupons-tbody');
+  if (!state.coupons.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty"><div class="ic"><i class="fas fa-tags"></i></div><h4>No coupons yet</h4><p>Create your first discount code.</p><button class="btn btn-primary" onclick="openCouponForm()"><i class="fas fa-plus"></i> Add coupon</button></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = state.coupons.map(c => {
+    const disc = c.discount_type === 'percent' ? `${c.discount_value}%` : fmtINR(c.discount_value);
+    return `<tr data-testid="coupon-row-${escapeHTML(c.id)}">
+      <td><code style="font-weight:600;font-size:13px;background:var(--admin-muted);padding:2px 8px;border-radius:4px;">${escapeHTML(c.code)}</code></td>
+      <td><span class="badge b-gold">${disc} off</span></td>
+      <td>${fmtINR(c.min_order_amount || 0)}</td>
+      <td>${c.used_count || 0}${c.usage_limit ? ' / '+c.usage_limit : ''}</td>
+      <td style="font-size:12px;color:var(--admin-text-mute)">${c.expires_at ? new Date(c.expires_at).toLocaleDateString() : 'No expiry'}</td>
+      <td><div class="row-actions">
+        <button class="icon-btn" onclick="openCouponForm('${escapeHTML(c.id)}')" title="Edit"><i class="fas fa-pen"></i></button>
+        <button class="icon-btn danger" onclick="deleteCoupon('${escapeHTML(c.id)}')" title="Delete"><i class="fas fa-trash"></i></button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+function openCouponForm(id) {
+  const c = id ? state.coupons.find(x => x.id === id) : null;
+  const isEdit = !!c;
+  const html = `
+    <div class="grid-2">
+      <div class="field" style="grid-column:1/-1"><label>Code *</label><input class="input" id="co-code" required style="text-transform:uppercase;" data-testid="co-code" value="${escapeHTML(c?.code||'')}" placeholder="FESTIVE10" /></div>
+      <div class="field"><label>Discount Type</label>
+        <select class="select" id="co-discount_type" data-testid="co-type">
+          <option value="percent" ${c?.discount_type==='percent'?'selected':''}>Percent (%)</option>
+          <option value="flat" ${c?.discount_type==='flat'?'selected':''}>Flat (₹)</option>
+        </select></div>
+      <div class="field"><label>Discount Value *</label><input class="input" id="co-discount_value" type="number" min="0" step="0.01" required data-testid="co-value" value="${c?.discount_value ?? ''}" /></div>
+      <div class="field"><label>Minimum Order (₹)</label><input class="input" id="co-min_order_amount" type="number" min="0" data-testid="co-min" value="${c?.min_order_amount ?? 0}" /></div>
+      <div class="field"><label>Usage Limit (blank = unlimited)</label><input class="input" id="co-usage_limit" type="number" min="0" data-testid="co-limit" value="${c?.usage_limit ?? ''}" /></div>
+      <div class="field" style="grid-column:1/-1"><label>Expires At</label><input class="input" id="co-expires_at" type="datetime-local" data-testid="co-expires" value="${c?.expires_at ? new Date(c.expires_at).toISOString().slice(0,16) : ''}" /></div>
+    </div>`;
+  const footer = el('div', {});
+  footer.innerHTML = `<button class="btn btn-secondary" id="co-cancel" data-testid="co-cancel">Cancel</button><button class="btn btn-primary" id="co-save" data-testid="co-save"><i class="fas fa-save"></i> ${isEdit?'Save':'Create'}</button>`;
+  const m = openModal({ title: isEdit ? 'Edit Coupon' : 'New Coupon', body: html, footer, testid: 'co' });
+  $('co-cancel').onclick = () => m.close();
+  $('co-save').onclick = async () => {
+    const code = $('co-code').value.trim().toUpperCase();
+    if (!code) return showToast('Code required.', 'error');
+    const payload = {
+      code,
+      discount_type: $('co-discount_type').value,
+      discount_value: Number($('co-discount_value').value) || 0,
+      min_order_amount: Number($('co-min_order_amount').value) || 0,
+      usage_limit: $('co-usage_limit').value ? Number($('co-usage_limit').value) : null,
+      expires_at: $('co-expires_at').value ? new Date($('co-expires_at').value).toISOString() : null,
+    };
+    let res;
+    if (isEdit) res = await supabaseClient.from('coupons').update(payload).eq('id', c.id).select().single();
+    else res = await supabaseClient.from('coupons').insert(payload).select().single();
+    if (res.error) return showToast('Save failed: ' + res.error.message, 'error');
+    if (isEdit) state.coupons = state.coupons.map(x => x.id === c.id ? res.data : x);
+    else state.coupons.unshift(res.data);
+    renderCoupons();
+    showToast('Coupon saved.');
+    m.close();
   };
-  const { error } = await supabaseClient.from('coupons').insert([data]);
-  if (error) return showToast(error.message, true);
-  showToast('Coupon created!');
-  document.getElementById('coupon-form').reset();
-  loadCoupons();
-});
+}
+window.openCouponForm = openCouponForm;
 async function deleteCoupon(id) {
-  if(confirm('Delete coupon?')) {
-    await supabaseClient.from('coupons').delete().eq('id', id);
-    loadCoupons();
-  }
+  if (!await confirmDialog('Delete this coupon?', { confirmLabel: 'Delete', danger: true })) return;
+  const { error } = await supabaseClient.from('coupons').delete().eq('id', id);
+  if (error) return showToast('Delete failed: ' + error.message, 'error');
+  state.coupons = state.coupons.filter(x => x.id !== id);
+  renderCoupons();
+  showToast('Coupon deleted.');
 }
+window.deleteCoupon = deleteCoupon;
 
-// 6. Sales
+// ------------------------- Sale Events -------------------------
 async function loadSales() {
-  const { data: sales } = await supabaseClient.from('sale_events').select('*').order('created_at', { ascending: false });
-  const table = document.getElementById('sales-table');
-  if (sales && sales.length > 0) {
-    table.innerHTML = sales.map(s => `
-      <tr>
-        <td><strong>${s.name}</strong><br><span style="font-size:0.75rem;color:#888;">${s.banner_text}</span></td>
-        <td>${s.discount_percent}%</td>
-        <td style="font-size:0.8rem">${new Date(s.start_date).toLocaleDateString()} - ${new Date(s.end_date).toLocaleDateString()}</td>
-        <td><span class="status-badge" style="background:${s.is_active?'#E8F5E9':'#FFEBEE'}; color:${s.is_active?'#2E7D32':'#C62828'}">${s.is_active?'Active':'Inactive'}</span></td>
-        <td><button class="action-btn delete" onclick="deleteSale('${s.id}')"><i class="fa-solid fa-trash"></i></button></td>
-      </tr>
-    `).join('');
-  } else {
-    table.innerHTML = '<tr><td colspan="5" style="text-align:center;">No sale events found.</td></tr>';
-  }
+  const { data } = await supabaseClient.from('sale_events').select('*').order('start_date', { ascending: false });
+  state.sales = data || [];
 }
-document.getElementById('sale-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const data = {
-    name: document.getElementById('s-name').value,
-    banner_text: document.getElementById('s-banner').value,
-    discount_percent: parseFloat(document.getElementById('s-discount').value || 0),
-    is_active: document.getElementById('s-active').value === 'true',
-    start_date: document.getElementById('s-start').value,
-    end_date: document.getElementById('s-end').value
+function renderSales() {
+  const tbody = $('sales-tbody');
+  if (!state.sales.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty"><div class="ic"><i class="fas fa-bullhorn"></i></div><h4>No sale events yet</h4><p>Schedule your first promotion: Diwali Sale, Festival of Brass…</p><button class="btn btn-primary" onclick="openSaleForm()"><i class="fas fa-plus"></i> Add sale event</button></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = state.sales.map(s => `
+    <tr data-testid="sale-row-${escapeHTML(s.id)}">
+      <td style="font-weight:600">${escapeHTML(s.name)}</td>
+      <td style="font-size:12px;color:var(--admin-text-mute)">${escapeHTML(s.banner_text||'—')}</td>
+      <td><span class="badge b-maroon">${s.discount_percent}%</span></td>
+      <td style="font-size:12px">${new Date(s.start_date).toLocaleDateString()}</td>
+      <td style="font-size:12px">${new Date(s.end_date).toLocaleDateString()}</td>
+      <td>${s.is_active ? statusBadge('Live') : statusBadge('Inactive')}</td>
+      <td><div class="row-actions">
+        <button class="icon-btn" onclick="openSaleForm('${escapeHTML(s.id)}')" title="Edit"><i class="fas fa-pen"></i></button>
+        <button class="icon-btn danger" onclick="deleteSale('${escapeHTML(s.id)}')" title="Delete"><i class="fas fa-trash"></i></button>
+      </div></td>
+    </tr>`).join('');
+}
+function openSaleForm(id) {
+  const s = id ? state.sales.find(x => x.id === id) : null;
+  const isEdit = !!s;
+  const today = new Date().toISOString().slice(0,10);
+  const wk = new Date(Date.now() + 7*86400000).toISOString().slice(0,10);
+  const html = `
+    <div class="grid-2">
+      <div class="field" style="grid-column:1/-1"><label>Event Name *</label><input class="input" id="se-name" required data-testid="se-name" value="${escapeHTML(s?.name||'')}" placeholder="Diwali Brass Festival" /></div>
+      <div class="field" style="grid-column:1/-1"><label>Banner Text *</label><input class="input" id="se-banner_text" required data-testid="se-banner" value="${escapeHTML(s?.banner_text||'')}" placeholder="🪔 Diwali Sale: Flat 20% off on Brass!" /></div>
+      <div class="field"><label>Discount %</label><input class="input" id="se-discount_percent" type="number" min="0" max="100" data-testid="se-discount" value="${s?.discount_percent ?? 10}" /></div>
+      <div class="field"><label>Active</label>
+        <select class="select" id="se-is_active" data-testid="se-active">
+          <option value="true" ${s?.is_active!==false?'selected':''}>Live</option>
+          <option value="false" ${s?.is_active===false?'selected':''}>Inactive</option>
+        </select></div>
+      <div class="field"><label>Start Date</label><input class="input" id="se-start_date" type="date" data-testid="se-start" value="${s?.start_date ? new Date(s.start_date).toISOString().slice(0,10) : today}" /></div>
+      <div class="field"><label>End Date</label><input class="input" id="se-end_date" type="date" data-testid="se-end" value="${s?.end_date ? new Date(s.end_date).toISOString().slice(0,10) : wk}" /></div>
+    </div>`;
+  const footer = el('div', {});
+  footer.innerHTML = `<button class="btn btn-secondary" id="se-cancel" data-testid="se-cancel">Cancel</button><button class="btn btn-primary" id="se-save" data-testid="se-save"><i class="fas fa-save"></i> ${isEdit?'Save':'Create'}</button>`;
+  const m = openModal({ title: isEdit ? 'Edit Sale Event' : 'New Sale Event', body: html, footer, testid: 'se' });
+  $('se-cancel').onclick = () => m.close();
+  $('se-save').onclick = async () => {
+    const name = $('se-name').value.trim();
+    const banner = $('se-banner_text').value.trim();
+    if (!name || !banner) return showToast('Name and banner required.', 'error');
+    const payload = {
+      name, banner_text: banner,
+      discount_percent: Number($('se-discount_percent').value) || 0,
+      start_date: new Date($('se-start_date').value).toISOString(),
+      end_date: new Date($('se-end_date').value).toISOString(),
+      is_active: $('se-is_active').value === 'true',
+    };
+    let res;
+    if (isEdit) res = await supabaseClient.from('sale_events').update(payload).eq('id', s.id).select().single();
+    else res = await supabaseClient.from('sale_events').insert(payload).select().single();
+    if (res.error) return showToast('Save failed: ' + res.error.message, 'error');
+    if (isEdit) state.sales = state.sales.map(x => x.id === s.id ? res.data : x);
+    else state.sales.unshift(res.data);
+    renderSales();
+    renderDashboard();
+    showToast('Sale event saved.');
+    m.close();
   };
-  const { error } = await supabaseClient.from('sale_events').insert([data]);
-  if (error) return showToast(error.message, true);
-  showToast('Sale Event created!');
-  document.getElementById('sale-form').reset();
-  loadSales();
-});
+}
+window.openSaleForm = openSaleForm;
 async function deleteSale(id) {
-  if(confirm('Delete sale event?')) {
-    await supabaseClient.from('sale_events').delete().eq('id', id);
-    loadSales();
-  }
+  if (!await confirmDialog('Delete this sale event?', { confirmLabel: 'Delete', danger: true })) return;
+  const { error } = await supabaseClient.from('sale_events').delete().eq('id', id);
+  if (error) return showToast('Delete failed: ' + error.message, 'error');
+  state.sales = state.sales.filter(x => x.id !== id);
+  renderSales();
+  showToast('Sale event deleted.');
 }
+window.deleteSale = deleteSale;
 
-// 7. Customers
-async function loadCustomers() {
-  const { data: profiles } = await supabaseClient.from('profiles').select('*').order('created_at', { ascending: false });
-  const table = document.getElementById('customers-table');
-  if (profiles && profiles.length > 0) {
-    table.innerHTML = profiles.map(p => `
-      <tr>
-        <td style="font-size:0.75rem; color:#888;">${p.id}</td>
-        <td><strong>${p.name}</strong></td>
-        <td>${p.phone || '-'}</td>
-        <td>${new Date(p.created_at).toLocaleDateString()}</td>
-      </tr>
-    `).join('');
-  } else {
-    table.innerHTML = '<tr><td colspan="4" style="text-align:center;">No customers found.</td></tr>';
-  }
-}
-
-// 8. Leads
+// ------------------------- Leads -------------------------
 async function loadLeads() {
-  const { data: leads } = await supabaseClient.from('leads').select('*').order('created_at', { ascending: false });
-  const table = document.getElementById('leads-table');
-  if (leads && leads.length > 0) {
-    table.innerHTML = leads.map(l => `
-      <tr>
-        <td>${new Date(l.created_at).toLocaleDateString()}</td>
-        <td style="font-size:0.75rem">${l.user_id || 'Guest'}</td>
-        <td>${l.product_id || 'Bulk Enquiry'}</td>
-        <td style="font-size:0.85rem">${l.summary}</td>
-      </tr>
-    `).join('');
-  } else {
-    table.innerHTML = '<tr><td colspan="4" style="text-align:center;">No leads found.</td></tr>';
+  const { data } = await supabaseClient.from('leads').select('*').order('created_at', { ascending: false });
+  state.leads = data || [];
+}
+function renderLeads() {
+  const tbody = $('leads-tbody');
+  if (!state.leads.length) {
+    tbody.innerHTML = `<tr><td colspan="4"><div class="empty"><div class="ic"><i class="fas fa-envelope"></i></div><h4>No enquiries yet</h4><p>Customer enquiries from the storefront will appear here.</p></div></td></tr>`;
+    return;
   }
+  tbody.innerHTML = state.leads.map(l => `
+    <tr>
+      <td style="font-size:12px">${new Date(l.created_at).toLocaleDateString()}</td>
+      <td><code style="font-size:11px">${escapeHTML(l.product_id||'—')}</code></td>
+      <td style="max-width:500px">${escapeHTML(l.summary||'')}</td>
+      <td style="font-size:11px;color:var(--admin-text-mute)">${escapeHTML((l.user_id||'').substring(0,8))}</td>
+    </tr>`).join('');
 }
 
-// 9. Testimonials
+// ------------------------- Testimonials -------------------------
 async function loadTestimonials() {
-  const { data: testies } = await supabaseClient.from('testimonials').select('*').order('created_at', { ascending: false });
-  const table = document.getElementById('testimonials-table');
-  if (testies && testies.length > 0) {
-    const pendingCount = testies.filter(t => t.status === 'Pending').length;
-    const badge = document.getElementById('pending-reviews-badge');
-    if (pendingCount > 0) {
-      badge.textContent = pendingCount;
-      badge.style.display = 'inline-block';
-    } else {
-      badge.style.display = 'none';
-    }
-    
-    table.innerHTML = testies.map(t => `
-      <tr>
-        <td>${new Date(t.created_at).toLocaleDateString()}</td>
-        <td><strong>${t.customer_name}</strong><br><span style="font-size:0.7rem">${t.user_id}</span></td>
-        <td>${'⭐'.repeat(t.rating)}</td>
-        <td style="font-size:0.85rem">${t.review_text}</td>
-        <td>
-          <select class="select-sm" onchange="updateTestimonial('${t.id}', this.value)">
-            <option value="Pending" ${t.status==='Pending'?'selected':''}>Pending</option>
-            <option value="Approved" ${t.status==='Approved'?'selected':''}>Approved</option>
-            <option value="Rejected" ${t.status==='Rejected'?'selected':''}>Rejected</option>
-          </select>
-        </td>
-        <td style="text-align:center;">
-          <input type="checkbox" onchange="updateTestimonialVerified('${t.id}', this.checked)" ${t.is_verified ? 'checked' : ''}>
-        </td>
-      </tr>
-    `).join('');
-  } else {
-    table.innerHTML = '<tr><td colspan="5" style="text-align:center;">No testimonials found.</td></tr>';
+  const { data } = await supabaseClient.from('testimonials').select('*').order('created_at', { ascending: false });
+  state.testimonials = data || [];
+}
+function renderTestimonials() {
+  const tbody = $('testimonials-tbody');
+  if (!state.testimonials.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty"><div class="ic"><i class="fas fa-star"></i></div><h4>No testimonials yet</h4><p>Customer reviews submitted via storefront will appear here for moderation.</p></div></td></tr>`;
+    return;
   }
+  tbody.innerHTML = state.testimonials.map(t => `
+    <tr data-testid="testi-row-${escapeHTML(t.id)}">
+      <td style="font-weight:500">${escapeHTML(t.customer_name||'—')}</td>
+      <td>${'★'.repeat(t.rating||0)}<span style="color:var(--admin-text-mute)">${'☆'.repeat(5-(t.rating||0))}</span></td>
+      <td style="max-width:340px;font-size:13px">${escapeHTML((t.review_text||'').substring(0,150))}${(t.review_text||'').length>150?'…':''}</td>
+      <td>${statusBadge(t.status||'Pending')}</td>
+      <td style="font-size:12px">${new Date(t.created_at).toLocaleDateString()}</td>
+      <td style="text-align:right">
+        ${t.status !== 'Approved' ? `<button class="btn btn-secondary btn-sm" onclick="updateTestimonial('${escapeHTML(t.id)}','Approved')" data-testid="testi-approve-${escapeHTML(t.id)}">Approve</button>` : ''}
+        ${t.status !== 'Rejected' ? `<button class="btn btn-ghost btn-sm" onclick="updateTestimonial('${escapeHTML(t.id)}','Rejected')" data-testid="testi-reject-${escapeHTML(t.id)}">Reject</button>` : ''}
+      </td>
+    </tr>`).join('');
 }
 async function updateTestimonial(id, status) {
   const { error } = await supabaseClient.from('testimonials').update({ status }).eq('id', id);
-  if (error) showToast(error.message, true);
-  else { showToast('Testimonial updated!'); loadTestimonials(); }
+  if (error) return showToast('Update failed: ' + error.message, 'error');
+  const t = state.testimonials.find(x => x.id === id); if (t) t.status = status;
+  renderTestimonials();
+  showToast(`Testimonial ${status.toLowerCase()}.`);
 }
-async function updateTestimonialVerified(id, is_verified) {
-  const { error } = await supabaseClient.from('testimonials').update({ is_verified }).eq('id', id);
-  if (error) showToast(error.message, true);
-  else { showToast('Verified status updated!'); }
-}
+window.updateTestimonial = updateTestimonial;
 
-// 10. SEO & Social Settings
-let settingsId = null;
-async function loadSettings() {
-  const { data: settings } = await supabaseClient.from('site_settings').select('*').limit(1);
-  if (settings && settings.length > 0) {
-    const s = settings[0];
-    settingsId = s.id;
-    // SEO
-    document.getElementById('seo-title').value = s.site_title || '';
-    document.getElementById('seo-desc').value = s.meta_description || '';
-    document.getElementById('seo-keys').value = s.keywords || '';
-    document.getElementById('seo-og').value = s.og_image || '';
-    document.getElementById('seo-canon').value = s.canonical_url || '';
-    document.getElementById('seo-ga').value = s.ga_id || '';
-    document.getElementById('seo-gsc').value = s.gsc_verification || '';
-    // Social
-    document.getElementById('soc-wa-num').value = s.whatsapp_number || '';
-    document.getElementById('soc-wa-txt').value = s.whatsapp_text || '';
-    document.getElementById('soc-ig').value = s.instagram_url || '';
-    document.getElementById('soc-fb').value = s.facebook_url || '';
-    document.getElementById('soc-yt').value = s.youtube_url || '';
-    document.getElementById('soc-tw').value = s.twitter_url || '';
-    document.getElementById('soc-pin').value = s.pinterest_url || '';
-  }
+// ------------------------- Render orchestration -------------------------
+function setupSearches() {
+  let pt; $('products-search').addEventListener('input', () => { clearTimeout(pt); pt = setTimeout(applyProductFilters, 200); });
+  $('products-cat-filter').addEventListener('change', applyProductFilters);
+  $('products-status-filter').addEventListener('change', applyProductFilters);
+  let it; $('inv-search').addEventListener('input', () => { clearTimeout(it); it = setTimeout(renderInventory, 200); });
+  $('inv-low-only').addEventListener('change', renderInventory);
+  let ot; $('orders-search').addEventListener('input', () => { clearTimeout(ot); ot = setTimeout(renderOrders, 200); });
+  $('orders-status-filter').addEventListener('change', renderOrders);
 }
 
-document.getElementById('seo-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const data = {
-    site_title: document.getElementById('seo-title').value,
-    meta_description: document.getElementById('seo-desc').value,
-    keywords: document.getElementById('seo-keys').value,
-    og_image: document.getElementById('seo-og').value,
-    canonical_url: document.getElementById('seo-canon').value,
-    ga_id: document.getElementById('seo-ga').value,
-    gsc_verification: document.getElementById('seo-gsc').value
-  };
-  let error;
-  if (settingsId) { error = (await supabaseClient.from('site_settings').update(data).eq('id', settingsId)).error; }
-  else { error = (await supabaseClient.from('site_settings').insert([data])).error; }
-  if (error) return showToast(error.message, true);
-  showToast('SEO settings saved!');
-  loadSettings();
-});
+function renderAllOnce() {
+  applyProductFilters();
+  renderCategories();
+  renderCoupons();
+  renderSales();
+  renderLeads();
+  renderTestimonials();
+  renderInventory();
+  renderOrders();
+  renderDashboard();
+}
 
-document.getElementById('social-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const data = {
-    whatsapp_number: document.getElementById('soc-wa-num').value,
-    whatsapp_text: document.getElementById('soc-wa-txt').value,
-    instagram_url: document.getElementById('soc-ig').value,
-    facebook_url: document.getElementById('soc-fb').value,
-    youtube_url: document.getElementById('soc-yt').value,
-    twitter_url: document.getElementById('soc-tw').value,
-    pinterest_url: document.getElementById('soc-pin').value
-  };
-  let error;
-  if (settingsId) { error = (await supabaseClient.from('site_settings').update(data).eq('id', settingsId)).error; }
-  else { error = (await supabaseClient.from('site_settings').insert([data])).error; }
-  if (error) return showToast(error.message, true);
-  showToast('Social settings saved!');
-  loadSettings();
-});
-
-// Init
-checkAuth();
+// kick it off
+document.addEventListener('DOMContentLoaded', bootstrap);
