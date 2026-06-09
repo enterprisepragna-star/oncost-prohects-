@@ -1,8 +1,9 @@
 /* =================================================================
    ONCOST Storefront · app.js (Unified)
    Live data from Supabase: products, categories, sale_events,
-   testimonials, site_settings, cart_items, coupons.
+   testimonials, site_settings, cart_items, coupons, wishlists.
    ================================================================= */
+/* global supabaseClient */
 'use strict';
 
 const ADMIN_EMAILS = ['enterprisepragna@gmail.com'];
@@ -16,6 +17,7 @@ const state = {
   testimonials: [],
   saleEvents: [],
   cart: [],            // [{ id, product_id, qty, product }]
+  wishlist: [],        // [{ id, product_id }]
   appliedCoupon: null,
   isAdmin: false,
 };
@@ -115,7 +117,7 @@ async function loadAuth() {
       try {
         const { data: prof } = await supabaseClient.from('profiles').select('*').eq('id', state.user.id).single();
         state.profile = prof;
-      } catch {}
+      } catch { /* profile optional */ }
     }
   } catch (e) { state.user = null; }
 }
@@ -156,11 +158,14 @@ function productCardHTML(p) {
     : `<div class="placeholder"><i class="fas fa-image"></i></div>`;
   const offer = p.offer_price && Number(p.offer_price) > 0 && Number(p.offer_price) < Number(p.price);
   const save = offer ? Math.round(((p.price - p.offer_price) / p.price) * 100) : 0;
+  const inWishlist = state.wishlist.some(w => w.product_id === p.id);
+  const wishBtn = state.user ? `<button class="wish-btn ${inWishlist?'on':''}" onclick="event.preventDefault();event.stopPropagation();toggleWishlist('${escapeHTML(p.id)}')" data-testid="wish-btn-${escapeHTML(p.id)}" title="${inWishlist?'Remove from wishlist':'Add to wishlist'}"><i class="${inWishlist?'fas':'far'} fa-heart"></i></button>` : '';
   return `<a class="product-card" href="product.html?id=${encodeURIComponent(p.id)}" data-testid="product-card-${escapeHTML(p.id)}">
     <div class="img-wrap">
       ${imgHTML}
       ${p.badge ? `<span class="badge-pill ${p.badge.toLowerCase().includes('sale') || offer ? 'gold' : ''}">${escapeHTML(p.badge)}</span>` : ''}
       ${stock === 0 ? `<span class="stock-tag">Out of stock</span>` : ''}
+      ${wishBtn}
     </div>
     <div class="info">
       <div class="cat">${escapeHTML(p.category || 'Premium')}</div>
@@ -255,15 +260,29 @@ function renderProductDetail() {
   const offer = p.offer_price && p.offer_price < p.price;
   const save = offer ? Math.round(((p.price - p.offer_price) / p.price) * 100) : 0;
   const stock = Number(p.stock || 0);
-  const imgHTML = p.image_url
-    ? `<img src="${escapeHTML(p.image_url)}" alt="${escapeHTML(p.name)}" />`
+  // Build full image array: primary + gallery
+  const allImages = [];
+  if (p.image_url) allImages.push(p.image_url);
+  if (Array.isArray(p.image_urls)) p.image_urls.forEach(u => { if (u && u !== p.image_url) allImages.push(u); });
+  const mainImg = allImages[0] || null;
+  const galleryHTML = allImages.length > 1
+    ? `<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+        ${allImages.map((u, i) => `<button class="pd-thumb ${i===0?'active':''}" data-img="${escapeHTML(u)}" type="button"><img src="${escapeHTML(u)}" alt="" /></button>`).join('')}
+      </div>`
+    : '';
+  const imgHTML = mainImg
+    ? `<img id="pd-main-img" src="${escapeHTML(mainImg)}" alt="${escapeHTML(p.name)}" />`
     : `<div class="placeholder"><i class="fas fa-image"></i></div>`;
 
   const related = state.products.filter(x => x.category === p.category && x.id !== p.id).slice(0, 4);
+  const inWishlist = state.wishlist.some(w => w.product_id === p.id);
 
   slot.innerHTML = `
     <div class="product-detail">
-      <div class="pd-gallery">${imgHTML}</div>
+      <div>
+        <div class="pd-gallery">${imgHTML}</div>
+        ${galleryHTML}
+      </div>
       <div class="pd-info">
         ${p.category ? `<div class="cat">${escapeHTML(p.category)}</div>` : ''}
         <h1>${escapeHTML(p.name)}</h1>
@@ -284,12 +303,13 @@ function renderProductDetail() {
         </div>
         <div class="actions">
           <button class="btn primary" onclick="addToCartFromDetail('${escapeHTML(p.id)}')" ${stock===0?'disabled':''} data-testid="pd-add-cart"><i class="fas fa-cart-plus"></i> Add to Cart</button>
+          <button class="btn outline" onclick="toggleWishlist('${escapeHTML(p.id)}')" data-testid="pd-wishlist"><i class="${inWishlist?'fas':'far'} fa-heart"></i> ${inWishlist?'Saved':'Save'}</button>
           <a class="btn secondary" href="bulk.html?product=${encodeURIComponent(p.id)}" data-testid="pd-bulk-enquiry"><i class="fab fa-whatsapp"></i> Bulk Enquiry</a>
         </div>
         <div class="pd-perks">
           <div class="perk"><i class="fas fa-truck"></i><div><b>Pan India delivery</b><br><span style="color:var(--muted)">Free shipping over ₹999</span></div></div>
           <div class="perk"><i class="fas fa-box-open"></i><div><b>Premium packaging</b><br><span style="color:var(--muted)">Gift-ready out of the box</span></div></div>
-          <div class="perk"><i class="fas fa-shield-halved"></i><div><b>Secure checkout</b><br><span style="color:var(--muted)">Razorpay / UPI / Card</span></div></div>
+          <div class="perk"><i class="fas fa-shield-halved"></i><div><b>Secure checkout</b><br><span style="color:var(--muted)">CCAvenue · UPI · Card</span></div></div>
           <div class="perk"><i class="fas fa-rotate-left"></i><div><b>Easy returns</b><br><span style="color:var(--muted)">7-day return window</span></div></div>
         </div>
       </div>
@@ -300,6 +320,14 @@ function renderProductDetail() {
         <div class="product-grid">${related.map(productCardHTML).join('')}</div>
       </section>` : ''}
   `;
+
+  // Gallery thumbnail click handlers
+  $$('.pd-thumb').forEach(btn => btn.addEventListener('click', () => {
+    $$('.pd-thumb').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const main = $('#pd-main-img');
+    if (main) main.src = btn.dataset.img;
+  }));
 }
 window.changeQty = function(delta) {
   const inp = $('#pd-qty');
@@ -557,8 +585,8 @@ async function renderAccount() {
   }
   const tab = param('tab') || 'orders';
   let orders = [], leads = [];
-  try { const r = await supabaseClient.from('orders').select('*').eq('user_id', state.user.id).order('created_at', { ascending: false }); orders = r.data || []; } catch {}
-  try { const r = await supabaseClient.from('leads').select('*').eq('user_id', state.user.id).order('created_at', { ascending: false }); leads = r.data || []; } catch {}
+  try { const r = await supabaseClient.from('orders').select('*').eq('user_id', state.user.id).order('created_at', { ascending: false }); orders = r.data || []; } catch { /* ignore */ }
+  try { const r = await supabaseClient.from('leads').select('*').eq('user_id', state.user.id).order('created_at', { ascending: false }); leads = r.data || []; } catch { /* ignore */ }
 
   slot.innerHTML = `
     <div class="account-grid">
@@ -568,6 +596,7 @@ async function renderAccount() {
           <div style="font-size:12px;color:var(--muted);">${escapeHTML(state.user.email)}</div>
         </div>
         <button class="${tab==='orders'?'active':''}" onclick="location.href='account.html?tab=orders'"><i class="fas fa-receipt"></i> My Orders</button>
+        <button class="${tab==='wishlist'?'active':''}" onclick="location.href='account.html?tab=wishlist'"><i class="fas fa-heart"></i> Wishlist ${state.wishlist.length ? `<span style="margin-left:auto;background:var(--burgundy);color:#fff;padding:1px 7px;border-radius:10px;font-size:11px;">${state.wishlist.length}</span>` : ''}</button>
         <button class="${tab==='enquiries'?'active':''}" onclick="location.href='account.html?tab=enquiries'"><i class="fas fa-envelope"></i> Enquiries</button>
         <button class="${tab==='profile'?'active':''}" onclick="location.href='account.html?tab=profile'"><i class="fas fa-user"></i> Profile</button>
         ${state.isAdmin ? `<button onclick="location.href='admin-dashboard.html'" style="color:var(--gold);font-weight:700;border-top:1px solid var(--line);margin-top:8px;padding-top:14px;"><i class="fas fa-shield-halved"></i> Admin Console</button>` : ''}
@@ -575,11 +604,19 @@ async function renderAccount() {
       </aside>
       <main class="account-pane">
         ${tab === 'orders' ? renderAccountOrders(orders) : ''}
+        ${tab === 'wishlist' ? renderAccountWishlist() : ''}
         ${tab === 'enquiries' ? renderAccountLeads(leads) : ''}
         ${tab === 'profile' ? renderAccountProfile() : ''}
       </main>
     </div>
   `;
+}
+function renderAccountWishlist() {
+  if (!state.wishlist.length) return `<h2>My Wishlist</h2><div class="empty-state"><i class="fas fa-heart"></i><h3>No favorites yet</h3><p>Tap the ♡ on any product card to save it here.</p><a class="btn primary" href="products.html"><i class="fas fa-store"></i> Browse Products</a></div>`;
+  const items = state.wishlist.map(w => state.products.find(p => p.id === w.product_id)).filter(Boolean);
+  if (!items.length) return `<h2>My Wishlist</h2><div class="empty-state"><i class="fas fa-heart"></i><h3>Wishlist items unavailable</h3><p>Items in your wishlist are no longer in the catalog.</p></div>`;
+  return `<h2>My Wishlist <span style="font-size:14px;color:var(--muted);font-weight:400;">· ${items.length} item${items.length===1?'':'s'}</span></h2>
+    <div class="product-grid" style="margin-top:18px;">${items.map(productCardHTML).join('')}</div>`;
 }
 function renderAccountOrders(orders) {
   if (!orders.length) return `<h2>My Orders</h2><div class="empty-state"><i class="fas fa-receipt"></i><h3>No orders yet</h3><p>Your orders will show up here.</p><a class="btn primary" href="products.html">Browse Products</a></div>`;
@@ -648,10 +685,43 @@ function setupEnquiryForm() {
   });
 }
 
+// ---------- Wishlist ----------
+async function loadWishlist() {
+  if (!state.user) { state.wishlist = []; return; }
+  try {
+    const { data } = await supabaseClient.from('wishlists').select('*').eq('user_id', state.user.id);
+    state.wishlist = data || [];
+  } catch { state.wishlist = []; }
+}
+async function toggleWishlist(productId) {
+  if (!state.user) {
+    toast('Please log in to save favorites', '');
+    setTimeout(() => location.href = 'login.html?redirect=' + encodeURIComponent(location.pathname + location.search), 900);
+    return;
+  }
+  const existing = state.wishlist.find(w => w.product_id === productId);
+  if (existing) {
+    await supabaseClient.from('wishlists').delete().eq('id', existing.id);
+    state.wishlist = state.wishlist.filter(w => w.id !== existing.id);
+    toast('Removed from wishlist');
+  } else {
+    const { data, error } = await supabaseClient.from('wishlists').insert({ user_id: state.user.id, product_id: productId }).select().single();
+    if (error) return toast('Failed: ' + error.message, 'err');
+    state.wishlist.push(data);
+    toast('Saved to wishlist ❤', 'ok');
+  }
+  // Re-render any visible product cards
+  renderHomeProducts();
+  renderProductsListing();
+  renderProductDetail();
+  if ($('[data-account]')) renderAccount();
+}
+window.toggleWishlist = toggleWishlist;
+
 // ---------- Boot ----------
 async function bootstrap() {
   await Promise.all([loadAuth(), loadSettings(), loadSaleEvents(), loadCategories(), loadProducts(), loadTestimonials()]);
-  await loadCart();
+  await Promise.all([loadCart(), loadWishlist()]);
 
   applySEO();
   applyWhatsappFab();

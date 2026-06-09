@@ -371,6 +371,21 @@
           </div>
 
           <div class="card" style="max-width:900px; margin-top:18px;">
+            <h3 class="card-title">AI &amp; Alerts Configuration</h3>
+            <div class="grid-2">
+              <div class="field"><label>OpenAI API Key (for ✨ AI SEO Generator)</label><input class="input" id="set-openai_api_key" placeholder="sk-..." data-testid="set-openai_api_key" />
+                <div class="hint">Get one at <a href="https://platform.openai.com/api-keys" target="_blank" style="color:var(--admin-primary);font-weight:600;">platform.openai.com</a>. ~$0.0001 per SEO generation. Stored encrypted in Supabase.</div>
+              </div>
+              <div class="field"><label>Low-stock threshold</label><input class="input" id="set-low_stock_threshold" type="number" min="0" value="5" data-testid="set-low_stock_threshold" />
+                <div class="hint">Products at or below this stock trigger the dashboard alert.</div>
+              </div>
+              <div class="field"><label>Alert WhatsApp number</label><input class="input" id="set-alert_whatsapp" placeholder="+91XXXXXXXXXX" data-testid="set-alert_whatsapp" />
+                <div class="hint">Your own number — clicking "Send WhatsApp Alert" opens a pre-filled message to you.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="max-width:900px; margin-top:18px;">
             <h3 class="card-title">Image Upload Configuration</h3>
             <p style="font-size:13px;color:var(--admin-text-mute);margin:0 0 12px;">
               To upload JPG images directly from the admin (instead of pasting URLs), add a free

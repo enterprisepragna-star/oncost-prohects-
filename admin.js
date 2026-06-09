@@ -2,6 +2,7 @@
    ONCOST Admin Console · admin.js
    Vanilla JS · Supabase JS v2 · Single-file SPA
    ============================================================= */
+/* global supabaseClient, Chart, Papa, XLSX */
 'use strict';
 
 const ADMIN_EMAILS = ['enterprisepragna@gmail.com'];
@@ -156,6 +157,7 @@ function goView(view) {
   // Re-render views that need fresh data
   if (view === 'inventory') renderInventory();
   if (view === 'orders') renderOrders();
+  if (view === 'dashboard') { renderCharts(); renderLowStockAlert(); }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 window.goView = goView;
@@ -168,18 +170,18 @@ async function loadSettings() {
   // Populate form
   ['site_title','meta_description','keywords','og_image','canonical_url','ga_id','gsc_verification','robots_txt',
    'whatsapp_number','whatsapp_text','instagram_url','facebook_url','youtube_url','pinterest_url','twitter_url',
-   'imgbb_api_key'].forEach(k => {
+   'imgbb_api_key','openai_api_key','low_stock_threshold','alert_whatsapp'].forEach(k => {
     const node = $(`set-${k}`);
-    if (node) node.value = state.settings[k] || '';
+    if (node) node.value = state.settings[k] ?? '';
   });
 }
 async function saveSettings() {
   const payload = {};
   ['site_title','meta_description','keywords','og_image','canonical_url','ga_id','gsc_verification','robots_txt',
    'whatsapp_number','whatsapp_text','instagram_url','facebook_url','youtube_url','pinterest_url','twitter_url',
-   'imgbb_api_key'].forEach(k => {
+   'imgbb_api_key','openai_api_key','low_stock_threshold','alert_whatsapp'].forEach(k => {
     const node = $(`set-${k}`);
-    if (node) payload[k] = node.value.trim();
+    if (node) payload[k] = k === 'low_stock_threshold' ? (Number(node.value) || 5) : node.value.trim();
   });
   let res;
   if (state.settings.id) {
@@ -188,8 +190,8 @@ async function saveSettings() {
     res = await supabaseClient.from('site_settings').insert(payload).select().single();
   }
   if (res.error) {
-    if (res.error.message?.includes('imgbb_api_key')) {
-      showToast('Run the schema update SQL to add imgbb_api_key column to site_settings (see admin_setup.sql).', 'error');
+    if (res.error.message?.includes('imgbb_api_key') || res.error.message?.includes('openai_api_key') || res.error.message?.includes('low_stock') || res.error.message?.includes('alert_whatsapp')) {
+      showToast('Run the latest admin_setup.sql in Supabase SQL Editor to add new columns.', 'error');
     } else {
       showToast('Failed: ' + res.error.message, 'error');
     }
@@ -216,10 +218,11 @@ async function uploadImageToImgbb(file) {
 
 // ------------------------- Dashboard -------------------------
 function renderDashboard() {
+  const threshold = Number(state.settings.low_stock_threshold) || 5;
   const totalProducts = state.products.length;
   const active = state.products.filter(p => (p.status || 'Active') === 'Active').length;
   const totalCats = state.categories.length;
-  const lowStock = state.products.filter(p => (p.stock ?? 0) <= 5).length;
+  const lowStock = state.products.filter(p => (p.stock ?? 0) <= threshold).length;
   const outStock = state.products.filter(p => (p.stock ?? 0) === 0).length;
   const totalOrders = state.orders.length;
   const revenue = state.orders.reduce((s, o) => s + Number(o.total_amount || 0), 0);
@@ -255,7 +258,7 @@ function renderDashboard() {
 
   // Low stock list
   const lo = $('low-stock-list');
-  const lows = state.products.filter(p => (p.stock ?? 0) <= 5).sort((a,b) => (a.stock||0)-(b.stock||0)).slice(0, 7);
+  const lows = state.products.filter(p => (p.stock ?? 0) <= threshold).sort((a,b) => (a.stock||0)-(b.stock||0)).slice(0, 7);
   if (lows.length === 0) {
     lo.innerHTML = `<div class="empty"><div class="ic"><i class="fas fa-circle-check"></i></div><h4>All healthy</h4><p>No products below threshold.</p></div>`;
   } else {
@@ -267,6 +270,70 @@ function renderDashboard() {
         </div>
         <span class="badge ${p.stock === 0 ? 'b-error' : 'b-warn'}">${p.stock ?? 0} left</span>
       </div>`).join('');
+  }
+}
+
+function renderLowStockAlert() {
+  const threshold = Number(state.settings.low_stock_threshold) || 5;
+  const lows = state.products.filter(p => (p.stock ?? 0) <= threshold);
+  const banner = $('low-stock-alert');
+  if (!banner) return;
+  if (!lows.length) { banner.style.display = 'none'; return; }
+  banner.style.display = 'flex';
+  $('lsa-title').textContent = `${lows.length} product${lows.length===1?'':'s'} at or below threshold (${threshold})`;
+  $('lsa-detail').textContent = lows.slice(0,3).map(p => `${p.name} (${p.stock||0} left)`).join(' · ') + (lows.length > 3 ? ` · +${lows.length-3} more` : '');
+  const wa = (state.settings.alert_whatsapp || '').replace(/[^0-9]/g, '');
+  const link = $('lsa-wa');
+  if (wa) {
+    const msg = encodeURIComponent(`🔔 ONCOST Low Stock Alert\n\n${lows.length} product(s) at/below ${threshold} units:\n\n` + lows.slice(0,10).map(p => `• ${p.name}: ${p.stock||0} left`).join('\n'));
+    link.href = `https://wa.me/${wa}?text=${msg}`;
+    link.style.display = '';
+  } else {
+    link.href = '#'; link.style.display = 'none';
+  }
+}
+
+let _chartRevenue, _chartCategories;
+function renderCharts() {
+  if (typeof Chart === 'undefined') return;
+  // Revenue last 30 days
+  const days = [];
+  const map = {};
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i); d.setHours(0,0,0,0);
+    const k = d.toISOString().slice(0,10);
+    days.push(k); map[k] = 0;
+  }
+  state.orders.forEach(o => {
+    const k = (o.created_at || '').slice(0,10);
+    if (k in map) map[k] += Number(o.total_amount || 0);
+  });
+  const labels = days.map(d => new Date(d).toLocaleDateString('en-IN', { day:'numeric', month:'short' }));
+  const data = days.map(d => map[d]);
+  const rc = $('chart-revenue');
+  if (rc) {
+    if (_chartRevenue) _chartRevenue.destroy();
+    _chartRevenue = new Chart(rc, {
+      type: 'line',
+      data: { labels, datasets: [{ label: 'Revenue (₹)', data, borderColor: '#7a1f35', backgroundColor: 'rgba(122,31,53,.10)', tension: .35, fill: true, pointRadius: 2, pointBackgroundColor: '#d4af37' }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { maxTicksLimit: 8, color: '#7A726B' }, grid: { display: false } }, y: { ticks: { color: '#7A726B', callback: v => '₹' + Number(v).toLocaleString('en-IN') }, grid: { color: '#F3EDE5' } } } }
+    });
+  }
+  // Top categories by inventory value
+  const catMap = {};
+  state.products.forEach(p => {
+    const c = p.category || 'Uncategorized';
+    catMap[c] = (catMap[c] || 0) + Number(p.price || 0) * Number(p.stock || 0);
+  });
+  const cats = Object.entries(catMap).sort((a,b) => b[1] - a[1]).slice(0, 6);
+  const cc = $('chart-categories');
+  if (cc) {
+    if (_chartCategories) _chartCategories.destroy();
+    _chartCategories = new Chart(cc, {
+      type: 'doughnut',
+      data: { labels: cats.map(c => c[0]), datasets: [{ data: cats.map(c => c[1]), backgroundColor: ['#7a1f35','#d4af37','#b15f72','#f2dd92','#5c1527','#a47a45'] }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } } }, cutout: '55%' }
+    });
   }
 }
 
@@ -423,13 +490,25 @@ function openProductForm(id) {
         <div id="${formId}-img-block">
           ${p?.image_url ? `<div style="margin-bottom:12px;"><img src="${escapeHTML(p.image_url)}" alt="" style="max-width:240px;border-radius:6px;border:1px solid var(--admin-border);" /></div>` : ''}
         </div>
-        <div class="field"><label>Image URL</label><input class="input" id="${formId}-image_url" data-testid="pf-image_url" value="${escapeHTML(p?.image_url||'')}" placeholder="https://..." /></div>
+        <div class="field"><label>Primary Image URL</label><input class="input" id="${formId}-image_url" data-testid="pf-image_url" value="${escapeHTML(p?.image_url||'')}" placeholder="https://..." /></div>
         <div style="margin:14px 0 6px;font-size:12px;color:var(--admin-text-mute);text-align:center;">— or —</div>
         <div class="dropzone" id="${formId}-drop" data-testid="pf-drop">
           <div class="big-icon"><i class="fas fa-image"></i></div>
           <div style="font-weight:600;margin-bottom:4px">Drop a JPG/PNG to upload</div>
           <div style="font-size:12px;color:var(--admin-text-mute)" id="${formId}-drop-sub">Uses imgbb (configure key in Site Settings → Image Upload)</div>
           <input type="file" id="${formId}-file" accept="image/jpeg,image/png,image/webp" hidden />
+        </div>
+
+        <div style="margin-top:24px;padding-top:18px;border-top:1px solid var(--admin-border);">
+          <label class="label" style="display:block;margin-bottom:10px;">Additional Gallery Images</label>
+          <div id="${formId}-gallery" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;"></div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input class="input" id="${formId}-gallery_url" placeholder="Paste another image URL" />
+            <button type="button" class="btn btn-secondary btn-sm" id="${formId}-gallery_add_url"><i class="fas fa-plus"></i> Add URL</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="${formId}-gallery_upload_btn"><i class="fas fa-upload"></i> Upload</button>
+            <input type="file" id="${formId}-gallery_file" accept="image/jpeg,image/png,image/webp" hidden multiple />
+          </div>
+          <div class="hint" style="margin-top:6px;">Gallery shows on the product detail page. Up to 8 images.</div>
         </div>
       </div>
 
@@ -440,6 +519,9 @@ function openProductForm(id) {
       </div>
 
       <div class="tab-pane" data-pane="seo">
+        <div style="margin-bottom:14px;text-align:right;">
+          <button type="button" class="btn btn-secondary btn-sm" id="${formId}-ai_seo" data-testid="pf-ai-seo"><i class="fas fa-wand-magic-sparkles"></i> AI Generate SEO</button>
+        </div>
         <div class="field"><label>SEO Title <span class="hint" style="float:right;" id="${formId}-seoTL"></span></label><input class="input" id="${formId}-seo_title" data-testid="pf-seo_title" value="${escapeHTML(p?.seo_title||'')}" placeholder="${escapeHTML(p?.name||'Product name shown in Google')}" /></div>
         <div class="field"><label>SEO Description <span class="hint" style="float:right;" id="${formId}-seoDL"></span></label><textarea class="textarea" id="${formId}-seo_description" data-testid="pf-seo_description">${escapeHTML(p?.seo_description||'')}</textarea></div>
         <div class="field"><label>Storefront URL</label><div class="hint">www.oncost.shop/product.html?id=<b>${escapeHTML(p?.id || slugify(p?.name || 'new-product'))}</b></div></div>
@@ -494,6 +576,78 @@ function openProductForm(id) {
 
   // Save
   $(`${formId}-cancel`).onclick = () => m.close();
+
+  // ---------- Gallery management ----------
+  let gallery = Array.isArray(p?.image_urls) ? [...p.image_urls] : [];
+  function renderGallery() {
+    const slot = $(`${formId}-gallery`);
+    if (!slot) return;
+    if (!gallery.length) { slot.innerHTML = `<div style="color:var(--admin-text-mute);font-size:12px;">No additional images yet.</div>`; return; }
+    slot.innerHTML = gallery.map((url, i) => `
+      <div style="position:relative;width:84px;height:84px;border-radius:6px;overflow:hidden;border:1px solid var(--admin-border);background:var(--admin-muted);">
+        <img src="${escapeHTML(url)}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'" />
+        <button type="button" data-gi="${i}" style="position:absolute;top:-2px;right:-2px;width:22px;height:22px;border-radius:50%;background:#fff;border:1px solid var(--admin-border);color:var(--admin-error);font-size:11px;cursor:pointer;" title="Remove">✕</button>
+      </div>`).join('');
+    slot.querySelectorAll('[data-gi]').forEach(btn => btn.onclick = () => { gallery.splice(parseInt(btn.dataset.gi,10), 1); renderGallery(); });
+  }
+  renderGallery();
+  $(`${formId}-gallery_add_url`).onclick = () => {
+    const u = $(`${formId}-gallery_url`).value.trim();
+    if (!u) return;
+    if (gallery.length >= 8) return showToast('Max 8 gallery images.', 'error');
+    gallery.push(u); $(`${formId}-gallery_url`).value = ''; renderGallery();
+  };
+  $(`${formId}-gallery_upload_btn`).onclick = () => $(`${formId}-gallery_file`).click();
+  $(`${formId}-gallery_file`).onchange = async (e) => {
+    if (!state.imgbbKey) { showToast('Add an imgbb API key in Site Settings first.', 'error'); return; }
+    for (const f of Array.from(e.target.files || [])) {
+      if (gallery.length >= 8) break;
+      try { const url = await uploadImageToImgbb(f); gallery.push(url); renderGallery(); }
+      catch (err) { showToast(err.message, 'error'); }
+    }
+    e.target.value = '';
+  };
+
+  // ---------- AI SEO generator ----------
+  $(`${formId}-ai_seo`).onclick = async () => {
+    const key = state.settings.openai_api_key;
+    if (!key) return showToast('Add an OpenAI API key in Site Settings → AI & Alerts.', 'error');
+    const name = $(`${formId}-name`).value.trim() || 'Product';
+    const category = $(`${formId}-category`).value.trim() || 'Premium gift';
+    const desc = $(`${formId}-description`).value.trim() || '';
+    const price = $(`${formId}-price`).value || '';
+    const btn = $(`${formId}-ai_seo`);
+    btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Generating…';
+    try {
+      const prompt = `You are an SEO copywriter for ONCOST — a premium Indian e-commerce store selling brass, German silver, tin and thambulam return gifts for weddings, poojas, birthdays and corporate events.\n\nProduct:\nName: ${name}\nCategory: ${category}\nPrice: ₹${price}\nNotes: ${desc || '(none)'}\n\nWrite JSON with these exact keys:\n- seo_title: max 60 chars, includes product name + key benefit\n- seo_description: max 155 chars, persuasive, includes "ONCOST" and a buying intent phrase\n- description: 2 sentences, 30-50 words, warm and aspirational, mentions gifting use-case\n\nReturn ONLY valid JSON, no markdown, no commentary.`;
+      const r = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          response_format: { type: 'json_object' },
+          temperature: 0.7,
+        }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error?.message || 'OpenAI error');
+      const content = j.choices?.[0]?.message?.content || '{}';
+      const out = JSON.parse(content);
+      if (out.seo_title) $(`${formId}-seo_title`).value = out.seo_title;
+      if (out.seo_description) $(`${formId}-seo_description`).value = out.seo_description;
+      if (out.description && !$(`${formId}-description`).value.trim()) $(`${formId}-description`).value = out.description;
+      // refresh char counters
+      $(`${formId}-seoTL`).textContent = `${$(`${formId}-seo_title`).value.length}/60`;
+      $(`${formId}-seoDL`).textContent = `${$(`${formId}-seo_description`).value.length}/160`;
+      showToast('✨ SEO generated. Review and save.');
+    } catch (err) {
+      showToast('AI failed: ' + err.message, 'error');
+    } finally {
+      btn.disabled = false; btn.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> AI Generate SEO';
+    }
+  };
+
   $(`${formId}-save`).onclick = async () => {
     const name = $(`${formId}-name`).value.trim();
     if (!name) return showToast('Name is required.', 'error');
@@ -508,6 +662,7 @@ function openProductForm(id) {
       offer_price: $(`${formId}-offer_price`).value ? Number($(`${formId}-offer_price`).value) : null,
       description: $(`${formId}-description`).value.trim() || null,
       image_url: $(`${formId}-image_url`).value.trim() || null,
+      image_urls: gallery.length ? gallery : null,
       stock: Number($(`${formId}-stock`).value) || 0,
       seo_title: $(`${formId}-seo_title`).value.trim() || null,
       seo_description: $(`${formId}-seo_description`).value.trim() || null,
@@ -1111,6 +1266,8 @@ function renderAllOnce() {
   renderInventory();
   renderOrders();
   renderDashboard();
+  renderLowStockAlert();
+  renderCharts();
 }
 
 // kick it off
