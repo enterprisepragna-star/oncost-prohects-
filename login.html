@@ -1,193 +1,55 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login | ONCOST</title>
-  <link rel="stylesheet" href="site.css">
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    
-    /* Dedicated styles for the professional auth pages */
-    .pro-auth-body {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        min-height: 100vh;
-        padding: 20px;
-        background-color: #F7F8FA;
-        font-family: 'Inter', sans-serif;
-    }
-    .pro-auth-container {
-        background-color: white;
-        width: 100%;
-        max-width: 440px;
-        padding: 48px 40px;
-        border-radius: 12px;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05), 0 2px 10px rgba(0, 0, 0, 0.02);
-    }
-    .pro-auth-header {
-        text-align: center;
-        margin-bottom: 32px;
-    }
-    .pro-auth-logo {
-        color: #7B2A3A;
-        font-size: 32px;
-        font-weight: 700;
-        letter-spacing: 1px;
-        margin-bottom: 4px;
-        text-decoration: none;
-        display: block;
-    }
-    .pro-auth-subtitle {
-        color: #7B2A3A;
-        font-size: 12px;
-        font-weight: 600;
-        letter-spacing: 2px;
-        text-transform: uppercase;
-    }
-    .pro-auth-welcome h1 {
-        color: #1A1A1A;
-        font-size: 24px;
-        font-weight: 600;
-        margin: 0 0 8px 0;
-        font-family: 'Inter', sans-serif;
-    }
-    .pro-auth-welcome p {
-        color: #666666;
-        font-size: 14px;
-        line-height: 1.5;
-        margin-bottom: 24px;
-    }
-    .pro-form-group {
-        margin-bottom: 20px;
-    }
-    .pro-form-group label {
-        display: block;
-        color: #1A1A1A;
-        font-size: 14px;
-        font-weight: 500;
-        margin-bottom: 8px;
-    }
-    .pro-form-group input {
-        width: 100%;
-        padding: 12px 16px;
-        border: 1px solid #E0E0E0;
-        border-radius: 8px;
-        font-size: 15px;
-        color: #1A1A1A;
-        transition: all 0.2s ease;
-        outline: none;
-        font-family: 'Inter', sans-serif;
-    }
-    .pro-form-group input:focus {
-        border-color: #7B2A3A;
-        box-shadow: 0 0 0 3px rgba(123, 42, 58, 0.1);
-    }
-    .pro-btn {
-        width: 100%;
-        padding: 14px;
-        border-radius: 8px;
-        font-size: 15px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        border: none;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        font-family: 'Inter', sans-serif;
-    }
-    .pro-btn-primary {
-        background-color: #7B2A3A;
-        color: white;
-        margin-top: 10px;
-    }
-    .pro-btn-primary:hover {
-        background-color: #5A1E2A;
-    }
-    .pro-btn-secondary {
-        background-color: #C69C31;
-        color: #1A1A1A;
-    }
-    .pro-btn-secondary:hover {
-        background-color: #A88325;
-    }
-    .pro-divider {
-        display: flex;
-        align-items: center;
-        text-align: center;
-        margin: 24px 0;
-        color: #666666;
-        font-size: 13px;
-    }
-    .pro-divider::before,
-    .pro-divider::after {
-        content: '';
-        flex: 1;
-        border-bottom: 1px solid #E0E0E0;
-    }
-    .pro-divider:not(:empty)::before {
-        margin-right: .5em;
-    }
-    .pro-divider:not(:empty)::after {
-        margin-left: .5em;
-    }
-    .pro-footer-links {
-        text-align: center;
-        margin-top: 32px;
-        font-size: 14px;
-        color: #666666;
-    }
-    .pro-footer-links a {
-        color: #7B2A3A;
-        font-weight: 600;
-        text-decoration: none;
-        transition: color 0.2s ease;
-    }
-    .pro-footer-links a:hover {
-        text-decoration: underline;
-    }
-  </style>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign In · ONCOST</title>
+  <link rel="stylesheet" href="storefront.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-client.js"></script>
 </head>
-<body class="pro-auth-body">
-  <div class="pro-auth-container">
-    <div class="pro-auth-header">
-      <a href="index.html" class="pro-auth-logo">ONCOST</a>
-      <div class="pro-auth-subtitle">Customer Login</div>
-    </div>
-
-    <div class="pro-auth-welcome">
-      <h1>Welcome back</h1>
-      <p>Login to view product details, your cart, account settings, and enquiry modules.</p>
-    </div>
-
-    <form action="#" method="POST" data-login-form>
-      <div class="pro-form-group">
-        <label for="email">Email</label>
-        <input type="email" id="email" name="email" placeholder="customer@example.com" required>
-      </div>
-
-      <div class="pro-form-group">
-        <label for="password">Password</label>
-        <!-- Added minlength validation -->
-        <input type="password" id="password" name="password" placeholder="Enter password" required minlength="8">
-      </div>
-
-      <button type="submit" class="pro-btn pro-btn-primary">Login</button>
+<body style="display:flex;min-height:100vh;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--cream),var(--gold-soft));padding:20px;">
+  <div style="max-width:420px;width:100%;background:#FFF;padding:36px;border-radius:14px;box-shadow:var(--shadow-lg);border:1px solid var(--line);">
+    <a href="index.html" style="display:block;text-align:center;font-family:var(--font-display);font-size:1.8rem;font-weight:800;color:var(--burgundy);letter-spacing:3px;margin-bottom:6px;">ONCOST</a>
+    <div style="text-align:center;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:24px;">Welcome back</div>
+    <h2 style="text-align:center;font-size:1.6rem;margin-bottom:24px;">Sign In</h2>
+    <div id="err" style="background:#fbecec;color:var(--error);border:1px solid #e8c1c1;padding:10px;border-radius:6px;font-size:13px;margin-bottom:14px;display:none;"></div>
+    <form id="login-form" style="display:flex;flex-direction:column;gap:14px;">
+      <label style="font-size:12px;font-weight:600;color:var(--ink-soft);letter-spacing:1px;text-transform:uppercase;">Email
+        <input class="field" type="email" id="email" required placeholder="you@example.com" style="margin-top:6px;width:100%;" />
+      </label>
+      <label style="font-size:12px;font-weight:600;color:var(--ink-soft);letter-spacing:1px;text-transform:uppercase;">Password
+        <input class="field" type="password" id="password" required placeholder="••••••••" style="margin-top:6px;width:100%;" />
+      </label>
+      <button class="btn primary" type="submit" id="btn"><i class="fas fa-right-to-bracket"></i> Sign In</button>
     </form>
-
-    <div class="pro-divider">OR</div>
-
-    <button type="button" class="pro-btn pro-btn-secondary" onclick="alert('OTP login is coming soon!')">Login with OTP instead</button>
-
-    <div class="pro-footer-links">
-      New customer? <a href="signup.html">Create an account</a>
+    <div style="text-align:center;margin-top:18px;font-size:13px;color:var(--muted);">
+      New here? <a href="signup.html" style="color:var(--burgundy);font-weight:600;">Create an account</a>
     </div>
+    <div style="text-align:center;margin-top:14px;font-size:12px;"><a href="index.html" style="color:var(--muted);">← Back to store</a></div>
   </div>
 
-  <script src="app.js"></script>
+  <script>
+    const f = document.getElementById('login-form');
+    const err = document.getElementById('err');
+    const btn = document.getElementById('btn');
+    const redirect = new URLSearchParams(location.search).get('redirect') || 'index.html';
+
+    supabaseClient.auth.getSession().then(({ data: { session } }) => {
+      if (session) location.href = redirect;
+    });
+
+    f.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      err.style.display = 'none';
+      btn.disabled = true; btn.innerHTML = 'Signing in…';
+      const { error } = await supabaseClient.auth.signInWithPassword({
+        email: document.getElementById('email').value.trim().toLowerCase(),
+        password: document.getElementById('password').value,
+      });
+      if (error) { err.textContent = error.message; err.style.display = 'block'; btn.disabled = false; btn.innerHTML = '<i class="fas fa-right-to-bracket"></i> Sign In'; return; }
+      location.href = redirect;
+    });
+  </script>
 </body>
 </html>

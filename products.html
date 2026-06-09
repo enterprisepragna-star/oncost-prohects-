@@ -1,51 +1,78 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Products | ONCOST</title>
-  <link rel="stylesheet" href="site.css">
-
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shop · ONCOST</title>
+  <meta name="description" content="Browse our curated catalog of brass, German silver, tin and thambulam gifts." />
+  <link rel="stylesheet" href="storefront.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-client.js"></script>
 </head>
 <body>
-  <div class="topbar"><span>* Bulk Orders Available</span><span>* Pan India Delivery</span><span>* Premium Return Gifts</span></div>
+  <div id="sale-banner" class="sale-banner"></div>
+  <div class="topbar"><span><i class="fas fa-truck-fast"></i> Pan India Delivery</span><span><i class="fas fa-gift"></i> Premium Return Gifts</span><span><i class="fas fa-boxes-stacked"></i> Bulk Orders</span></div>
   <header class="site-header">
     <a class="logo" href="index.html">ONCOST</a>
-    <nav class="desktop-nav">
-      <a href="index.html">Home</a><a href="products.html">Shop</a><a href="products.html">Collections</a><a href="bulk.html">Bulk Orders</a><a href="account.html" data-account-link>Login</a>
-    </nav>
-    <div class="header-actions"><a class="icon-button" href="cart.html" data-cart-count>Cart</a><a class="icon-button hide-mobile" href="account.html" data-account-link>Login</a></div>
+    <nav class="desktop-nav"><a href="index.html">Home</a><a href="products.html">Shop</a><a href="bulk.html">Bulk Orders</a><a href="account.html" data-account-link><i class="fas fa-user"></i></a></nav>
+    <div class="header-actions">
+      <a class="icon-btn" href="cart.html" data-cart-count><i class="fas fa-cart-shopping"></i></a>
+      <a class="icon-btn" href="account.html" data-account-link><i class="fas fa-user"></i></a>
+    </div>
   </header>
+
   <main>
     <section class="page-hero">
-      <div><p class="eyebrow">Shop ONCOST</p><h1>Product Collections</h1><p>Browse curated gifting options. Product details are available after customer login.</p></div>
-      <a class="button secondary" href="signup.html">Create Account</a>
+      <div>
+        <span class="eyebrow">Shop ONCOST</span>
+        <h1>Our Collections</h1>
+        <p>Browse our curated catalog. Use search & filters to find the perfect gift for any occasion.</p>
+      </div>
+      <a class="btn secondary" href="bulk.html"><i class="fab fa-whatsapp"></i> Bulk Enquiry</a>
     </section>
+
     <section class="section">
       <div class="toolbar">
-        <input class="field" data-product-search placeholder="Search products or collections">
-        <select class="select" data-product-filter aria-label="Filter products">
-          <option value="all">All Collections</option>
-          <option>Brass Collection</option>
-          <option>Birthday Collection</option>
-          <option>Return Gifts</option>
-          <option>Tin Boxes</option>
-          <option>German Silver</option>
-          <option>Thambulam Sets</option>
+        <input class="field" data-product-search placeholder="Search products, categories..." data-testid="store-search" />
+        <select class="select" data-product-filter data-testid="store-cat-filter"><option value="all">All Collections</option></select>
+        <select class="select" data-product-sort data-testid="store-sort">
+          <option value="default">Sort: Newest</option>
+          <option value="price_asc">Price: Low → High</option>
+          <option value="price_desc">Price: High → Low</option>
         </select>
-        <select class="select" data-product-sort aria-label="Sort products">
-          <option value="default">Sort by Default</option>
-          <option value="price_asc">Price: Low to High</option>
-          <option value="price_desc">Price: High to Low</option>
-        </select>
+        <div id="products-count" style="margin-left:auto;color:var(--muted);font-size:13px;"></div>
       </div>
-      <div class="product-grid" data-products></div>
+      <div class="product-grid" data-products data-testid="store-grid"></div>
     </section>
   </main>
-  <footer class="site-footer"><h2>ONCOST</h2><p>Premium gifting collections for every occasion</p><nav class="footer-nav"><a href="products.html">Shop</a><a href="bulk.html">Bulk Orders</a><a href="account.html">Account</a></nav></footer>
-  <nav class="mobile-nav"><a href="index.html">Home</a><a href="products.html">Shop</a><a href="products.html">Categories</a><a href="cart.html">Cart</a><a href="account.html">Account</a></nav>
+
+  <footer class="site-footer">
+    <div class="footer-grid">
+      <div class="footer-col"><div class="brand">ONCOST</div><p>Premium gifting collections for every occasion.</p>
+        <div class="social-row">
+          <a id="social-instagram" target="_blank" rel="noopener"><i class="fab fa-instagram"></i></a>
+          <a id="social-facebook" target="_blank" rel="noopener"><i class="fab fa-facebook-f"></i></a>
+          <a id="social-youtube" target="_blank" rel="noopener"><i class="fab fa-youtube"></i></a>
+          <a id="social-whatsapp" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i></a>
+        </div>
+      </div>
+      <div class="footer-col"><h4>Shop</h4><ul><li><a href="products.html">All Products</a></li><li><a href="bulk.html">Bulk Orders</a></li><li><a href="cart.html">Cart</a></li></ul></div>
+      <div class="footer-col"><h4>Account</h4><ul><li><a href="login.html">Sign in</a></li><li><a href="signup.html">Create Account</a></li><li><a href="account.html">My Orders</a></li></ul></div>
+      <div class="footer-col"><h4>Help</h4><ul><li><a href="bulk.html">Contact</a></li><li><a href="bulk.html">Shipping</a></li><li><a href="bulk.html">Returns</a></li></ul></div>
+    </div>
+    <div class="footer-bottom"><div>© <span id="copy-year"></span> ONCOST.</div><div><a class="admin-link" href="admin-dashboard.html"><i class="fas fa-shield-halved"></i> Admin Console</a></div></div>
+  </footer>
+
+  <nav class="mobile-nav"><div class="row">
+    <a href="index.html"><i class="fas fa-house"></i> Home</a>
+    <a href="products.html" class="active"><i class="fas fa-store"></i> Shop</a>
+    <a href="bulk.html"><i class="fab fa-whatsapp"></i> Bulk</a>
+    <a href="cart.html" data-cart-count><i class="fas fa-cart-shopping"></i> Cart</a>
+    <a href="account.html" data-account-link><i class="fas fa-user"></i> Account</a>
+  </div></nav>
+  <a id="fab-whatsapp" class="fab-whatsapp" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i></a>
+
+  <script>document.getElementById('copy-year').textContent = new Date().getFullYear();</script>
   <script src="app.js"></script>
 </body>
 </html>

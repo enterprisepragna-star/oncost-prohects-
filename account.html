@@ -1,27 +1,55 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Account | ONCOST</title>
-  <link rel="stylesheet" href="site.css">
-
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Account · ONCOST</title>
+  <link rel="stylesheet" href="storefront.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-client.js"></script>
 </head>
 <body>
-  <div class="topbar"><span>* Account dashboard</span><span>* Cart and enquiry modules</span><span>* Demo customer state</span></div>
+  <div id="sale-banner" class="sale-banner"></div>
+  <div class="topbar"><span><i class="fas fa-user-shield"></i> Customer Area</span><span><i class="fas fa-truck-fast"></i> Track Your Orders</span><span><i class="fas fa-envelope"></i> Enquiry History</span></div>
   <header class="site-header">
     <a class="logo" href="index.html">ONCOST</a>
-    <nav class="desktop-nav"><a href="index.html">Home</a><a href="products.html">Shop</a><a href="cart.html">Cart</a><a href="bulk.html">Bulk Orders</a></nav>
-    <div class="header-actions"><button class="icon-button" data-logout>Logout</button></div>
+    <nav class="desktop-nav"><a href="index.html">Home</a><a href="products.html">Shop</a><a href="bulk.html">Bulk Orders</a><a href="cart.html" data-cart-count><i class="fas fa-cart-shopping"></i></a></nav>
+    <div class="header-actions">
+      <a class="icon-btn" href="cart.html" data-cart-count><i class="fas fa-cart-shopping"></i></a>
+      <a class="icon-btn" href="account.html" data-account-link><i class="fas fa-user"></i></a>
+    </div>
   </header>
+
   <main>
-    <section class="page-hero"><div><p class="eyebrow">Customer area</p><h1>My Account</h1><p>Manage customer profile, orders, wishlist, support, and event enquiries.</p></div><a class="button secondary" href="products.html">Shop Products</a></section>
+    <section class="page-hero">
+      <div><span class="eyebrow">Customer area</span><h1>My Account</h1><p>Manage your orders, enquiries, profile and saved addresses.</p></div>
+      <a class="btn secondary" href="products.html"><i class="fas fa-store"></i> Continue Shopping</a>
+    </section>
     <section class="section" data-account></section>
   </main>
-  <footer class="site-footer"><h2>ONCOST</h2><p>Premium gifting collections for every occasion</p><nav class="footer-nav"><a href="products.html">Shop</a><a href="bulk.html">Bulk Orders</a><a href="cart.html">Cart</a></nav></footer>
-  <nav class="mobile-nav"><a href="index.html">Home</a><a href="products.html">Shop</a><a href="products.html">Categories</a><a href="cart.html">Cart</a><a href="account.html">Account</a></nav>
+
+  <footer class="site-footer">
+    <div class="footer-grid">
+      <div class="footer-col"><div class="brand">ONCOST</div><p>Premium gifting collections for every occasion.</p>
+        <div class="social-row"><a id="social-instagram" target="_blank"><i class="fab fa-instagram"></i></a><a id="social-facebook" target="_blank"><i class="fab fa-facebook-f"></i></a><a id="social-youtube" target="_blank"><i class="fab fa-youtube"></i></a><a id="social-whatsapp" target="_blank"><i class="fab fa-whatsapp"></i></a></div>
+      </div>
+      <div class="footer-col"><h4>Shop</h4><ul><li><a href="products.html">All Products</a></li><li><a href="bulk.html">Bulk Orders</a></li><li><a href="cart.html">Cart</a></li></ul></div>
+      <div class="footer-col"><h4>Account</h4><ul><li><a href="login.html">Sign in</a></li><li><a href="signup.html">Sign up</a></li><li><a href="account.html">My Orders</a></li></ul></div>
+      <div class="footer-col"><h4>Help</h4><ul><li><a href="bulk.html">Contact</a></li><li><a href="bulk.html">Shipping</a></li><li><a href="bulk.html">Returns</a></li></ul></div>
+    </div>
+    <div class="footer-bottom"><div>© <span id="copy-year"></span> ONCOST.</div><div><a class="admin-link" href="admin-dashboard.html"><i class="fas fa-shield-halved"></i> Admin Console</a></div></div>
+  </footer>
+
+  <nav class="mobile-nav"><div class="row">
+    <a href="index.html"><i class="fas fa-house"></i> Home</a>
+    <a href="products.html"><i class="fas fa-store"></i> Shop</a>
+    <a href="bulk.html"><i class="fab fa-whatsapp"></i> Bulk</a>
+    <a href="cart.html" data-cart-count><i class="fas fa-cart-shopping"></i> Cart</a>
+    <a href="account.html" data-account-link class="active"><i class="fas fa-user"></i> Account</a>
+  </div></nav>
+  <a id="fab-whatsapp" class="fab-whatsapp" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i></a>
+
+  <script>document.getElementById('copy-year').textContent = new Date().getFullYear();</script>
   <script src="app.js"></script>
 </body>
 </html>
