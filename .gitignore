@@ -14,3 +14,10 @@ _archive_react_admin/
 .pytest_cache/
 .ruff_cache/
 design_guidelines.json
+.env
+.env.*
+*.env
+credentials.json
+*.pem
+*.key
+.credentials
