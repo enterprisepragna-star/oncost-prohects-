@@ -114,6 +114,7 @@ async function bootstrap() {
 
     await Promise.all([
       loadSettings(),
+      loadBusinessProfile(),
       loadCategories(),
       loadProducts(),
       loadOrders(),
@@ -202,6 +203,44 @@ async function saveSettings() {
   showToast('Settings saved.');
 }
 window.saveSettings = saveSettings;
+
+// ------------------------- Business Profile (for invoice) -------------------------
+const BIZ_FIELDS = ['business_name','legal_name','gstin','pan','address_line1','address_line2','city','state','pincode','country','phone','email','invoice_notes'];
+
+async function loadBusinessProfile() {
+  const { data } = await supabaseClient.from('business_profile').select('*').limit(1);
+  state.business = (data && data[0]) || {};
+  BIZ_FIELDS.forEach(k => { const n = $(`biz-${k}`); if (n) n.value = state.business[k] ?? ''; });
+  // Wire save button (idempotent — overrides any previous handler)
+  const btn = $('biz-save-btn');
+  if (btn) btn.onclick = saveBusinessProfile;
+}
+
+async function saveBusinessProfile() {
+  const payload = {};
+  BIZ_FIELDS.forEach(k => { const n = $(`biz-${k}`); if (n) payload[k] = n.value.trim() || null; });
+  if (!payload.business_name) { showToast('Business name is required.', 'error'); return; }
+  const btn = $('biz-save-btn');
+  btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…';
+  let res;
+  if (state.business && state.business.id) {
+    res = await supabaseClient.from('business_profile').update(payload).eq('id', state.business.id).select().single();
+  } else {
+    res = await supabaseClient.from('business_profile').insert(payload).select().single();
+  }
+  btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Save Business Profile';
+  if (res.error) {
+    if (res.error.code === '42P01' || res.error.message?.includes('business_profile')) {
+      showToast('Run /app/migration_ccavenue_fix.sql in Supabase first.', 'error');
+    } else {
+      showToast('Save failed: ' + res.error.message, 'error');
+    }
+    return;
+  }
+  state.business = res.data;
+  showToast('Business profile saved. Future invoices will use these details.');
+}
+window.saveBusinessProfile = saveBusinessProfile;
 
 // ------------------------- Image upload (imgbb) -------------------------
 async function uploadImageToImgbb(file) {
@@ -1039,18 +1078,21 @@ function renderOrders() {
   tbody.innerHTML = filtered.map(o => {
     const items = Array.isArray(o.items) ? o.items : (o.items?.items || []);
     const qty = items.reduce((s, it) => s + Number(it.qty || it.quantity || 1), 0);
+    const ccId = o.ccavenue_order_id || '';
+    const invLink = ccId ? `<a href="thank-you.html?status=success&order_id=${encodeURIComponent(ccId)}&tracking_id=${encodeURIComponent(o.payment_tracking_id||'')}&amount=${encodeURIComponent(o.total_amount||'')}" target="_blank" class="icon-btn" title="View / print invoice" data-testid="invoice-btn-${escapeHTML(o.id)}"><i class="fas fa-file-invoice"></i></a>` : '';
     return `<tr data-testid="order-row-${escapeHTML(o.id)}">
-      <td><code style="font-size:11px">#${escapeHTML(String(o.id).substring(0,8))}</code></td>
+      <td><code style="font-size:11px">${escapeHTML(ccId || '#' + String(o.id).substring(0,8))}</code><div style="font-size:10px;color:var(--admin-text-mute);font-family:monospace;">${escapeHTML(o.payment_tracking_id || '')}</div></td>
+      <td><div style="font-size:12px;font-weight:600;color:var(--admin-primary);">${escapeHTML(o.invoice_number || '—')}</div></td>
       <td><div style="font-size:12px">${escapeHTML(o.guest_email || o.user_id || '—')}</div><div style="font-size:11px;color:var(--admin-text-mute)">${escapeHTML(o.guest_phone || '')}</div></td>
       <td style="text-align:right;font-weight:600">${fmtINR(o.total_amount)}</td>
       <td>${qty} item${qty===1?'':'s'}</td>
       <td>
         <select class="select" style="padding:5px 8px;font-size:12px;min-width:130px;" onchange="updateOrderStatus('${escapeHTML(o.id)}', this.value)" data-testid="order-status-${escapeHTML(o.id)}">
-          ${['Processing','Packed','Shipped','Delivered','Cancelled'].map(s => `<option ${o.status===s?'selected':''}>${s}</option>`).join('')}
+          ${['Processing','Paid','Packed','Shipped','Delivered','Cancelled','Failed'].map(s => `<option ${o.status===s?'selected':''}>${s}</option>`).join('')}
         </select>
       </td>
       <td style="font-size:12px;color:var(--admin-text-mute)">${new Date(o.created_at).toLocaleDateString()}</td>
-      <td><div class="row-actions"><button class="icon-btn" onclick="viewOrder('${escapeHTML(o.id)}')" title="View"><i class="fas fa-eye"></i></button></div></td>
+      <td><div class="row-actions">${invLink}<button class="icon-btn" onclick="viewOrder('${escapeHTML(o.id)}')" title="View"><i class="fas fa-eye"></i></button></div></td>
     </tr>`;
   }).join('');
 }
@@ -1086,6 +1128,90 @@ function viewOrder(id) {
   $('ov-close').onclick = () => m.close();
 }
 window.viewOrder = viewOrder;
+
+// ------------------------- Recover Missed Order -------------------------
+// Used to backfill orders that succeeded on CCAvenue but never reached Supabase
+// (e.g. webhook ran before schema migration). Stores the admin recovery key in
+// localStorage so admin doesn't have to retype it every time.
+function openRecoverOrderForm() {
+  const savedKey = localStorage.getItem('oncost_recover_key') || '';
+  const html = `
+    <div style="background:#FFF3E0;border:1px solid #E6B580;color:#7A4310;padding:12px 14px;border-radius:6px;margin-bottom:14px;font-size:13px;">
+      <strong><i class="fas fa-life-ring"></i> Use this when a CCAvenue order doesn't show up here automatically.</strong><br>
+      Copy details from your <a href="https://login.ccavenue.com" target="_blank" style="color:#7A4310;font-weight:600;">CCAvenue dashboard → Order Lookup</a>.
+    </div>
+    <div class="grid-2">
+      <div class="field"><label>Order ID (from CCAvenue) *</label><input class="input" id="rc-order-id" data-testid="rc-order-id" placeholder="OC-1781110752895-6373" required /></div>
+      <div class="field"><label>Tracking / Ref. # *</label><input class="input" id="rc-tracking-id" data-testid="rc-tracking-id" placeholder="114571273239" /></div>
+      <div class="field"><label>Amount (INR) *</label><input class="input" id="rc-amount" type="number" step="0.01" data-testid="rc-amount" placeholder="139.00" required /></div>
+      <div class="field"><label>Status</label>
+        <select class="select" id="rc-status" data-testid="rc-status">
+          <option value="Paid" selected>Paid</option>
+          <option value="Failed">Failed</option>
+          <option value="Cancelled">Cancelled</option>
+        </select>
+      </div>
+      <div class="field"><label>Customer Email</label><input class="input" id="rc-email" type="email" data-testid="rc-email" /></div>
+      <div class="field"><label>Customer Phone</label><input class="input" id="rc-phone" data-testid="rc-phone" /></div>
+      <div class="field" style="grid-column:1/-1"><label>Customer Name</label><input class="input" id="rc-name" data-testid="rc-name" /></div>
+      <div class="field" style="grid-column:1/-1"><label>Shipping Address</label><textarea class="input" id="rc-address" rows="2" data-testid="rc-address" placeholder="Full address"></textarea></div>
+      <div class="field" style="grid-column:1/-1"><label>Notes</label><input class="input" id="rc-notes" data-testid="rc-notes" placeholder="Any context (e.g. 'CCAvenue test on 10 Jun 2026')" /></div>
+      <div class="field" style="grid-column:1/-1">
+        <label>Admin Recovery Key <span style="font-weight:400;color:var(--admin-text-mute);font-size:11px;">(from Vercel env var <code>ADMIN_RECOVERY_KEY</code>, saved locally after first use)</span></label>
+        <input class="input" id="rc-key" type="password" data-testid="rc-key" value="${escapeHTML(savedKey)}" placeholder="Paste your ADMIN_RECOVERY_KEY" required />
+      </div>
+    </div>`;
+  const footer = el('div', {});
+  footer.innerHTML = `<button class="btn btn-secondary" id="rc-cancel" data-testid="rc-cancel">Cancel</button><button class="btn btn-primary" id="rc-save" data-testid="rc-save"><i class="fas fa-life-ring"></i> Recover Order</button>`;
+  const m = openModal({ title: 'Recover Missed Order', body: html, footer, size: 'lg', testid: 'recover-order' });
+  $('rc-cancel').onclick = () => m.close();
+  $('rc-save').onclick = async () => {
+    const orderId = $('rc-order-id').value.trim();
+    const amount  = Number($('rc-amount').value);
+    const key     = $('rc-key').value.trim();
+    if (!orderId)  return showToast('Order ID required.', 'error');
+    if (!amount)   return showToast('Amount required.', 'error');
+    if (!key)      return showToast('Admin recovery key required.', 'error');
+
+    const payload = {
+      order_id: orderId,
+      tracking_id: $('rc-tracking-id').value.trim(),
+      amount,
+      status: $('rc-status').value,
+      guest_email: $('rc-email').value.trim() || null,
+      guest_phone: $('rc-phone').value.trim() || null,
+      shipping_address: {
+        name:    $('rc-name').value.trim(),
+        email:   $('rc-email').value.trim(),
+        phone:   $('rc-phone').value.trim(),
+        address: $('rc-address').value.trim(),
+      },
+      notes: $('rc-notes').value.trim(),
+    };
+    $('rc-save').disabled = true;
+    $('rc-save').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Recovering…';
+    try {
+      const r = await fetch('/api/admin/recover-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
+        body: JSON.stringify(payload),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+      localStorage.setItem('oncost_recover_key', key);   // remember for next time
+      showToast('Order recovered. Refreshing list…');
+      m.close();
+      await loadOrders();
+      renderOrders();
+      renderDashboard();
+    } catch (err) {
+      showToast('Recovery failed: ' + err.message, 'error');
+      $('rc-save').disabled = false;
+      $('rc-save').innerHTML = '<i class="fas fa-life-ring"></i> Recover Order';
+    }
+  };
+}
+window.openRecoverOrderForm = openRecoverOrderForm;
 
 // ------------------------- Coupons -------------------------
 async function loadCoupons() {

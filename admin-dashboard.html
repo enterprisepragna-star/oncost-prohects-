@@ -248,6 +248,7 @@
               <h1 class="page-title">Orders</h1>
               <p class="page-sub" id="orders-sub">Manage incoming orders.</p>
             </div>
+            <button class="btn btn-secondary" onclick="openRecoverOrderForm()" data-testid="recover-order-btn"><i class="fas fa-life-ring"></i> Recover Missed Order</button>
           </div>
           <div class="table-wrap">
             <div class="table-toolbar">
@@ -257,11 +258,11 @@
               </div>
               <select class="select" id="orders-status-filter" style="max-width:180px">
                 <option value="">All status</option>
-                <option>Processing</option><option>Packed</option><option>Shipped</option><option>Delivered</option><option>Cancelled</option>
+                <option>Processing</option><option>Paid</option><option>Packed</option><option>Shipped</option><option>Delivered</option><option>Cancelled</option><option>Failed</option>
               </select>
             </div>
             <table class="data">
-              <thead><tr><th>Order #</th><th>Customer</th><th style="text-align:right">Total</th><th>Items</th><th>Status</th><th>Date</th><th style="width:80px"></th></tr></thead>
+              <thead><tr><th>Order #</th><th>Invoice</th><th>Customer</th><th style="text-align:right">Total</th><th>Items</th><th>Status</th><th>Date</th><th style="width:120px"></th></tr></thead>
               <tbody id="orders-tbody"></tbody>
             </table>
           </div>
@@ -354,6 +355,30 @@
               <div class="field"><label>GA Measurement ID</label><input class="input" id="set-ga_id" placeholder="G-XXXXXXX" /></div>
               <div class="field"><label>GSC Verification</label><input class="input" id="set-gsc_verification" /></div>
               <div class="field" style="grid-column:1/-1"><label>robots.txt</label><textarea class="textarea" id="set-robots_txt"></textarea></div>
+            </div>
+          </div>
+
+          <div class="card" style="max-width:900px; margin-top:18px;">
+            <h3 class="card-title">Business Profile <span style="font-weight:400;color:var(--admin-text-mute);font-size:12px;">(appears on customer invoices)</span></h3>
+            <div class="grid-2">
+              <div class="field"><label>Business Name *</label><input class="input" id="biz-business_name" data-testid="biz-business_name" placeholder="ONCOST" /></div>
+              <div class="field"><label>Legal / Registered Name</label><input class="input" id="biz-legal_name" data-testid="biz-legal_name" placeholder="ONCOST Enterprises Pvt Ltd" /></div>
+              <div class="field"><label>GSTIN</label><input class="input" id="biz-gstin" data-testid="biz-gstin" placeholder="29AAACX1234A1Z5" />
+                <div class="hint">15-character GST number. Leave blank if not GST-registered yet.</div>
+              </div>
+              <div class="field"><label>PAN</label><input class="input" id="biz-pan" data-testid="biz-pan" placeholder="AAACX1234A" /></div>
+              <div class="field" style="grid-column:1/-1"><label>Address Line 1</label><input class="input" id="biz-address_line1" data-testid="biz-address_line1" /></div>
+              <div class="field" style="grid-column:1/-1"><label>Address Line 2</label><input class="input" id="biz-address_line2" data-testid="biz-address_line2" /></div>
+              <div class="field"><label>City</label><input class="input" id="biz-city" data-testid="biz-city" /></div>
+              <div class="field"><label>State</label><input class="input" id="biz-state" data-testid="biz-state" /></div>
+              <div class="field"><label>PIN Code</label><input class="input" id="biz-pincode" data-testid="biz-pincode" /></div>
+              <div class="field"><label>Country</label><input class="input" id="biz-country" data-testid="biz-country" value="India" /></div>
+              <div class="field"><label>Phone</label><input class="input" id="biz-phone" data-testid="biz-phone" placeholder="+91-9999999999" /></div>
+              <div class="field"><label>Email</label><input class="input" id="biz-email" type="email" data-testid="biz-email" /></div>
+              <div class="field" style="grid-column:1/-1"><label>Invoice Footer Notes</label><textarea class="input" id="biz-invoice_notes" rows="2" data-testid="biz-invoice_notes" placeholder="Thank you for shopping with us!"></textarea></div>
+            </div>
+            <div style="margin-top:14px;display:flex;justify-content:flex-end;">
+              <button class="btn btn-primary" id="biz-save-btn" data-testid="biz-save-btn"><i class="fas fa-save"></i> Save Business Profile</button>
             </div>
           </div>
 
