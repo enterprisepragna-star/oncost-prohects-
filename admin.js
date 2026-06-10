@@ -1080,6 +1080,8 @@ function renderOrders() {
     const qty = items.reduce((s, it) => s + Number(it.qty || it.quantity || 1), 0);
     const ccId = o.ccavenue_order_id || '';
     const invLink = ccId ? `<a href="thank-you.html?status=success&order_id=${encodeURIComponent(ccId)}&tracking_id=${encodeURIComponent(o.payment_tracking_id||'')}&amount=${encodeURIComponent(o.total_amount||'')}" target="_blank" class="icon-btn" title="View / print invoice" data-testid="invoice-btn-${escapeHTML(o.id)}"><i class="fas fa-file-invoice"></i></a>` : '';
+    const reviewable = ['Paid','Packed','Shipped','Delivered'].includes(o.status);
+    const reviewBtn = reviewable ? `<button class="icon-btn" onclick="requestReview('${escapeHTML(o.id)}')" title="Request review via WhatsApp" data-testid="review-req-${escapeHTML(o.id)}"><i class="fas fa-star"></i></button>` : '';
     return `<tr data-testid="order-row-${escapeHTML(o.id)}">
       <td><code style="font-size:11px">${escapeHTML(ccId || '#' + String(o.id).substring(0,8))}</code><div style="font-size:10px;color:var(--admin-text-mute);font-family:monospace;">${escapeHTML(o.payment_tracking_id || '')}</div></td>
       <td><div style="font-size:12px;font-weight:600;color:var(--admin-primary);">${escapeHTML(o.invoice_number || '—')}</div></td>
@@ -1092,7 +1094,7 @@ function renderOrders() {
         </select>
       </td>
       <td style="font-size:12px;color:var(--admin-text-mute)">${new Date(o.created_at).toLocaleDateString()}</td>
-      <td><div class="row-actions">${invLink}<button class="icon-btn" onclick="viewOrder('${escapeHTML(o.id)}')" title="View"><i class="fas fa-eye"></i></button></div></td>
+      <td><div class="row-actions">${invLink}${reviewBtn}<button class="icon-btn" onclick="viewOrder('${escapeHTML(o.id)}')" title="View"><i class="fas fa-eye"></i></button></div></td>
     </tr>`;
   }).join('');
 }
@@ -1401,21 +1403,32 @@ async function loadTestimonials() {
 function renderTestimonials() {
   const tbody = $('testimonials-tbody');
   if (!state.testimonials.length) {
-    tbody.innerHTML = `<tr><td colspan="6"><div class="empty"><div class="ic"><i class="fas fa-star"></i></div><h4>No testimonials yet</h4><p>Customer reviews submitted via storefront will appear here for moderation.</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty"><div class="ic"><i class="fas fa-star"></i></div><h4>No testimonials yet</h4><p>Customer reviews submitted via storefront will appear here for moderation, or add one manually.</p><button class="btn btn-primary" onclick="openTestimonialForm()" data-testid="empty-add-testi"><i class="fas fa-plus"></i> Add Testimonial</button></div></td></tr>`;
     return;
   }
-  tbody.innerHTML = state.testimonials.map(t => `
+  tbody.innerHTML = state.testimonials.map(t => {
+    const product = t.product_id ? state.products.find(p => p.id === t.product_id) : null;
+    return `
     <tr data-testid="testi-row-${escapeHTML(t.id)}">
-      <td style="font-weight:500">${escapeHTML(t.customer_name||'—')}</td>
+      <td>
+        <div style="font-weight:500">${escapeHTML(t.customer_name||'—')}</div>
+        ${t.is_verified ? '<div style="font-size:10px;color:#1E8449;margin-top:2px;"><i class="fas fa-circle-check"></i> Verified buyer</div>' : ''}
+      </td>
+      <td style="font-size:12px">${product ? escapeHTML(product.name) : '<span style="color:var(--admin-text-mute)">Site-wide</span>'}</td>
       <td>${'★'.repeat(t.rating||0)}<span style="color:var(--admin-text-mute)">${'☆'.repeat(5-(t.rating||0))}</span></td>
-      <td style="max-width:340px;font-size:13px">${escapeHTML((t.review_text||'').substring(0,150))}${(t.review_text||'').length>150?'…':''}</td>
+      <td style="max-width:300px;font-size:13px">${t.title ? '<strong>'+escapeHTML(t.title)+'</strong><br>' : ''}${escapeHTML((t.review_text||'').substring(0,140))}${(t.review_text||'').length>140?'…':''}</td>
       <td>${statusBadge(t.status||'Pending')}</td>
       <td style="font-size:12px">${new Date(t.created_at).toLocaleDateString()}</td>
       <td style="text-align:right">
-        ${t.status !== 'Approved' ? `<button class="btn btn-secondary btn-sm" onclick="updateTestimonial('${escapeHTML(t.id)}','Approved')" data-testid="testi-approve-${escapeHTML(t.id)}">Approve</button>` : ''}
-        ${t.status !== 'Rejected' ? `<button class="btn btn-ghost btn-sm" onclick="updateTestimonial('${escapeHTML(t.id)}','Rejected')" data-testid="testi-reject-${escapeHTML(t.id)}">Reject</button>` : ''}
+        <div class="row-actions" style="justify-content:flex-end;">
+          ${t.status !== 'Approved' ? `<button class="btn btn-secondary btn-sm" onclick="updateTestimonial('${escapeHTML(t.id)}','Approved')" data-testid="testi-approve-${escapeHTML(t.id)}">Approve</button>` : ''}
+          ${t.status !== 'Rejected' ? `<button class="btn btn-ghost btn-sm" onclick="updateTestimonial('${escapeHTML(t.id)}','Rejected')" data-testid="testi-reject-${escapeHTML(t.id)}">Reject</button>` : ''}
+          <button class="icon-btn" onclick="openTestimonialForm('${escapeHTML(t.id)}')" title="Edit" data-testid="testi-edit-${escapeHTML(t.id)}"><i class="fas fa-pen"></i></button>
+          <button class="icon-btn danger" onclick="deleteTestimonial('${escapeHTML(t.id)}')" title="Delete" data-testid="testi-del-${escapeHTML(t.id)}"><i class="fas fa-trash"></i></button>
+        </div>
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 async function updateTestimonial(id, status) {
   const { error } = await supabaseClient.from('testimonials').update({ status }).eq('id', id);
@@ -1425,6 +1438,139 @@ async function updateTestimonial(id, status) {
   showToast(`Testimonial ${status.toLowerCase()}.`);
 }
 window.updateTestimonial = updateTestimonial;
+
+function openTestimonialForm(id) {
+  const t = id ? state.testimonials.find(x => x.id === id) : null;
+  const isEdit = !!t;
+  const productOptions = state.products.map(p => `<option value="${escapeHTML(p.id)}" ${t?.product_id===p.id?'selected':''}>${escapeHTML(p.name)}</option>`).join('');
+  const html = `
+    <div class="grid-2">
+      <div class="field"><label>Customer Name *</label><input class="input" id="te-customer_name" required data-testid="te-customer_name" value="${escapeHTML(t?.customer_name||'')}" placeholder="Priya Sharma" /></div>
+      <div class="field"><label>Rating *</label>
+        <select class="select" id="te-rating" data-testid="te-rating">
+          ${[5,4,3,2,1].map(n => `<option value="${n}" ${t?.rating===n?'selected':''}>${'★'.repeat(n)}${'☆'.repeat(5-n)} (${n})</option>`).join('')}
+        </select>
+      </div>
+      <div class="field" style="grid-column:1/-1"><label>Product (optional — leave blank for site-wide testimonial)</label>
+        <select class="select" id="te-product_id" data-testid="te-product_id">
+          <option value="">— Site-wide testimonial —</option>
+          ${productOptions}
+        </select>
+      </div>
+      <div class="field" style="grid-column:1/-1"><label>Headline (optional)</label><input class="input" id="te-title" maxlength="80" data-testid="te-title" value="${escapeHTML(t?.title||'')}" placeholder="Loved the packaging!" /></div>
+      <div class="field" style="grid-column:1/-1"><label>Review Text *</label><textarea class="input" id="te-review_text" rows="4" required data-testid="te-review_text" placeholder="What did the customer say?">${escapeHTML(t?.review_text||'')}</textarea></div>
+      <div class="field"><label>Image URL (optional)</label><input class="input" id="te-image_url" data-testid="te-image_url" value="${escapeHTML(t?.image_url||'')}" placeholder="https://..." /></div>
+      <div class="field"><label>Status</label>
+        <select class="select" id="te-status" data-testid="te-status">
+          <option value="Approved" ${(!t||t.status==='Approved')?'selected':''}>Approved (publish immediately)</option>
+          <option value="Pending"  ${t?.status==='Pending'?'selected':''}>Pending (hidden)</option>
+          <option value="Rejected" ${t?.status==='Rejected'?'selected':''}>Rejected (hidden)</option>
+        </select>
+      </div>
+      <div class="field" style="grid-column:1/-1;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="checkbox" id="te-is_verified" data-testid="te-is_verified" ${t?.is_verified?'checked':'checked'} />
+          <span>Mark as <strong>verified buyer</strong> (shows green checkmark on storefront)</span>
+        </label>
+      </div>
+    </div>`;
+  const footer = el('div', {});
+  footer.innerHTML = `<button class="btn btn-secondary" id="te-cancel" data-testid="te-cancel">Cancel</button><button class="btn btn-primary" id="te-save" data-testid="te-save"><i class="fas fa-save"></i> ${isEdit?'Save':'Add Testimonial'}</button>`;
+  const m = openModal({ title: isEdit ? 'Edit Testimonial' : 'Add Testimonial', body: html, footer, size: 'lg', testid: 'te' });
+  $('te-cancel').onclick = () => m.close();
+  $('te-save').onclick = async () => {
+    const payload = {
+      customer_name: $('te-customer_name').value.trim(),
+      rating: Number($('te-rating').value),
+      product_id: $('te-product_id').value || null,
+      title: $('te-title').value.trim() || null,
+      review_text: $('te-review_text').value.trim(),
+      image_url: $('te-image_url').value.trim() || null,
+      status: $('te-status').value,
+      is_verified: $('te-is_verified').checked,
+    };
+    if (!payload.customer_name) return showToast('Customer name required.', 'error');
+    if (!payload.review_text) return showToast('Review text required.', 'error');
+    let res;
+    if (isEdit) res = await supabaseClient.from('testimonials').update(payload).eq('id', t.id).select().single();
+    else        res = await supabaseClient.from('testimonials').insert(payload).select().single();
+    if (res.error) {
+      if (res.error.message?.includes('product_id') || res.error.message?.includes('title')) {
+        return showToast('Run migration_reviews.sql in Supabase first.', 'error');
+      }
+      return showToast('Save failed: ' + res.error.message, 'error');
+    }
+    if (isEdit) state.testimonials = state.testimonials.map(x => x.id === t.id ? res.data : x);
+    else        state.testimonials.unshift(res.data);
+    renderTestimonials();
+    showToast(`Testimonial ${isEdit ? 'updated' : 'added'}.`);
+    m.close();
+  };
+}
+window.openTestimonialForm = openTestimonialForm;
+
+async function deleteTestimonial(id) {
+  if (!await confirmDialog('Delete this testimonial permanently?', { confirmLabel: 'Delete', danger: true })) return;
+  const { error } = await supabaseClient.from('testimonials').delete().eq('id', id);
+  if (error) return showToast('Delete failed: ' + error.message, 'error');
+  state.testimonials = state.testimonials.filter(x => x.id !== id);
+  renderTestimonials();
+  showToast('Testimonial deleted.');
+}
+window.deleteTestimonial = deleteTestimonial;
+
+// ---- Request Review (sends WhatsApp magic link to a Delivered order's customer) ----
+async function requestReview(orderId) {
+  const o = state.orders.find(x => x.id === orderId);
+  if (!o) return showToast('Order not found.', 'error');
+  if (!['Paid','Packed','Shipped','Delivered'].includes(o.status)) {
+    return showToast('Order must be Paid/Delivered to request a review.', 'error');
+  }
+  const key = localStorage.getItem('oncost_recover_key') || prompt('Enter your ADMIN_RECOVERY_KEY (set in Vercel env):');
+  if (!key) return;
+  try {
+    const r = await fetch('/api/reviews/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
+      body: JSON.stringify({ order_id: orderId }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+    localStorage.setItem('oncost_recover_key', key);
+
+    // Show a result modal with the link + WA status + copy-paste fallback
+    const html = `
+      <div style="background:${j.whatsapp_sent ? '#E6F4EA' : '#FFF3E0'};border:1px solid ${j.whatsapp_sent ? '#A4D4B4' : '#E6B580'};color:${j.whatsapp_sent ? '#1E5631' : '#7A4310'};padding:12px 14px;border-radius:6px;margin-bottom:14px;font-size:13px;">
+        <strong><i class="fas fa-${j.whatsapp_sent ? 'circle-check' : 'circle-info'}"></i> ${j.whatsapp_sent ? 'WhatsApp sent successfully' : 'WhatsApp not sent (' + escapeHTML(j.whatsapp_error || 'AiSensy not configured') + ')'}</strong>
+      </div>
+      <div class="field"><label>Review Link (share with customer)</label>
+        <div style="display:flex;gap:6px;">
+          <input class="input" id="rv-link" value="${escapeHTML(j.review_link)}" readonly style="font-size:12px;font-family:monospace;" />
+          <button class="btn btn-secondary" id="rv-copy-link" data-testid="rv-copy-link">Copy</button>
+        </div>
+      </div>
+      <div class="field"><label>WhatsApp Message Template</label>
+        <textarea class="input" id="rv-msg" rows="4" readonly style="font-size:13px;">${escapeHTML(j.copy_paste_message)}</textarea>
+        <div style="display:flex;gap:6px;margin-top:6px;">
+          <button class="btn btn-secondary" id="rv-copy-msg" data-testid="rv-copy-msg">Copy Message</button>
+          <a class="btn btn-primary" id="rv-wa-link" target="_blank" data-testid="rv-wa-link"><i class="fab fa-whatsapp"></i> Open in WhatsApp</a>
+        </div>
+      </div>`;
+    const footer = el('div', {});
+    footer.innerHTML = `<button class="btn btn-secondary" id="rv-close" data-testid="rv-close">Done</button>`;
+    const m = openModal({ title: 'Review Request', body: html, footer, size: 'lg', testid: 'rv-result' });
+
+    const phone = (o.guest_phone || o.shipping_address?.phone || '').replace(/[^\d]/g, '');
+    const waLink = phone ? `https://wa.me/${phone.startsWith('91') || phone.length > 10 ? phone : '91' + phone}?text=${encodeURIComponent(j.copy_paste_message)}` : `https://wa.me/?text=${encodeURIComponent(j.copy_paste_message)}`;
+    $('rv-wa-link').href = waLink;
+    $('rv-close').onclick = () => m.close();
+    $('rv-copy-link').onclick = () => { $('rv-link').select(); document.execCommand('copy'); showToast('Link copied.'); };
+    $('rv-copy-msg').onclick  = () => { $('rv-msg').select();  document.execCommand('copy'); showToast('Message copied.'); };
+  } catch (err) {
+    showToast('Request failed: ' + err.message, 'error');
+  }
+}
+window.requestReview = requestReview;
 
 // ------------------------- Render orchestration -------------------------
 function setupSearches() {

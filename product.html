@@ -43,6 +43,41 @@
   </div></nav>
   <a id="fab-whatsapp" class="fab-whatsapp" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i></a>
 
+  <!-- Product Review Modal -->
+  <dialog id="product-review-modal" style="border:none;border-radius:14px;padding:0;max-width:480px;width:calc(100% - 32px);box-shadow:var(--shadow-lg);">
+    <form id="product-review-form" style="padding:24px;display:flex;flex-direction:column;gap:14px;">
+      <header style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <h3 style="margin:0 0 4px;color:var(--burgundy);font-size:1.3rem;">Write a Review</h3>
+          <p style="margin:0;color:var(--muted);font-size:12px;">Only verified buyers can review. Your review will be published after moderation.</p>
+        </div>
+        <button type="button" id="prm-close-x" aria-label="Close" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;">×</button>
+      </header>
+      <input type="hidden" id="prm-product-id" />
+      <input type="hidden" id="prm-review-token" />
+      <label style="font-size:12px;font-weight:600;color:var(--ink-soft);letter-spacing:0.5px;">Rating
+        <select id="prm-rating" class="select" style="width:100%;margin-top:4px;" data-testid="prm-rating">
+          <option value="5">★★★★★ Excellent</option>
+          <option value="4">★★★★☆ Very Good</option>
+          <option value="3">★★★☆☆ Good</option>
+          <option value="2">★★☆☆☆ Fair</option>
+          <option value="1">★☆☆☆☆ Poor</option>
+        </select>
+      </label>
+      <label style="font-size:12px;font-weight:600;color:var(--ink-soft);letter-spacing:0.5px;">Headline (optional)
+        <input id="prm-title" type="text" maxlength="80" placeholder="Loved the packaging!" class="field" style="width:100%;margin-top:4px;" data-testid="prm-title" />
+      </label>
+      <label style="font-size:12px;font-weight:600;color:var(--ink-soft);letter-spacing:0.5px;">Your Review *
+        <textarea id="prm-text" required minlength="10" rows="5" placeholder="Tell other shoppers about quality, packaging, delivery experience…" class="field" style="width:100%;margin-top:4px;" data-testid="prm-text"></textarea>
+      </label>
+      <div id="prm-error" style="display:none;background:#FBECEC;border:1px solid #E8C1C1;color:#C0392B;padding:9px 12px;border-radius:6px;font-size:13px;" data-testid="prm-error"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px;">
+        <button type="button" id="prm-cancel" class="btn ghost sm" data-testid="prm-cancel">Cancel</button>
+        <button type="submit" class="btn primary sm" id="prm-submit" data-testid="prm-submit"><i class="fas fa-paper-plane"></i> Submit Review</button>
+      </div>
+    </form>
+  </dialog>
+
   <script>document.getElementById('copy-year').textContent = new Date().getFullYear();</script>
   <script src="app.js"></script>
 </body>
