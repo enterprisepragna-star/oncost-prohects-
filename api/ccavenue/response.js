@@ -45,15 +45,16 @@ module.exports = async function handler(req, res) {
   else if (status === 'failure')   dbStatus = 'Failed';
 
   // Update Supabase order if credentials present
+  let orderRow = null;
   if (SUPABASE_URL && SERVICE_KEY && orderId) {
     try {
-      await fetch(`${SUPABASE_URL}/rest/v1/orders?ccavenue_order_id=eq.${encodeURIComponent(orderId)}`, {
+      const upd = await fetch(`${SUPABASE_URL}/rest/v1/orders?ccavenue_order_id=eq.${encodeURIComponent(orderId)}`, {
         method: 'PATCH',
         headers: {
           apikey: SERVICE_KEY,
           Authorization: `Bearer ${SERVICE_KEY}`,
           'Content-Type': 'application/json',
-          Prefer: 'return=minimal',
+          Prefer: 'return=representation',
         },
         body: JSON.stringify({
           status: dbStatus,
@@ -61,9 +62,33 @@ module.exports = async function handler(req, res) {
           payment_response: { status, amount, failure_message: failureMsg, raw: data },
         }),
       });
+      const arr = await upd.json();
+      if (Array.isArray(arr) && arr[0]) orderRow = arr[0];
     } catch (e) {
-      // Even if DB update fails, customer should see status — log via Vercel and continue
       console.error('Supabase order update failed:', e.message);
+    }
+  }
+
+  // Fire-and-forget WhatsApp order confirmation on payment success
+  if (dbStatus === 'Paid' && orderRow) {
+    const INTERNAL_KEY = process.env.INTERNAL_API_KEY;
+    const phone = orderRow.guest_phone || orderRow.shipping_address?.phone;
+    const name  = orderRow.shipping_address?.name || 'Customer';
+    if (phone) {
+      fetch(`${SITE_URL}/api/whatsapp/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(INTERNAL_KEY ? { 'x-internal-key': INTERNAL_KEY } : {}) },
+        body: JSON.stringify({
+          type: 'order_confirm',
+          to: phone,
+          params: {
+            customer_name: name,
+            order_id: orderId,
+            amount: String(amount || orderRow.total_amount || ''),
+            tracking_url: `${SITE_URL}/account.html?tab=orders`,
+          },
+        }),
+      }).catch(err => console.error('WhatsApp confirm failed:', err.message));
     }
   }
 

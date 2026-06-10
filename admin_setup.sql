@@ -63,3 +63,18 @@ ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS gemini_api_key text;
 DROP POLICY IF EXISTS "orders_insert_self" ON public.orders;
 CREATE POLICY "orders_insert_self" ON public.orders FOR INSERT
   WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
+
+-- 7. WhatsApp logs table (audit + dedupe)
+CREATE TABLE IF NOT EXISTS public.whatsapp_logs (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  direction   text NOT NULL CHECK (direction IN ('inbound','outbound')),
+  phone       text NOT NULL,
+  message     text,
+  payload     jsonb,
+  created_at  timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_wa_phone   ON public.whatsapp_logs(phone);
+CREATE INDEX IF NOT EXISTS idx_wa_created ON public.whatsapp_logs(created_at DESC);
+
+-- 8. Make sure profiles has phone (for abandoned-cart cron)
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS phone text;

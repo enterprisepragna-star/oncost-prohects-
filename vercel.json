@@ -1,17 +1,8 @@
 {
-  "framework": null,
-  "buildCommand": "rm -rf .next src && echo 'Forcefully disabled Next.js build!'",
-  "outputDirectory": ".",
-  "cleanUrls": true,
-  "headers": [
+  "crons": [
     {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
-        }
-      ]
+      "path": "/api/whatsapp/abandoned-cart-cron",
+      "schedule": "0 12 * * *"
     }
   ]
 }
