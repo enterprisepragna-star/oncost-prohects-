@@ -16,7 +16,7 @@ module.exports = async function handler(req, res) {
   const ACCESS_CODE = (process.env.CCAVENUE_ACCESS_CODE || '').trim();
   const WORKING_KEY = (process.env.CCAVENUE_WORKING_KEY || '').trim();
   const ENV         = (process.env.CCAVENUE_ENV || 'test').trim().toLowerCase();
-  const SITE_URL    = (process.env.SITE_URL || `https://${req.headers.host}`).trim();
+  const SITE_URL = (process.env.SITE_URL || "https://www.oncost.shop").trim();
 
   if (!MERCHANT_ID || !ACCESS_CODE || !WORKING_KEY) {
     res.status(500).json({ error: 'CCAvenue not configured. Set CCAVENUE_MERCHANT_ID / ACCESS_CODE / WORKING_KEY env vars in Vercel.' });
