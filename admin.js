@@ -170,7 +170,7 @@ async function loadSettings() {
   // Populate form
   ['site_title','meta_description','keywords','og_image','canonical_url','ga_id','gsc_verification','robots_txt',
    'whatsapp_number','whatsapp_text','instagram_url','facebook_url','youtube_url','pinterest_url','twitter_url',
-   'imgbb_api_key','openai_api_key','low_stock_threshold','alert_whatsapp'].forEach(k => {
+   'imgbb_api_key','openai_api_key','gemini_api_key','low_stock_threshold','alert_whatsapp'].forEach(k => {
     const node = $(`set-${k}`);
     if (node) node.value = state.settings[k] ?? '';
   });
@@ -179,7 +179,7 @@ async function saveSettings() {
   const payload = {};
   ['site_title','meta_description','keywords','og_image','canonical_url','ga_id','gsc_verification','robots_txt',
    'whatsapp_number','whatsapp_text','instagram_url','facebook_url','youtube_url','pinterest_url','twitter_url',
-   'imgbb_api_key','openai_api_key','low_stock_threshold','alert_whatsapp'].forEach(k => {
+   'imgbb_api_key','openai_api_key','gemini_api_key','low_stock_threshold','alert_whatsapp'].forEach(k => {
     const node = $(`set-${k}`);
     if (node) payload[k] = k === 'low_stock_threshold' ? (Number(node.value) || 5) : node.value.trim();
   });
@@ -498,6 +498,15 @@ function openProductForm(id) {
           <div style="font-size:12px;color:var(--admin-text-mute)" id="${formId}-drop-sub">Uses imgbb (configure key in Site Settings → Image Upload)</div>
           <input type="file" id="${formId}-file" accept="image/jpeg,image/png,image/webp" hidden />
         </div>
+        <div style="margin:14px 0 6px;font-size:12px;color:var(--admin-text-mute);text-align:center;">— or —</div>
+        <div style="background:linear-gradient(135deg,#fdf6e9,#f6e9de);border:1px solid #e8c896;border-radius:6px;padding:14px;display:flex;gap:12px;align-items:center;">
+          <div style="font-size:24px;">🎨</div>
+          <div style="flex:1;">
+            <div style="font-weight:600;font-size:13px;color:var(--admin-primary);">Generate with AI (Gemini Nano Banana)</div>
+            <div style="font-size:11px;color:var(--admin-text-mute);">Auto-generated from product name + category. Free up to 1500/day.</div>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" id="${formId}-ai_img" data-testid="pf-ai-img"><i class="fas fa-wand-magic-sparkles"></i> Generate</button>
+        </div>
 
         <div style="margin-top:24px;padding-top:18px;border-top:1px solid var(--admin-border);">
           <label class="label" style="display:block;margin-bottom:10px;">Additional Gallery Images</label>
@@ -606,6 +615,52 @@ function openProductForm(id) {
       catch (err) { showToast(err.message, 'error'); }
     }
     e.target.value = '';
+  };
+
+  // ---------- AI Image generator (Gemini Nano Banana) ----------
+  $(`${formId}-ai_img`).onclick = async () => {
+    const geminiKey = state.settings.gemini_api_key;
+    if (!geminiKey) return showToast('Add a Gemini API key in Site Settings → AI & Alerts.', 'error');
+    if (!state.imgbbKey) return showToast('Also add an imgbb API key (to host the generated image).', 'error');
+    const name = $(`${formId}-name`).value.trim();
+    if (!name) return showToast('Enter product name first.', 'error');
+    const category = $(`${formId}-category`).value.trim() || 'premium gift';
+    const btn = $(`${formId}-ai_img`);
+    btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Generating…';
+    try {
+      const prompt = `Professional product photography of "${name}" — a ${category} for an Indian luxury return-gifts e-commerce store. Single product centered on a soft cream/beige background with subtle warm lighting. Studio quality, ultra-detailed, brass/gold/copper tones. Square aspect ratio. No text, no watermark, no people. Tasteful, premium, gift-ready presentation.`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${encodeURIComponent(geminiKey)}`;
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseModalities: ['IMAGE'] },
+        }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error?.message || `Gemini error ${r.status}`);
+      // Find the inline_data part in the response
+      const parts = j.candidates?.[0]?.content?.parts || [];
+      const img = parts.find(p => p.inlineData || p.inline_data);
+      const dataBlock = img?.inlineData || img?.inline_data;
+      if (!dataBlock?.data) throw new Error('No image returned by Gemini');
+      // Convert base64 → Blob → imgbb upload
+      const byteChars = atob(dataBlock.data);
+      const byteArr = new Uint8Array(byteChars.length);
+      for (let i = 0; i < byteChars.length; i++) byteArr[i] = byteChars.charCodeAt(i);
+      const blob = new Blob([byteArr], { type: dataBlock.mimeType || dataBlock.mime_type || 'image/png' });
+      const file = new File([blob], `ai-${slugify(name)}.png`, { type: blob.type });
+      btn.innerHTML = '<span class="spin"></span> Uploading…';
+      const imgbbUrl = await uploadImageToImgbb(file);
+      $(`${formId}-image_url`).value = imgbbUrl;
+      $(`${formId}-img-block`).innerHTML = `<div style="margin-bottom:12px;"><img src="${escapeHTML(imgbbUrl)}" alt="" style="max-width:240px;border-radius:6px;border:1px solid var(--admin-border);" /></div>`;
+      showToast('🎨 AI image generated. Review and save.');
+    } catch (err) {
+      showToast('AI image failed: ' + err.message, 'error');
+    } finally {
+      btn.disabled = false; btn.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> Generate';
+    }
   };
 
   // ---------- AI SEO generator ----------

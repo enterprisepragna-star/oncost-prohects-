@@ -55,7 +55,11 @@ ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS payment_response    jsonb;
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS guest_phone         text;
 CREATE INDEX IF NOT EXISTS idx_orders_ccavenue ON public.orders(ccavenue_order_id);
 
--- 5. Allow anon to INSERT orders (guest checkout) and update payment_response (server uses service_role)
+-- 6. Gemini Nano Banana API key for AI image generation
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS gemini_api_key text;
+
+
+-- 5. Allow anon to INSERT orders (guest checkout)
 DROP POLICY IF EXISTS "orders_insert_self" ON public.orders;
 CREATE POLICY "orders_insert_self" ON public.orders FOR INSERT
   WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
