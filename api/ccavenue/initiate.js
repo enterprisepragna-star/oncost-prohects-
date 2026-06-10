@@ -15,7 +15,7 @@ module.exports = async function handler(req, res) {
   const MERCHANT_ID = (process.env.CCAVENUE_MERCHANT_ID || '').trim();
   const ACCESS_CODE = (process.env.CCAVENUE_ACCESS_CODE || '').trim();
   const WORKING_KEY = (process.env.CCAVENUE_WORKING_KEY || '').trim();
-  const ENV         = (process.env.CCAVENUE_ENV || 'test').trim().toLowerCase();
+  const ENV = (process.env.CCAVENUE_ENV || 'production').trim().toLowerCase();
   const SITE_URL = (process.env.SITE_URL || "https://www.oncost.shop").trim();
 
   if (!MERCHANT_ID || !ACCESS_CODE || !WORKING_KEY) {
