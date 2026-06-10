@@ -63,19 +63,20 @@ module.exports = async function handler(req, res) {
   const plaintext  = buildMerchantData(payload);
   const ciphertext = encrypt(plaintext, WORKING_KEY);
 
-  // Auto-submitting form (CCAvenue requires POST to checkout endpoint)
   const html = `<!doctype html>
-<html><head><meta charset="utf-8"><title>Redirecting to CCAvenue…</title>
-<style>body{font-family:system-ui;display:grid;place-items:center;min-height:100vh;margin:0;background:#7a1f35;color:#f2dd92;text-align:center;padding:24px;}.s{width:34px;height:34px;border:3px solid currentColor;border-bottom-color:transparent;border-radius:50%;animation:r 0.8s linear infinite;margin-bottom:14px;}@keyframes r{to{transform:rotate(360deg)}}</style></head>
+<html><head><meta charset="utf-8"><title>CCAvenue Debug</title>
+<style>body{font-family:system-ui;margin:0;background:#f9f9f9;color:#333;padding:40px;text-align:center;}</style></head>
 <body>
-  <div class="s"></div>
-  <h2 style="font-family:Georgia,serif;margin:0 0 6px;">Redirecting to secure payment</h2>
-  <p style="opacity:.8;margin:0;">Powered by CCAvenue · Order ${orderId} · ₹${amount}</p>
+  <h2>CCAvenue Debug Mode</h2>
+  <p><strong>Environment:</strong> ${ENV}</p>
+  <p><strong>Target URL:</strong> ${CCAV_URL[ENV] || CCAV_URL.test}</p>
+  <p><strong>Access Code:</strong> ${ACCESS_CODE} (Length: ${ACCESS_CODE.length})</p>
+  <p><strong>Merchant ID:</strong> ${MERCHANT_ID}</p>
   <form id="f" method="post" action="${CCAV_URL[ENV] || CCAV_URL.test}">
     <input type="hidden" name="encRequest" value="${ciphertext}" />
     <input type="hidden" name="access_code" value="${ACCESS_CODE}" />
+    <button type="submit" style="padding:12px 24px;background:#7a1f35;color:#fff;border:none;border-radius:6px;font-size:16px;cursor:pointer;margin-top:20px;">Submit Payment to CCAvenue</button>
   </form>
-  <script>document.getElementById('f').submit();</script>
 </body></html>`;
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
