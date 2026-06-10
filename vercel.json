@@ -1,4 +1,6 @@
 {
+  "framework": null,
+  "buildCommand": "echo 'No build needed'",
   "crons": [
     {
       "path": "/api/whatsapp/abandoned-cart-cron",
