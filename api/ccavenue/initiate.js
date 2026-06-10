@@ -12,11 +12,11 @@ const CCAV_URL = {
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') { res.status(405).send('Method Not Allowed'); return; }
 
-  const MERCHANT_ID = process.env.CCAVENUE_MERCHANT_ID;
-  const ACCESS_CODE = process.env.CCAVENUE_ACCESS_CODE;
-  const WORKING_KEY = process.env.CCAVENUE_WORKING_KEY;
-  const ENV         = (process.env.CCAVENUE_ENV || 'test').toLowerCase();
-  const SITE_URL    = process.env.SITE_URL || `https://${req.headers.host}`;
+  const MERCHANT_ID = (process.env.CCAVENUE_MERCHANT_ID || '').trim();
+  const ACCESS_CODE = (process.env.CCAVENUE_ACCESS_CODE || '').trim();
+  const WORKING_KEY = (process.env.CCAVENUE_WORKING_KEY || '').trim();
+  const ENV         = (process.env.CCAVENUE_ENV || 'test').trim().toLowerCase();
+  const SITE_URL    = (process.env.SITE_URL || `https://${req.headers.host}`).trim();
 
   if (!MERCHANT_ID || !ACCESS_CODE || !WORKING_KEY) {
     res.status(500).json({ error: 'CCAvenue not configured. Set CCAVENUE_MERCHANT_ID / ACCESS_CODE / WORKING_KEY env vars in Vercel.' });
