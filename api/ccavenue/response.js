@@ -12,7 +12,7 @@ module.exports = async function handler(req, res) {
   const WORKING_KEY = (process.env.CCAVENUE_WORKING_KEY || '').trim();
   const SUPABASE_URL = (process.env.SUPABASE_URL || '').trim();
   const SERVICE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
-  const SITE_URL     = process.env.SITE_URL || `https://${req.headers.host}`;
+  const SITE_URL = (process.env.SITE_URL || "https://www.oncost.shop").trim();
 
   if (!WORKING_KEY) {
     res.status(500).send('CCAvenue Working Key not configured.'); return;
