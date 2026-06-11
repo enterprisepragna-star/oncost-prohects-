@@ -1,19 +1,16 @@
 // POST /api/ccavenue/response
 // CCAvenue posts here with `encResp` (encrypted payload).
 // We decrypt → UPSERT order row → redirect to /thank-you.html with order_id.
-//
-// UPSERT logic: PATCH by ccavenue_order_id; if 0 rows matched (i.e. pre-insert failed),
-// INSERT a new row using the decrypted payload as the only source of truth.
 
 const { decrypt, parseResponse } = require('./lib/ccavenue-crypto');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST' && req.method !== 'GET') { res.status(405).send('Method Not Allowed'); return; }
 
-  const WORKING_KEY  = process.env.CCAVENUE_WORKING_KEY;
-  const SUPABASE_URL = process.env.SUPABASE_URL;
-  const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const SITE_URL     = process.env.SITE_URL || `https://${req.headers.host}`;
+  const WORKING_KEY  = (process.env.CCAVENUE_WORKING_KEY || '').trim();
+  const SUPABASE_URL = (process.env.SUPABASE_URL || '').trim();
+  const SERVICE_KEY  = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+  const SITE_URL     = (process.env.SITE_URL || `https://${req.headers.host}`).trim();
 
   if (!WORKING_KEY) {
     console.error('[ccavenue/response] Missing CCAVENUE_WORKING_KEY');
@@ -39,13 +36,11 @@ module.exports = async function handler(req, res) {
   }
 
   const orderId    = data.order_id;
-  const ccStatus   = (data.order_status || '').toLowerCase();   // success | aborted | failure
+  const ccStatus   = (data.order_status || '').toLowerCase();
   const trackingId = data.tracking_id;
   const amount     = data.amount;
-  const failureMsg = data.failure_message || '';
   const paymentMode = data.payment_mode || '';
 
-  // Map CCAvenue status → our internal status
   let dbStatus = 'Processing';
   let payStatus = 'Pending';
   if (ccStatus === 'success')        { dbStatus = 'Paid';      payStatus = 'Paid'; }
@@ -54,7 +49,6 @@ module.exports = async function handler(req, res) {
 
   console.log(`[ccavenue/response] order=${orderId} status=${ccStatus}→${dbStatus} tracking=${trackingId} amount=${amount}`);
 
-  // ============= UPSERT INTO SUPABASE =============
   let orderRow = null;
   if (SUPABASE_URL && SERVICE_KEY && orderId) {
     const commonFields = {
@@ -66,7 +60,6 @@ module.exports = async function handler(req, res) {
     };
 
     try {
-      // 1️⃣ PATCH (update existing row created by /initiate)
       const patchRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?ccavenue_order_id=eq.${encodeURIComponent(orderId)}`, {
         method: 'PATCH',
         headers: {
@@ -84,7 +77,6 @@ module.exports = async function handler(req, res) {
       } else {
         console.warn(`[ccavenue/response] PATCH returned no rows for order_id=${orderId}. Attempting INSERT (recovery path).`);
 
-        // 2️⃣ INSERT (recovery) — pre-insert was missing, create a minimal order from CCAvenue payload
         const minimalShip = {
           name:    data.billing_name    || '',
           email:   data.billing_email   || '',
@@ -106,7 +98,7 @@ module.exports = async function handler(req, res) {
           body: JSON.stringify({
             user_id: null,
             ccavenue_order_id: orderId,
-            items: [],          // unknown — admin can add manually if needed
+            items: [],
             total_amount: Number(amount || 0),
             items_subtotal: Number(amount || 0),
             shipping_amount: 0,
@@ -132,7 +124,6 @@ module.exports = async function handler(req, res) {
     console.error('[ccavenue/response] Skipping DB write — Supabase env or order_id missing.');
   }
 
-  // ============= FIRE-AND-FORGET WHATSAPP CONFIRM =============
   if (dbStatus === 'Paid' && orderRow) {
     const INTERNAL_KEY = process.env.INTERNAL_API_KEY;
     const phone = orderRow.guest_phone || (orderRow.shipping_address && orderRow.shipping_address.phone);
@@ -155,7 +146,6 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  // ============= REDIRECT TO THANK-YOU =============
   const params = new URLSearchParams({
     status: ccStatus,
     order_id: orderId || '',

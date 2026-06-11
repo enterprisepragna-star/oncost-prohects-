@@ -42,7 +42,7 @@ function parseResponse(plaintext) {
 function buildMerchantData(obj) {
   return Object.entries(obj)
     .filter(([, v]) => v !== undefined && v !== null && v !== '')
-    .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
+    .map(([k, v]) => `${k}=${String(v)}`)
     .join('&');
 }
 

@@ -2,9 +2,6 @@
 // Body: { items, total_amount, shipping_address: {name,email,phone,address,city,state,zip}, user_id, applied_coupon }
 // 1. Inserts a 'Processing' order row into Supabase (using SERVICE_ROLE_KEY → bypasses RLS).
 // 2. Returns an auto-submitting HTML form that posts to CCAvenue's secure checkout endpoint.
-//
-// This is the SINGLE source of order creation — frontend never touches the orders table directly
-// for new orders. That guarantees no RLS / schema-mismatch failures.
 
 const { encrypt, buildMerchantData } = require('./lib/ccavenue-crypto');
 
@@ -20,13 +17,13 @@ function escapeHtml(str) {
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') { res.status(405).send('Method Not Allowed'); return; }
 
-  const MERCHANT_ID = process.env.CCAVENUE_MERCHANT_ID;
-  const ACCESS_CODE = process.env.CCAVENUE_ACCESS_CODE;
-  const WORKING_KEY = process.env.CCAVENUE_WORKING_KEY;
-  const ENV         = (process.env.CCAVENUE_ENV || 'test').toLowerCase();
-  const SITE_URL    = process.env.SITE_URL || `https://${req.headers.host}`;
-  const SUPABASE_URL = process.env.SUPABASE_URL;
-  const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const MERCHANT_ID  = (process.env.CCAVENUE_MERCHANT_ID || '').trim();
+  const ACCESS_CODE  = (process.env.CCAVENUE_ACCESS_CODE || '').trim();
+  const WORKING_KEY  = (process.env.CCAVENUE_WORKING_KEY || '').trim();
+  const ENV          = (process.env.CCAVENUE_ENV || 'test').trim().toLowerCase();
+  const SITE_URL     = (process.env.SITE_URL || `https://${req.headers.host}`).trim();
+  const SUPABASE_URL = (process.env.SUPABASE_URL || '').trim();
+  const SERVICE_KEY  = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
 
   if (!MERCHANT_ID || !ACCESS_CODE || !WORKING_KEY) {
     console.error('[ccavenue/initiate] Missing CCAvenue env vars');
@@ -82,13 +79,11 @@ module.exports = async function handler(req, res) {
     if (!insertRes.ok) {
       const errTxt = await insertRes.text();
       console.error('[ccavenue/initiate] Supabase insert failed:', insertRes.status, errTxt);
-      // Do NOT block payment — webhook will UPSERT later. But log it loudly.
     } else {
       console.log('[ccavenue/initiate] Supabase order created:', orderId);
     }
   } catch (e) {
     console.error('[ccavenue/initiate] Supabase insert exception:', e.message);
-    // continue anyway — webhook will upsert
   }
 
   // 2️⃣  Build CCAvenue encrypted payload
