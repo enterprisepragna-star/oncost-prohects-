@@ -20,13 +20,13 @@ function escapeHtml(str) {
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') { res.status(405).send('Method Not Allowed'); return; }
 
-  const MERCHANT_ID = process.env.CCAVENUE_MERCHANT_ID;
-  const ACCESS_CODE = process.env.CCAVENUE_ACCESS_CODE;
-  const WORKING_KEY = process.env.CCAVENUE_WORKING_KEY;
-  const ENV         = (process.env.CCAVENUE_ENV || 'test').toLowerCase();
-  const SITE_URL    = process.env.SITE_URL || `https://${req.headers.host}`;
-  const SUPABASE_URL = process.env.SUPABASE_URL;
-  const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const MERCHANT_ID  = (process.env.CCAVENUE_MERCHANT_ID || '').trim();
+  const ACCESS_CODE  = (process.env.CCAVENUE_ACCESS_CODE || '').trim();
+  const WORKING_KEY  = (process.env.CCAVENUE_WORKING_KEY || '').trim();
+  const ENV          = (process.env.CCAVENUE_ENV || 'test').trim().toLowerCase();
+  const SITE_URL     = (process.env.SITE_URL || `https://${req.headers.host}`).trim();
+  const SUPABASE_URL = (process.env.SUPABASE_URL || '').trim();
+  const SERVICE_KEY  = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
 
   if (!MERCHANT_ID || !ACCESS_CODE || !WORKING_KEY) {
     console.error('[ccavenue/initiate] Missing CCAvenue env vars');
