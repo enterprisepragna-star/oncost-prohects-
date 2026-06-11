@@ -23,6 +23,8 @@ const state = {
   testimonials: [],
   inv: [],
   imgbbKey: '',
+  selectedProducts: new Set(),
+  selectedOrders: new Set(),
 };
 
 // ------------------------- Utilities -------------------------
@@ -410,7 +412,7 @@ function applyProductFilters() {
     if (cat && (p.category || '') !== cat) return false;
     if (st && (p.status || 'Active') !== st) return false;
     if (q) {
-      const hay = `${p.name || ''} ${p.sku || ''} ${p.category || ''} ${p.id || ''}`.toLowerCase();
+      const hay = `${p.name || ''} ${p.sku || ''} ${p.barcode || ''} ${p.category || ''} ${p.id || ''}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -450,22 +452,51 @@ function renderProducts() {
     const stock = Number(p.stock || 0);
     const stockBadge = stock === 0 ? 'b-error' : stock <= 5 ? 'b-warn' : 'b-muted';
     const offer = (p.offer_price && Number(p.offer_price) !== Number(p.price));
-    return `<tr data-testid="product-row-${escapeHTML(p.id)}">
+    const checked = state.selectedProducts.has(p.id) ? 'checked' : '';
+    return `<tr data-testid="product-row-${escapeHTML(p.id)}" ${state.selectedProducts.has(p.id)?'style="background:#FFF8E7;"':''}>
+      <td style="text-align:center;"><input type="checkbox" class="product-row-check" data-id="${escapeHTML(p.id)}" ${checked} data-testid="check-product-${escapeHTML(p.id)}" /></td>
       <td>${img}</td>
       <td><div style="font-weight:600">${escapeHTML(p.name)}</div><div style="font-size:11px;color:var(--admin-text-mute)">${escapeHTML((p.description||'').substring(0,60))}</div></td>
-      <td><code style="font-size:11px;color:var(--admin-text-mute)">${escapeHTML(p.sku || '—')}</code></td>
+      <td>
+        <code style="font-size:11px;color:var(--admin-text-mute)">${escapeHTML(p.sku || '—')}</code>
+        ${p.barcode ? `<div style="margin-top:4px;"><svg class="row-barcode" data-bc="${escapeHTML(p.barcode)}" style="display:block;max-width:140px;"></svg><div style="font-size:10px;color:var(--admin-text-mute);font-family:monospace;margin-top:1px;">${escapeHTML(p.barcode)}</div></div>` : ''}
+      </td>
       <td>${escapeHTML(p.category || '—')}</td>
       <td style="text-align:right"><div style="font-weight:600">${fmtINR(p.price)}</div>${offer ? `<div style="font-size:11px;color:var(--admin-primary)">Sale ${fmtINR(p.offer_price)}</div>` : ''}</td>
       <td style="text-align:right"><span class="badge ${stockBadge}">${stock}</span></td>
       <td>${statusBadge(p.status || 'Active')}</td>
       <td>
         <div class="row-actions">
+          ${p.barcode ? `<button class="icon-btn" onclick="printBarcodeLabel('${escapeHTML(p.id)}')" title="Print barcode label" data-testid="print-barcode-${escapeHTML(p.id)}"><i class="fas fa-print"></i></button>` : ''}
           <button class="icon-btn" onclick="openProductForm('${escapeHTML(p.id)}')" data-testid="edit-product-${escapeHTML(p.id)}" title="Edit"><i class="fas fa-pen"></i></button>
           <button class="icon-btn danger" onclick="deleteProduct('${escapeHTML(p.id)}')" data-testid="delete-product-${escapeHTML(p.id)}" title="Delete"><i class="fas fa-trash"></i></button>
         </div>
       </td>
     </tr>`;
   }).join('');
+
+  // Wire row checkboxes
+  document.querySelectorAll('.product-row-check').forEach(cb => {
+    cb.addEventListener('change', (e) => {
+      const id = e.target.dataset.id;
+      if (e.target.checked) state.selectedProducts.add(id);
+      else state.selectedProducts.delete(id);
+      updateProductsBulkBar();
+      // Highlight row
+      e.target.closest('tr').style.background = e.target.checked ? '#FFF8E7' : '';
+    });
+  });
+
+  // Render inline barcodes after DOM update
+  if (window.JsBarcode) {
+    document.querySelectorAll('.row-barcode').forEach(svg => {
+      const code = svg.dataset.bc;
+      if (!code) return;
+      try { window.JsBarcode(svg, code, { format: 'CODE128', width: 1.2, height: 28, fontSize: 0, margin: 0, displayValue: false }); } catch (_) { /* invalid */ }
+    });
+  }
+
+  updateProductsBulkBar();
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(state.productsFiltered.length / ps));
@@ -493,6 +524,121 @@ async function deleteProduct(id) {
 }
 window.deleteProduct = deleteProduct;
 
+// ------------------------- Bulk Product Actions -------------------------
+function updateProductsBulkBar() {
+  const bar = $('products-bulk-bar');
+  const count = state.selectedProducts.size;
+  if (!bar) return;
+  if (count === 0) { bar.style.display = 'none'; }
+  else {
+    bar.style.display = 'flex';
+    $('products-bulk-count').textContent = `${count} selected`;
+  }
+  // Sync header checkbox
+  const all = $('products-check-all');
+  if (all) {
+    const visible = state.productsFiltered.slice((state.productsPage-1)*state.productsPageSize, state.productsPage*state.productsPageSize);
+    const visIds = visible.map(p => p.id);
+    const allSel = visIds.length > 0 && visIds.every(id => state.selectedProducts.has(id));
+    all.checked = allSel;
+    all.indeterminate = !allSel && visIds.some(id => state.selectedProducts.has(id));
+  }
+}
+function clearProductSelection() {
+  state.selectedProducts.clear();
+  renderProducts();
+}
+window.clearProductSelection = clearProductSelection;
+
+async function bulkProductDelete() {
+  const ids = Array.from(state.selectedProducts);
+  if (!ids.length) return;
+  if (!await confirmDialog(`Delete ${ids.length} product${ids.length>1?'s':''} permanently? This cannot be undone.`, { confirmLabel: `Delete ${ids.length}`, danger: true })) return;
+  const { error } = await supabaseClient.from('products').delete().in('id', ids);
+  if (error) return showToast('Delete failed: ' + error.message, 'error');
+  state.products = state.products.filter(p => !state.selectedProducts.has(p.id));
+  state.selectedProducts.clear();
+  applyProductFilters();
+  showToast(`${ids.length} product${ids.length>1?'s':''} deleted.`);
+}
+window.bulkProductDelete = bulkProductDelete;
+
+async function bulkProductStatus(status) {
+  const ids = Array.from(state.selectedProducts);
+  if (!ids.length) return;
+  const { error } = await supabaseClient.from('products').update({ status }).in('id', ids);
+  if (error) return showToast('Update failed: ' + error.message, 'error');
+  state.products = state.products.map(p => state.selectedProducts.has(p.id) ? { ...p, status } : p);
+  applyProductFilters();
+  showToast(`${ids.length} product${ids.length>1?'s':''} → ${status}.`);
+}
+window.bulkProductStatus = bulkProductStatus;
+
+async function bulkProductCategory() {
+  const ids = Array.from(state.selectedProducts);
+  if (!ids.length) return;
+  const html = `
+    <p style="margin:0 0 10px;color:var(--admin-text-mute);font-size:13px;">Set category for ${ids.length} selected product${ids.length>1?'s':''}.</p>
+    <div class="field"><label>Category</label>
+      <input class="input" list="bc-catlist" id="bc-cat" data-testid="bc-cat" placeholder="Pick or type new" />
+      <datalist id="bc-catlist">${state.categories.map(c => `<option value="${escapeHTML(c.name)}">`).join('')}</datalist>
+    </div>`;
+  const footer = el('div', {});
+  footer.innerHTML = `<button class="btn btn-secondary" id="bc-cancel" data-testid="bc-cancel">Cancel</button><button class="btn btn-primary" id="bc-save" data-testid="bc-save">Apply</button>`;
+  const m = openModal({ title: 'Change Category', body: html, footer, size: 'sm', testid: 'bc' });
+  $('bc-cancel').onclick = () => m.close();
+  $('bc-save').onclick = async () => {
+    const cat = $('bc-cat').value.trim();
+    if (!cat) return showToast('Category required.', 'error');
+    const { error } = await supabaseClient.from('products').update({ category: cat }).in('id', ids);
+    if (error) return showToast('Update failed: ' + error.message, 'error');
+    state.products = state.products.map(p => state.selectedProducts.has(p.id) ? { ...p, category: cat } : p);
+    applyProductFilters();
+    showToast(`${ids.length} product${ids.length>1?'s':''} moved to "${cat}".`);
+    m.close();
+  };
+}
+window.bulkProductCategory = bulkProductCategory;
+
+// ------------------------- Barcode helpers -------------------------
+function generateBarcodeForForm(formId) {
+  // Strategy: if SKU exists → use SKU; else generate random 12-digit
+  const sku = $(`${formId}-sku`).value.trim();
+  const code = sku || String(Math.floor(100000000000 + Math.random() * 900000000000));
+  $(`${formId}-barcode`).value = code;
+  $(`${formId}-barcode`).dispatchEvent(new Event('input'));
+}
+window.generateBarcodeForForm = generateBarcodeForForm;
+
+function printBarcodeLabel(productId) {
+  const p = state.products.find(x => x.id === productId);
+  if (!p || !p.barcode) return showToast('No barcode set for this product.', 'error');
+  const w = window.open('', '_blank', 'width=420,height=320');
+  if (!w) return showToast('Pop-up blocked. Allow pop-ups to print labels.', 'error');
+  w.document.write(`<!doctype html><html><head><title>Label · ${escapeHTML(p.name)}</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
+    <style>
+      @page { size: 60mm 40mm; margin: 0; }
+      body { margin: 0; font-family: system-ui; padding: 4mm; }
+      .lbl { text-align: center; }
+      .lbl .nm { font-size: 11px; font-weight: 600; margin-bottom: 2px; line-height: 1.2; }
+      .lbl .pr { font-size: 14px; font-weight: 700; margin-top: 4px; }
+      .lbl .sku { font-size: 9px; color: #666; }
+    </style></head><body>
+    <div class="lbl">
+      <div class="nm">${escapeHTML(p.name).substring(0, 32)}</div>
+      <svg id="bc"></svg>
+      <div class="sku">SKU: ${escapeHTML(p.sku || '—')}</div>
+      <div class="pr">₹${Number(p.offer_price || p.price || 0).toFixed(2)}</div>
+    </div>
+    <script>
+      JsBarcode('#bc', '${escapeHTML(p.barcode).replace(/'/g,"\\'")}', { format:'CODE128', width:1.6, height:40, fontSize:10, margin:2 });
+      setTimeout(() => window.print(), 300);
+    <\/script></body></html>`);
+  w.document.close();
+}
+window.printBarcodeLabel = printBarcodeLabel;
+
 function openProductForm(id) {
   const p = id ? state.products.find(x => x.id === id) : null;
   const isEdit = !!p;
@@ -508,7 +654,15 @@ function openProductForm(id) {
       <div class="tab-pane active" data-pane="general">
         <div class="grid-2">
           <div class="field" style="grid-column:1/-1"><label>Name *</label><input class="input" id="${formId}-name" required data-testid="pf-name" value="${escapeHTML(p?.name||'')}" /></div>
-          <div class="field"><label>SKU</label><input class="input" id="${formId}-sku" data-testid="pf-sku" value="${escapeHTML(p?.sku||'')}" /></div>
+          <div class="field"><label>SKU</label><input class="input" id="${formId}-sku" data-testid="pf-sku" value="${escapeHTML(p?.sku||'')}" placeholder="ONC-001" /></div>
+          <div class="field">
+            <label>Barcode <span style="font-weight:400;color:var(--admin-text-mute);font-size:11px;">(optional — EAN-13, UPC, or any code)</span></label>
+            <div style="display:flex;gap:6px;">
+              <input class="input" id="${formId}-barcode" data-testid="pf-barcode" value="${escapeHTML(p?.barcode||'')}" placeholder="8901234567890" style="flex:1;" />
+              <button type="button" class="btn btn-secondary btn-sm" onclick="generateBarcodeForForm('${formId}')" title="Auto-generate from SKU or random 12-digit number" data-testid="pf-gen-barcode"><i class="fas fa-wand-magic-sparkles"></i></button>
+            </div>
+            <div id="${formId}-barcode-preview" style="margin-top:8px;text-align:center;"></div>
+          </div>
           <div class="field"><label>Status</label>
             <select class="select" id="${formId}-status" data-testid="pf-status">
               ${['Active','Inactive','Draft'].map(s => `<option ${(p?.status||'Active')===s?'selected':''}>${s}</option>`).join('')}
@@ -599,6 +753,21 @@ function openProductForm(id) {
   $(`${formId}-seo_title`).addEventListener('input', upd);
   $(`${formId}-seo_description`).addEventListener('input', upd);
   upd();
+
+  // Barcode live preview
+  const renderBarcodePreview = () => {
+    const code = $(`${formId}-barcode`).value.trim();
+    const target = $(`${formId}-barcode-preview`);
+    if (!code) { target.innerHTML = ''; return; }
+    target.innerHTML = `<svg id="${formId}-bc-svg"></svg>`;
+    try {
+      if (window.JsBarcode) {
+        window.JsBarcode(`#${formId}-bc-svg`, code, { format: 'CODE128', width: 1.8, height: 48, fontSize: 12, margin: 4, displayValue: true });
+      }
+    } catch (e) { target.innerHTML = `<div style="color:var(--admin-text-mute);font-size:11px;">Invalid barcode value</div>`; }
+  };
+  $(`${formId}-barcode`).addEventListener('input', renderBarcodePreview);
+  renderBarcodePreview();
 
   // Upload
   const drop = $(`${formId}-drop`), file = $(`${formId}-file`);
@@ -749,6 +918,7 @@ function openProductForm(id) {
     const payload = {
       id: newId, name,
       sku: $(`${formId}-sku`).value.trim() || null,
+      barcode: $(`${formId}-barcode`).value.trim() || null,
       status: $(`${formId}-status`).value,
       category: $(`${formId}-category`).value.trim() || null,
       badge: $(`${formId}-badge`).value.trim() || null,
@@ -955,6 +1125,7 @@ function mapRow(r) {
   return {
     name,
     sku: (r.SKU || '').toString().trim() || null,
+    barcode: (r.BARCODE || r.EAN || r.UPC || '').toString().trim() || null,
     category: (r.SHORTCODE || r.CATEGORY || '').toString().trim() || null,
     badge: (r.BADGE || '').toString().trim() || null,
     description: (r.DESCRIPTION || '').toString().trim() || null,
@@ -1082,7 +1253,9 @@ function renderOrders() {
     const invLink = ccId ? `<a href="thank-you.html?status=success&order_id=${encodeURIComponent(ccId)}&tracking_id=${encodeURIComponent(o.payment_tracking_id||'')}&amount=${encodeURIComponent(o.total_amount||'')}" target="_blank" class="icon-btn" title="View / print invoice" data-testid="invoice-btn-${escapeHTML(o.id)}"><i class="fas fa-file-invoice"></i></a>` : '';
     const reviewable = ['Paid','Packed','Shipped','Delivered'].includes(o.status);
     const reviewBtn = reviewable ? `<button class="icon-btn" onclick="requestReview('${escapeHTML(o.id)}')" title="Request review via WhatsApp" data-testid="review-req-${escapeHTML(o.id)}"><i class="fas fa-star"></i></button>` : '';
-    return `<tr data-testid="order-row-${escapeHTML(o.id)}">
+    const checked = state.selectedOrders.has(o.id) ? 'checked' : '';
+    return `<tr data-testid="order-row-${escapeHTML(o.id)}" ${state.selectedOrders.has(o.id)?'style="background:#FBECEC;"':''}>
+      <td style="text-align:center;"><input type="checkbox" class="order-row-check" data-id="${escapeHTML(o.id)}" ${checked} data-testid="check-order-${escapeHTML(o.id)}" /></td>
       <td><code style="font-size:11px">${escapeHTML(ccId || '#' + String(o.id).substring(0,8))}</code><div style="font-size:10px;color:var(--admin-text-mute);font-family:monospace;">${escapeHTML(o.payment_tracking_id || '')}</div></td>
       <td><div style="font-size:12px;font-weight:600;color:var(--admin-primary);">${escapeHTML(o.invoice_number || '—')}</div></td>
       <td><div style="font-size:12px">${escapeHTML(o.guest_email || o.user_id || '—')}</div><div style="font-size:11px;color:var(--admin-text-mute)">${escapeHTML(o.guest_phone || '')}</div></td>
@@ -1094,9 +1267,22 @@ function renderOrders() {
         </select>
       </td>
       <td style="font-size:12px;color:var(--admin-text-mute)">${new Date(o.created_at).toLocaleDateString()}</td>
-      <td><div class="row-actions">${invLink}${reviewBtn}<button class="icon-btn" onclick="viewOrder('${escapeHTML(o.id)}')" title="View"><i class="fas fa-eye"></i></button></div></td>
+      <td><div class="row-actions">${invLink}${reviewBtn}<button class="icon-btn" onclick="viewOrder('${escapeHTML(o.id)}')" title="View"><i class="fas fa-eye"></i></button><button class="icon-btn danger" onclick="deleteOrder('${escapeHTML(o.id)}')" title="Delete" data-testid="del-order-${escapeHTML(o.id)}"><i class="fas fa-trash"></i></button></div></td>
     </tr>`;
   }).join('');
+
+  // Wire row checkboxes
+  document.querySelectorAll('.order-row-check').forEach(cb => {
+    cb.addEventListener('change', (e) => {
+      const id = e.target.dataset.id;
+      if (e.target.checked) state.selectedOrders.add(id);
+      else state.selectedOrders.delete(id);
+      updateOrdersBulkBar();
+      e.target.closest('tr').style.background = e.target.checked ? '#FBECEC' : '';
+    });
+  });
+
+  updateOrdersBulkBar();
 }
 async function updateOrderStatus(id, status) {
   const { error } = await supabaseClient.from('orders').update({ status }).eq('id', id);
@@ -1130,6 +1316,80 @@ function viewOrder(id) {
   $('ov-close').onclick = () => m.close();
 }
 window.viewOrder = viewOrder;
+
+// ------------------------- Order Delete + Bulk Actions -------------------------
+async function deleteOrder(id) {
+  const o = state.orders.find(x => x.id === id);
+  if (!o) return;
+  const label = o.ccavenue_order_id || ('#' + String(o.id).substring(0, 8));
+  if (!await confirmDialog(`Permanently delete order ${label}? This cannot be undone.`, { confirmLabel: 'Delete', danger: true })) return;
+  const { error } = await supabaseClient.from('orders').delete().eq('id', id);
+  if (error) return showToast('Delete failed: ' + error.message, 'error');
+  state.orders = state.orders.filter(x => x.id !== id);
+  state.selectedOrders.delete(id);
+  renderOrders();
+  renderDashboard();
+  showToast('Order deleted.');
+}
+window.deleteOrder = deleteOrder;
+
+function updateOrdersBulkBar() {
+  const bar = $('orders-bulk-bar');
+  const count = state.selectedOrders.size;
+  if (!bar) return;
+  if (count === 0) { bar.style.display = 'none'; }
+  else {
+    bar.style.display = 'flex';
+    $('orders-bulk-count').textContent = `${count} selected`;
+  }
+  const all = $('orders-check-all');
+  if (all) {
+    const visible = (state.orders || []).filter(o => {
+      const q = ($('orders-search').value || '').toLowerCase().trim();
+      const st = $('orders-status-filter').value;
+      if (st && o.status !== st) return false;
+      if (q) { const hay = `${o.id} ${o.ccavenue_order_id||''} ${o.guest_email||''} ${o.guest_phone||''}`.toLowerCase(); if (!hay.includes(q)) return false; }
+      return true;
+    });
+    const allSel = visible.length > 0 && visible.every(o => state.selectedOrders.has(o.id));
+    all.checked = allSel;
+    all.indeterminate = !allSel && visible.some(o => state.selectedOrders.has(o.id));
+  }
+}
+function clearOrderSelection() {
+  state.selectedOrders.clear();
+  renderOrders();
+}
+window.clearOrderSelection = clearOrderSelection;
+
+async function bulkOrderDelete() {
+  const ids = Array.from(state.selectedOrders);
+  if (!ids.length) return;
+  if (!await confirmDialog(`Permanently delete ${ids.length} order${ids.length>1?'s':''}? This cannot be undone. Customer payment data will be lost.`, { confirmLabel: `Delete ${ids.length}`, danger: true })) return;
+  const { error } = await supabaseClient.from('orders').delete().in('id', ids);
+  if (error) return showToast('Delete failed: ' + error.message, 'error');
+  state.orders = state.orders.filter(o => !state.selectedOrders.has(o.id));
+  state.selectedOrders.clear();
+  renderOrders();
+  renderDashboard();
+  showToast(`${ids.length} order${ids.length>1?'s':''} deleted.`);
+}
+window.bulkOrderDelete = bulkOrderDelete;
+
+async function bulkOrderDeleteByStatus(status) {
+  const candidates = state.orders.filter(o => o.status === status);
+  if (!candidates.length) return showToast(`No ${status} orders to delete.`, '');
+  if (!await confirmDialog(`Permanently delete ALL ${candidates.length} ${status} order${candidates.length>1?'s':''}? This is typically done to clear out test/abandoned orders before going live.`, { confirmLabel: `Delete ${candidates.length}`, danger: true })) return;
+  const ids = candidates.map(c => c.id);
+  const { error } = await supabaseClient.from('orders').delete().in('id', ids);
+  if (error) return showToast('Delete failed: ' + error.message, 'error');
+  state.orders = state.orders.filter(o => o.status !== status);
+  ids.forEach(id => state.selectedOrders.delete(id));
+  renderOrders();
+  renderDashboard();
+  showToast(`${candidates.length} ${status} order${candidates.length>1?'s':''} cleared.`);
+}
+window.bulkOrderDeleteByStatus = bulkOrderDeleteByStatus;
 
 // ------------------------- Recover Missed Order -------------------------
 // Used to backfill orders that succeeded on CCAvenue but never reached Supabase
@@ -1581,6 +1841,28 @@ function setupSearches() {
   $('inv-low-only').addEventListener('change', renderInventory);
   let ot; $('orders-search').addEventListener('input', () => { clearTimeout(ot); ot = setTimeout(renderOrders, 200); });
   $('orders-status-filter').addEventListener('change', renderOrders);
+
+  // Products "select all on page" header checkbox
+  $('products-check-all').addEventListener('change', (e) => {
+    const visible = state.productsFiltered.slice((state.productsPage-1)*state.productsPageSize, state.productsPage*state.productsPageSize);
+    if (e.target.checked) visible.forEach(p => state.selectedProducts.add(p.id));
+    else                  visible.forEach(p => state.selectedProducts.delete(p.id));
+    renderProducts();
+  });
+
+  // Orders "select all on page" header checkbox
+  $('orders-check-all').addEventListener('change', (e) => {
+    const visible = (state.orders || []).filter(o => {
+      const q = ($('orders-search').value || '').toLowerCase().trim();
+      const st = $('orders-status-filter').value;
+      if (st && o.status !== st) return false;
+      if (q) { const hay = `${o.id} ${o.ccavenue_order_id||''} ${o.guest_email||''} ${o.guest_phone||''}`.toLowerCase(); if (!hay.includes(q)) return false; }
+      return true;
+    });
+    if (e.target.checked) visible.forEach(o => state.selectedOrders.add(o.id));
+    else                  visible.forEach(o => state.selectedOrders.delete(o.id));
+    renderOrders();
+  });
 }
 
 function renderAllOnce() {

@@ -12,6 +12,8 @@
   <!-- Excel/CSV parsing -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Barcode generation -->
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 </head>
 <body class="admin-body">
 
@@ -122,7 +124,7 @@
             <div class="table-toolbar">
               <div class="search">
                 <i class="fas fa-search"></i>
-                <input class="input" id="products-search" placeholder="Search name, SKU, category..." data-testid="products-search" />
+                <input class="input" id="products-search" placeholder="Search name, SKU, barcode, category..." data-testid="products-search" />
               </div>
               <select class="select" id="products-cat-filter" style="max-width:200px" data-testid="products-cat-filter">
                 <option value="">All categories</option>
@@ -134,13 +136,27 @@
                 <option value="Draft">Draft</option>
               </select>
             </div>
+
+            <!-- BULK ACTION TOOLBAR (shows when ≥1 product selected) -->
+            <div id="products-bulk-bar" style="display:none;background:#FFF8E7;border:1px solid #E8C36E;border-radius:8px;padding:10px 14px;margin-bottom:10px;align-items:center;gap:10px;flex-wrap:wrap;" data-testid="products-bulk-bar">
+              <strong id="products-bulk-count" style="color:var(--admin-primary);" data-testid="products-bulk-count">0 selected</strong>
+              <span style="color:var(--admin-text-mute);font-size:12px;">·</span>
+              <button class="btn btn-secondary btn-sm" onclick="bulkProductStatus('Active')" data-testid="bulk-status-active"><i class="fas fa-eye"></i> Activate</button>
+              <button class="btn btn-secondary btn-sm" onclick="bulkProductStatus('Inactive')" data-testid="bulk-status-inactive"><i class="fas fa-eye-slash"></i> Deactivate</button>
+              <button class="btn btn-secondary btn-sm" onclick="bulkProductStatus('Draft')" data-testid="bulk-status-draft"><i class="fas fa-file-pen"></i> Set Draft</button>
+              <button class="btn btn-secondary btn-sm" onclick="bulkProductCategory()" data-testid="bulk-change-category"><i class="fas fa-folder"></i> Change Category</button>
+              <button class="btn btn-danger btn-sm" onclick="bulkProductDelete()" data-testid="bulk-delete-products"><i class="fas fa-trash"></i> Delete Selected</button>
+              <button class="btn btn-ghost btn-sm" onclick="clearProductSelection()" style="margin-left:auto" data-testid="bulk-clear-products">Clear</button>
+            </div>
+
             <table class="data" data-testid="products-table">
               <thead><tr>
+                <th style="width:36px;text-align:center;"><input type="checkbox" id="products-check-all" data-testid="products-check-all" title="Select all on this page" /></th>
                 <th style="width:60px"></th>
-                <th>Name</th><th>SKU</th><th>Category</th>
+                <th>Name</th><th>SKU / Barcode</th><th>Category</th>
                 <th style="text-align:right">Price</th>
                 <th style="text-align:right">Stock</th>
-                <th>Status</th><th style="width:80px"></th>
+                <th>Status</th><th style="width:110px"></th>
               </tr></thead>
               <tbody id="products-tbody"></tbody>
             </table>
@@ -261,8 +277,22 @@
                 <option>Processing</option><option>Paid</option><option>Packed</option><option>Shipped</option><option>Delivered</option><option>Cancelled</option><option>Failed</option>
               </select>
             </div>
+
+            <!-- ORDERS BULK ACTION TOOLBAR -->
+            <div id="orders-bulk-bar" style="display:none;background:#FBECEC;border:1px solid #E8C1C1;border-radius:8px;padding:10px 14px;margin-bottom:10px;align-items:center;gap:10px;flex-wrap:wrap;" data-testid="orders-bulk-bar">
+              <strong id="orders-bulk-count" style="color:#C0392B;" data-testid="orders-bulk-count">0 selected</strong>
+              <span style="color:var(--admin-text-mute);font-size:12px;">·</span>
+              <button class="btn btn-danger btn-sm" onclick="bulkOrderDelete()" data-testid="bulk-delete-orders"><i class="fas fa-trash"></i> Delete Selected</button>
+              <button class="btn btn-secondary btn-sm" onclick="bulkOrderDeleteByStatus('Failed')" data-testid="bulk-delete-failed"><i class="fas fa-triangle-exclamation"></i> Delete all Failed</button>
+              <button class="btn btn-secondary btn-sm" onclick="bulkOrderDeleteByStatus('Processing')" data-testid="bulk-delete-processing"><i class="fas fa-spinner"></i> Delete all Processing (test orders)</button>
+              <button class="btn btn-ghost btn-sm" onclick="clearOrderSelection()" style="margin-left:auto" data-testid="bulk-clear-orders">Clear</button>
+            </div>
+
             <table class="data">
-              <thead><tr><th>Order #</th><th>Invoice</th><th>Customer</th><th style="text-align:right">Total</th><th>Items</th><th>Status</th><th>Date</th><th style="width:120px"></th></tr></thead>
+              <thead><tr>
+                <th style="width:36px;text-align:center;"><input type="checkbox" id="orders-check-all" data-testid="orders-check-all" title="Select all on this page" /></th>
+                <th>Order #</th><th>Invoice</th><th>Customer</th><th style="text-align:right">Total</th><th>Items</th><th>Status</th><th>Date</th><th style="width:140px"></th>
+              </tr></thead>
               <tbody id="orders-tbody"></tbody>
             </table>
           </div>
