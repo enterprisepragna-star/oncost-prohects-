@@ -144,35 +144,9 @@
         price: (it.product?.offer_price && it.product.offer_price < it.product.price) ? it.product.offer_price : it.product?.price,
       }));
 
-      // Create pending order in Supabase first (so we can update its status from /api/ccavenue/response)
-      try {
-        await supabaseClient.from('orders').insert({
-          user_id: state.user?.id || null,
-          ccavenue_order_id: orderId,
-          items, total_amount: t.total, status: 'Processing',
-          guest_email: ship.email,
-          guest_phone: ship.phone,
-          shipping_address: ship,
-        });
-      } catch (err) {
-        toast('Could not create order: ' + err.message, 'err');
-        btn.disabled = false; btn.innerHTML = '<i class="fas fa-lock"></i> Pay Securely';
-        return;
-      }
-
-      // Build form & POST to our /api/ccavenue/initiate (which redirects to CCAvenue)
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = '/api/ccavenue/initiate';
-      form.style.display = 'none';
-      const fields = {
-        order_id: orderId,
-        total_amount: t.total.toFixed(2),
-        shipping_address: JSON.stringify(ship),
-        user_id: state.user?.id || '',
-        applied_coupon: state.appliedCoupon?.code || '',
-      };
-      // Vercel handles JSON body automatically — use fetch instead for cleaner POST
+      // Call /api/ccavenue/initiate — this server endpoint INSERTS the pending order
+      // into Supabase (via service role key, bypassing RLS) AND returns the encrypted
+      // CCAvenue redirect form. Single source of truth = no schema/RLS race conditions.
       try {
         const r = await fetch('/api/ccavenue/initiate', {
           method: 'POST',
@@ -180,6 +154,10 @@
           body: JSON.stringify({
             order_id: orderId,
             total_amount: t.total,
+            items_subtotal: t.subtotal,
+            shipping_amount: t.shipping,
+            discount_amount: t.discount,
+            items,
             shipping_address: ship,
             user_id: state.user?.id || '',
             applied_coupon: state.appliedCoupon?.code || '',

@@ -40,6 +40,10 @@ module.exports = async function handler(req, res) {
       campaignName: campaignName || 'oncost_shipping_update',
       templateParams: [params.customer_name || 'Customer', params.order_id || '', params.status || 'Shipped', params.tracking_url || ''],
     },
+    review_request: {
+      campaignName: campaignName || 'oncost_review_request',
+      templateParams: [params.customer_name || 'Customer', params.product_name || 'your order', params.review_link || 'https://www.oncost.shop'],
+    },
     custom: {
       campaignName: campaignName || template,
       templateParams: params.template_params || [],

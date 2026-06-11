@@ -276,6 +276,8 @@ function renderProductDetail() {
 
   const related = state.products.filter(x => x.category === p.category && x.id !== p.id).slice(0, 4);
   const inWishlist = state.wishlist.some(w => w.product_id === p.id);
+  const summary = productReviewSummary(p.id);
+  const reviewToken = param('review_token') || '';
 
   slot.innerHTML = `
     <div class="product-detail">
@@ -286,6 +288,12 @@ function renderProductDetail() {
       <div class="pd-info">
         ${p.category ? `<div class="cat">${escapeHTML(p.category)}</div>` : ''}
         <h1>${escapeHTML(p.name)}</h1>
+        <div style="display:flex;align-items:center;gap:10px;margin:-2px 0 12px;font-size:13px;">
+          ${summary.count
+            ? `<a href="#reviews" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;color:var(--ink);"><span>${starsHTML(summary.avg, 13)}</span><strong style="font-size:13px;">${summary.avg.toFixed(1)}</strong><span style="color:var(--muted);">· ${summary.count} review${summary.count===1?'':'s'}</span></a>`
+            : `<span style="color:var(--muted);font-size:12px;display:inline-flex;align-items:center;gap:6px;">${starsHTML(0, 13)} <span>No reviews yet</span></span>`}
+          ${reviewToken ? `<button type="button" class="btn primary sm" onclick="openProductReviewModal('${escapeHTML(p.id)}','${escapeHTML(reviewToken)}')" style="margin-left:auto;" data-testid="pd-review-token-btn"><i class="fas fa-pen"></i> Write a Review</button>` : ''}
+        </div>
         <div class="price-row">
           <span class="price">${fmtINR(offer ? p.offer_price : p.price)}</span>
           ${offer ? `<span class="price-old">${fmtINR(p.price)}</span><span class="save-tag">Save ${save}%</span>` : ''}
@@ -314,6 +322,21 @@ function renderProductDetail() {
         </div>
       </div>
     </div>
+
+    <!-- ============ REVIEWS SECTION ============ -->
+    <section id="reviews" style="margin-top:56px;max-width:780px;">
+      <div class="section-head" style="text-align:left;margin-bottom:18px;display:flex;justify-content:space-between;align-items:flex-end;gap:18px;flex-wrap:wrap;">
+        <div>
+          <h2 style="font-size:1.6rem;margin:0;">Customer Reviews</h2>
+          ${summary.count
+            ? `<div style="margin-top:6px;display:flex;align-items:center;gap:10px;font-size:14px;">${starsHTML(summary.avg, 16)} <strong>${summary.avg.toFixed(1)} / 5</strong><span style="color:var(--muted);">based on ${summary.count} review${summary.count===1?'':'s'}</span></div>`
+            : ''}
+        </div>
+        <button class="btn primary sm" onclick="openProductReviewModal('${escapeHTML(p.id)}','${escapeHTML(reviewToken)}')" data-testid="pd-write-review-btn"><i class="fas fa-pen"></i> Write a Review</button>
+      </div>
+      ${renderProductReviews(p.id)}
+    </section>
+
     ${related.length ? `
       <section style="margin-top:64px;">
         <div class="section-head" style="text-align:left;margin-bottom:24px;"><h2 style="font-size:1.8rem;">You may also love</h2></div>
@@ -543,6 +566,73 @@ function renderReviewsMarquee() {
   slot.innerHTML = cardsHTML + cardsHTML;  // duplicate for seamless loop
 }
 
+// ---------- Product-level Reviews ----------
+function starsHTML(rating, size = 14) {
+  const r = Math.max(0, Math.min(5, Number(rating) || 0));
+  const full = Math.floor(r);
+  const half = (r - full) >= 0.5;
+  let html = '';
+  for (let i = 0; i < 5; i++) {
+    if (i < full)        html += `<i class="fas fa-star" style="color:#E8A53A;font-size:${size}px;"></i>`;
+    else if (i === full && half) html += `<i class="fas fa-star-half-stroke" style="color:#E8A53A;font-size:${size}px;"></i>`;
+    else                 html += `<i class="far fa-star" style="color:#D6CFC2;font-size:${size}px;"></i>`;
+  }
+  return html;
+}
+
+function productReviewsFor(productId) {
+  return state.testimonials.filter(t => t.product_id === productId);
+}
+
+function productReviewSummary(productId) {
+  const list = productReviewsFor(productId);
+  if (!list.length) return { count: 0, avg: 0 };
+  const sum = list.reduce((s, t) => s + Number(t.rating || 0), 0);
+  return { count: list.length, avg: sum / list.length };
+}
+
+function renderProductReviews(productId) {
+  const list = productReviewsFor(productId);
+  if (!list.length) {
+    return `<div class="empty-state" style="background:#fdfaf3;border:1px dashed var(--line);padding:32px 24px;text-align:center;border-radius:var(--radius);">
+      <i class="fas fa-comments" style="font-size:32px;color:var(--muted);"></i>
+      <h4 style="margin:10px 0 4px;font-size:1.05rem;">No reviews yet</h4>
+      <p style="color:var(--muted);font-size:13px;margin:0;">Be the first to share your experience with this product.</p>
+    </div>`;
+  }
+  return `<div class="reviews-list" style="display:flex;flex-direction:column;gap:14px;">
+    ${list.map(t => `
+      <article class="review-card" style="background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;">
+        <header style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:8px;">
+          <div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <strong style="color:var(--ink);">${escapeHTML(t.customer_name)}</strong>
+              ${t.is_verified ? '<span style="font-size:10px;background:#E6F4EA;color:#1E8449;padding:2px 8px;border-radius:999px;font-weight:600;letter-spacing:0.5px;"><i class="fas fa-circle-check"></i> Verified Buyer</span>' : ''}
+            </div>
+            <div style="margin-top:4px;">${starsHTML(t.rating, 12)} <span style="font-size:11px;color:var(--muted);margin-left:6px;">${new Date(t.created_at).toLocaleDateString('en-IN',{month:'short',year:'numeric'})}</span></div>
+          </div>
+        </header>
+        ${t.title ? `<h4 style="margin:0 0 6px;font-size:14px;color:var(--ink);">${escapeHTML(t.title)}</h4>` : ''}
+        <p style="margin:0;color:var(--ink-soft);font-size:14px;line-height:1.55;">${escapeHTML(t.review_text)}</p>
+        ${t.image_url ? `<img src="${escapeHTML(t.image_url)}" alt="" style="margin-top:10px;max-width:140px;border-radius:8px;border:1px solid var(--line);" />` : ''}
+      </article>`).join('')}
+  </div>`;
+}
+
+// Modal launcher used by product detail page
+window.openProductReviewModal = function(productId, reviewToken) {
+  const modal = $('#product-review-modal');
+  if (!modal) return;
+  $('#prm-product-id').value = productId || '';
+  $('#prm-review-token').value = reviewToken || '';
+  $('#prm-error').style.display = 'none';
+  $('#prm-error').textContent = '';
+  $('#prm-text').value = '';
+  $('#prm-title').value = '';
+  $('#prm-rating').value = '5';
+  modal.showModal();
+};
+
 // ---------- Categories ----------
 async function loadCategories() {
   try {
@@ -741,6 +831,67 @@ async function bootstrap() {
       $('#review-modal')?.close();
       toast('Review submitted! Awaiting moderation.', 'ok');
     } catch (err) { toast('Failed: ' + err.message, 'err'); }
+  });
+
+  // ---------- Product-specific review modal (on product.html) ----------
+  $('#prm-close-x')?.addEventListener('click', () => $('#product-review-modal')?.close());
+  $('#prm-cancel')?.addEventListener('click',  () => $('#product-review-modal')?.close());
+  $('#product-review-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const productId   = $('#prm-product-id').value;
+    const reviewToken = $('#prm-review-token').value;
+    const rating      = parseInt($('#prm-rating').value, 10);
+    const title       = $('#prm-title').value.trim();
+    const text        = $('#prm-text').value.trim();
+    const errBox      = $('#prm-error');
+    const btn         = $('#prm-submit');
+
+    if (text.length < 10) {
+      errBox.textContent = 'Review must be at least 10 characters.';
+      errBox.style.display = 'block';
+      return;
+    }
+    if (!reviewToken && !state.user) {
+      errBox.innerHTML = 'Please <a href="login.html" style="color:#C0392B;text-decoration:underline;">sign in</a> to submit a review. Only verified buyers can review.';
+      errBox.style.display = 'block';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting…';
+    errBox.style.display = 'none';
+
+    try {
+      // Get current Supabase auth token (if logged in)
+      let userToken = null;
+      try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        userToken = session?.access_token || null;
+      } catch (_) { /* noop */ }
+
+      const r = await fetch('/api/reviews/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product_id: productId,
+          rating, title, review_text: text,
+          user_token: userToken,
+          review_token: reviewToken || undefined,
+          customer_name: state.profile?.name || (state.user?.email?.split('@')[0]) || '',
+        }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+
+      $('#product-review-modal').close();
+      toast('Thanks! Your review is awaiting moderation.', 'ok');
+    } catch (err) {
+      errBox.textContent = err.message || 'Could not submit review.';
+      errBox.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Review';
+    }
   });
 }
 
