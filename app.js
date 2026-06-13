@@ -366,15 +366,14 @@ window.addToCartFromDetail = async function(productId) {
 // ---------- Cart ----------
 async function loadCart() {
   if (!state.user) {
-    // Guest cart in localStorage
     try { state.cart = JSON.parse(localStorage.getItem('oncost_cart') || '[]'); }
     catch { state.cart = []; }
-    state.cart.forEach(it => { it.product = state.products.find(p => p.id === it.product_id); });
+    state.cart = state.cart.map(it => ({ ...it, product: state.products.find(p => p.id === it.product_id) })).filter(it => it.product);
     return;
   }
   try {
     const { data } = await supabaseClient.from('cart_items').select('*').eq('user_id', state.user.id);
-    state.cart = (data || []).map(it => ({ ...it, product: state.products.find(p => p.id === it.product_id) }));
+    state.cart = (data || []).map(it => ({ ...it, product: state.products.find(p => p.id === it.product_id) })).filter(it => it.product);
   } catch { state.cart = []; }
 }
 function saveGuestCart() {
