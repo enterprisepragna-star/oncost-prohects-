@@ -5,7 +5,7 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const ADMIN_RECOVERY_KEY = process.env.ADMIN_RECOVERY_KEY || '';
 
 const DELHIVERY_API_KEY = process.env.DELHIVERY_API_KEY;
-const DELHIVERY_PICKUP_LOCATION = process.env.DELHIVERY_PICKUP_LOCATION;
+const DELHIVERY_PICKUP_LOCATION = process.env.DELHIVERY_PICKUP_LOCATION || 'Main Office';
 const DELHIVERY_API_URL = 'https://track.delhivery.com/api/cmu/create.json';
 
 export default async function handler(req, res) {
@@ -17,8 +17,8 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized. Invalid admin key.' });
   }
 
-  if (!DELHIVERY_API_KEY || !DELHIVERY_PICKUP_LOCATION) {
-    return res.status(400).json({ error: 'Delhivery API Key or Pickup Location is not configured in Vercel.' });
+  if (!DELHIVERY_API_KEY) {
+    return res.status(400).json({ error: 'Delhivery API Key is not configured in Vercel.' });
   }
 
   const { order_id } = req.body;
