@@ -743,7 +743,18 @@ function setupEnquiryForm() {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(form);
-    const summary = `Name: ${fd.get('name')} | Email: ${fd.get('email')} | Phone: ${fd.get('phone')} | GSTIN: ${fd.get('gstin')||'—'} | Event: ${fd.get('eventType')} | Qty: ${fd.get('quantity')} | Date: ${fd.get('eventDate')||'—'} | Budget: ${fd.get('budget')||'—'} | Message: ${fd.get('message')||'—'}`;
+    const details = {
+      Name: fd.get('name'),
+      Email: fd.get('email'),
+      Phone: fd.get('phone'),
+      GSTIN: fd.get('gstin') || '—',
+      Event: fd.get('eventType') || '—',
+      Qty: fd.get('quantity') || '—',
+      Date: fd.get('eventDate') || '—',
+      Budget: fd.get('budget') || '—',
+      Message: fd.get('message') || '—'
+    };
+    const summary = JSON.stringify(details);
     try {
       await supabaseClient.from('leads').insert({
         user_id: state.user?.id || null,

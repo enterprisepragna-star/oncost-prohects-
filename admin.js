@@ -1701,13 +1701,66 @@ function renderLeads() {
     tbody.innerHTML = `<tr><td colspan="4"><div class="empty"><div class="ic"><i class="fas fa-envelope"></i></div><h4>No enquiries yet</h4><p>Customer enquiries from the storefront will appear here.</p></div></td></tr>`;
     return;
   }
-  tbody.innerHTML = state.leads.map(l => `
+  tbody.innerHTML = state.leads.map(l => {
+    let sumText = l.summary || '';
+    let isJson = false;
+    try {
+      if (sumText.startsWith('{')) {
+        const parsed = JSON.parse(sumText);
+        sumText = `${parsed.Name} • ${parsed.Email} • ${parsed.Phone}`;
+        isJson = true;
+      }
+    } catch(e) {}
+    
+    return `
     <tr>
       <td style="font-size:12px">${new Date(l.created_at).toLocaleDateString()}</td>
       <td><code style="font-size:11px">${escapeHTML(l.product_id||'—')}</code></td>
-      <td style="max-width:500px">${escapeHTML(l.summary||'')}</td>
+      <td style="max-width:400px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHTML(sumText)}</td>
       <td style="font-size:11px;color:var(--admin-text-mute)">${escapeHTML((l.user_id||'').substring(0,8))}</td>
-    </tr>`).join('');
+      <td style="text-align:right"><button class="btn btn-secondary btn-sm" onclick="viewLead('${escapeHTML(l.id)}')">View</button></td>
+    </tr>`;
+  }).join('');
+}
+
+window.viewLead = function(id) {
+  const l = state.leads.find(x => x.id === id); if (!l) return;
+  let parsed = null;
+  try {
+    if (l.summary && l.summary.startsWith('{')) {
+      parsed = JSON.parse(l.summary);
+    }
+  } catch(e) {}
+
+  let body = '';
+  if (parsed) {
+    body = `<div class="grid-2">` + Object.entries(parsed).map(([k,v]) => `
+      <div class="field" ${k === 'Message' ? 'style="grid-column:1/-1"' : ''}>
+        <label>${escapeHTML(k)}</label>
+        <div style="${k === 'Message' ? 'white-space:pre-wrap;' : ''}">${escapeHTML(v || '—')}</div>
+      </div>
+    `).join('') + `</div>`;
+  } else {
+    // Old pipe-separated format fallback
+    const parts = (l.summary || '').split('|').map(s => s.trim()).filter(Boolean);
+    body = `<div class="grid-2">` + parts.map(p => {
+      const idx = p.indexOf(':');
+      if (idx > -1) {
+        const k = p.substring(0, idx).trim();
+        const v = p.substring(idx + 1).trim();
+        return `<div class="field" ${k.toLowerCase() === 'message' ? 'style="grid-column:1/-1"' : ''}>
+                  <label>${escapeHTML(k)}</label>
+                  <div style="${k.toLowerCase() === 'message' ? 'white-space:pre-wrap;' : ''}">${escapeHTML(v || '—')}</div>
+                </div>`;
+      }
+      return `<div>${escapeHTML(p)}</div>`;
+    }).join('') + `</div>`;
+  }
+
+  const footer = document.createElement('div');
+  footer.innerHTML = `<button class="btn btn-secondary" id="vl-close">Close</button>`;
+  const m = openModal({ title: `Enquiry / Lead`, body, footer, size: 'md' });
+  document.getElementById('vl-close').onclick = () => m.close();
 }
 
 // ------------------------- Testimonials -------------------------
