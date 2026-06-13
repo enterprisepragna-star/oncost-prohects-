@@ -1260,11 +1260,15 @@ function renderOrders() {
       <td><div style="font-size:12px;font-weight:600;color:var(--admin-primary);">${escapeHTML(o.invoice_number || '—')}</div></td>
       <td><div style="font-size:12px">${escapeHTML(o.guest_email || o.user_id || '—')}</div><div style="font-size:11px;color:var(--admin-text-mute)">${escapeHTML(o.guest_phone || '')}</div></td>
       <td style="text-align:right;font-weight:600">${fmtINR(o.total_amount)}</td>
-      <td>${qty} item${qty===1?'':'s'}</td>
+      <td>
+        <div style="font-size:12px;color:var(--admin-text-mute);max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escapeHTML(items.map(i=>i.name).join(', '))}">${items.map(i=>escapeHTML(i.name)).join(', ') || qty + ' item(s)'}</div>
+        <div style="font-size:10px;color:var(--admin-text-mute);margin-top:2px;">Qty: ${qty}</div>
+      </td>
       <td>
         <select class="select" style="padding:5px 8px;font-size:12px;min-width:130px;" onchange="updateOrderStatus('${escapeHTML(o.id)}', this.value)" data-testid="order-status-${escapeHTML(o.id)}">
           ${['Processing','Paid','Packed','Shipped','Delivered','Cancelled','Failed'].map(s => `<option ${o.status===s?'selected':''}>${s}</option>`).join('')}
         </select>
+        ${(o.shipping_address && o.shipping_address.tracking_url) ? `<br><a href="${escapeHTML(o.shipping_address.tracking_url)}" target="_blank" style="font-size:11px;color:var(--admin-primary);text-decoration:underline;margin-top:4px;display:inline-block;"><i class="fas fa-truck"></i> Track</a>` : ''}
       </td>
       <td style="font-size:12px;color:var(--admin-text-mute)">${new Date(o.created_at).toLocaleDateString()}</td>
       <td><div class="row-actions">${invLink}${reviewBtn}<button class="icon-btn" onclick="viewOrder('${escapeHTML(o.id)}')" title="View"><i class="fas fa-eye"></i></button><button class="icon-btn danger" onclick="deleteOrder('${escapeHTML(o.id)}')" title="Delete" data-testid="del-order-${escapeHTML(o.id)}"><i class="fas fa-trash"></i></button></div></td>
@@ -1303,6 +1307,15 @@ function viewOrder(id) {
       <div><div class="field"><label>Customer Email</label><div>${escapeHTML(o.guest_email||o.user_id||'—')}</div></div></div>
       <div><div class="field"><label>Phone</label><div>${escapeHTML(o.guest_phone||'—')}</div></div></div>
       <div style="grid-column:1/-1"><div class="field"><label>Shipping Address</label><div style="white-space:pre-wrap;font-size:13px;">${escapeHTML(JSON.stringify(ship, null, 2))}</div></div></div>
+      <div style="grid-column:1/-1">
+        <div class="field"><label>Tracking URL</label>
+          <div style="display:flex;gap:8px;margin-bottom:8px;">
+            <input type="url" class="input" id="ov-tracking-url" value="${escapeHTML(ship.tracking_url || '')}" placeholder="https://tracking..." />
+            <button class="btn btn-secondary" onclick="saveTrackingUrl('${escapeHTML(o.id)}')">Save</button>
+          </div>
+          ${!ship.tracking_url ? `<button class="btn primary" id="btn-delhivery-${escapeHTML(o.id)}" onclick="createDelhiveryShipment('${escapeHTML(o.id)}')"><i class="fas fa-truck"></i> Auto-Generate via Delhivery</button>` : ''}
+        </div>
+      </div>
     </div>
     <h4 class="card-title" style="margin:16px 0 8px;">Items</h4>
     <table class="data">
@@ -1316,6 +1329,48 @@ function viewOrder(id) {
   $('ov-close').onclick = () => m.close();
 }
 window.viewOrder = viewOrder;
+
+window.createDelhiveryShipment = async function(id) {
+  const btn = document.getElementById(`btn-delhivery-${id}`);
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Generating...'; }
+  
+  const savedKey = localStorage.getItem('oncost_recover_key') || '';
+  try {
+    const r = await fetch('/api/admin/create-delhivery-shipment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': savedKey },
+      body: JSON.stringify({ order_id: id })
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || 'Server error');
+    
+    showToast(`Shipment created! AWB: ${j.awb}`);
+    const o = state.orders.find(x => x.id === id);
+    if (o) {
+      if (!o.shipping_address) o.shipping_address = {};
+      o.shipping_address.tracking_url = j.tracking_url;
+      o.status = 'Packed';
+    }
+    renderOrders();
+    // close modal if open
+    document.getElementById('ov-close')?.click();
+  } catch(err) {
+    showToast(err.message, 'error');
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-truck"></i> Auto-Generate via Delhivery'; }
+  }
+};
+
+window.saveTrackingUrl = async function(id) {
+  const o = state.orders.find(x => x.id === id); if (!o) return;
+  const url = document.getElementById('ov-tracking-url').value.trim();
+  const ship = o.shipping_address || {};
+  ship.tracking_url = url || null;
+  const { error } = await supabaseClient.from('orders').update({ shipping_address: ship }).eq('id', id);
+  if (error) return showToast('Failed to save tracking: ' + error.message, 'error');
+  o.shipping_address = ship;
+  showToast('Tracking URL saved.');
+  renderOrders();
+};
 
 // ------------------------- Order Delete + Bulk Actions -------------------------
 async function deleteOrder(id) {
