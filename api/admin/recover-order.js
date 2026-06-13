@@ -51,7 +51,7 @@ module.exports = async function handler(req, res) {
   const payStatus = status === 'Paid' ? 'Paid' : (status === 'Cancelled' ? 'Cancelled' : status === 'Failed' ? 'Failed' : 'Pending');
 
   const row = {
-    user_id: null,
+    user_id: b.user_id || null,
     ccavenue_order_id: orderId,
     items: Array.isArray(b.items) ? b.items : [],
     total_amount: amount,
