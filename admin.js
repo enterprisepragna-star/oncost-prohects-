@@ -1,6 +1,7 @@
+/* 
    ONCOST Admin Console · admin.js
    Vanilla JS · Supabase JS v2 · Single-file SPA
-/* global supabaseClient, Chart, Papa, XLSX */
+*/
 'use strict';
 
 const ADMIN_EMAILS = ['enterprisepragna@gmail.com'];
