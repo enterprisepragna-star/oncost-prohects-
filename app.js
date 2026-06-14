@@ -196,17 +196,58 @@ function renderHomeCollections() {
   const fallbackImgs = ['bg-maroon','bg-gold','bg-rose','bg-sage','bg-silver','bg-cream'];
   if (!cats.length) { slot.innerHTML = ''; return; }
   slot.innerHTML = cats.map((c, i) => {
-    const productsInCat = state.products.filter(p => (p.category||'') === c.name).length;
-    const bg = c.image_url ? `style="background-image:url('${escapeHTML(c.image_url)}');background-size:cover;background-position:center;"` : '';
-    const cls = c.image_url ? '' : fallbackImgs[i % fallbackImgs.length];
+    const productsInCat = state.products.filter(p => (p.category||'') === c.name);
+    // Image priority: 1) category's own image_url  2) first product image in this category  3) gradient fallback
+    let img = c.image_url;
+    if (!img) {
+      const firstWithImg = productsInCat.find(p => p.image_url);
+      if (firstWithImg) img = firstWithImg.image_url;
+    }
+    const bg  = img ? `style="background-image:url('${escapeHTML(img)}');background-size:cover;background-position:center;"` : '';
+    const cls = img ? '' : fallbackImgs[i % fallbackImgs.length];
     return `<a class="collection-card" href="products.html?cat=${encodeURIComponent(c.name)}" data-testid="cat-card-${escapeHTML(c.name)}">
       <div class="visual ${cls}" ${bg}></div>
       <div class="label">
         <h3>${escapeHTML(c.name)}</h3>
-        <span>${productsInCat} product${productsInCat===1?'':'s'}</span>
+        <span>${productsInCat.length} product${productsInCat.length===1?'':'s'}</span>
       </div>
     </a>`;
   }).join('');
+}
+
+// ---------- Hero slideshow: crossfades through latest product images ----------
+function renderHeroSlideshow() {
+  const slot = $('.hero-visual');
+  if (!slot) return;
+  // Pull up to 6 nice product images (de-duped)
+  const pics = [];
+  const seen = new Set();
+  for (const p of state.products) {
+    const url = p.image_url;
+    if (url && !seen.has(url)) { seen.add(url); pics.push({ url, name: p.name }); }
+    if (pics.length >= 6) break;
+  }
+  if (!pics.length) return; // keep gradient fallback when no images yet
+
+  // Build slide DOM (preserve the existing .hero-kpi badge)
+  const kpiHTML = slot.querySelector('.hero-kpi')?.outerHTML || '';
+  slot.innerHTML = `
+    <div class="hero-slides">
+      ${pics.map((p, i) => `<img class="hero-slide${i===0?' active':''}" src="${escapeHTML(p.url)}" alt="${escapeHTML(p.name)}" loading="${i===0?'eager':'lazy'}" onerror="this.remove()" />`).join('')}
+    </div>
+    ${kpiHTML}
+  `;
+
+  // Cycle every 3.5s
+  if (slot._slideTimer) clearInterval(slot._slideTimer);
+  const slides = slot.querySelectorAll('.hero-slide');
+  if (slides.length < 2) return;
+  let idx = 0;
+  slot._slideTimer = setInterval(() => {
+    slides[idx].classList.remove('active');
+    idx = (idx + 1) % slides.length;
+    slides[idx].classList.add('active');
+  }, 3500);
 }
 
 function renderProductsListing() {
@@ -897,6 +938,7 @@ async function bootstrap() {
   // Page-specific renders
   renderHomeProducts();
   renderHomeCollections();
+  renderHeroSlideshow();
   populateCategoryFilter();
   renderProductsListing();
   renderProductDetail();
