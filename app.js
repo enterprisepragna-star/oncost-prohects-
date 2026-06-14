@@ -872,18 +872,22 @@ function setupEnquiryForm() {
     };
     const summary = `Name: ${data.name} | Email: ${data.email} | Phone: ${data.phone} | GSTIN: ${data.gstin||'—'} | Event: ${data.event} | Qty: ${data.qty} | Date: ${data.date||'—'} | Budget: ${data.budget||'—'} | Message: ${data.message||'—'}`;
     try {
-      await supabaseClient.from('leads').insert({
-        user_id: state.user?.id || null,
-        product_id: param('product') || null,
-        summary,
-        status: 'New',
-      });
-      // Fire admin notification email (non-blocking)
-      fetch('/api/email/send', {
+      // Delegate both insertion (via service role to bypass RLS) and email sending to the secure backend endpoint
+      const r = await fetch('/api/email/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'enquiry_admin_notify', data }),
-      }).catch(() => {/* silent fail — lead is already saved */});
+        body: JSON.stringify({ 
+          type: 'enquiry_admin_notify', 
+          data: {
+            ...data,
+            save_lead: true,
+            user_id: state.user?.id || null,
+            product_id: param('product') || null,
+            summary
+          } 
+        }),
+      });
+      if (!r.ok) throw new Error('Could not submit enquiry');
       toast('Enquiry sent — we will reach out soon!', 'ok');
       form.reset();
     } catch (err) { toast('Failed: ' + err.message, 'err'); }

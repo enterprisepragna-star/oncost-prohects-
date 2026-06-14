@@ -33,6 +33,29 @@ module.exports = async function handler(req, res) {
 
   switch (type) {
     case 'enquiry_admin_notify':
+      if (data.save_lead && SUPABASE_URL && SERVICE_KEY) {
+        try {
+          const lRes = await fetch(`${SUPABASE_URL}/rest/v1/leads`, {
+            method: 'POST',
+            headers: {
+              apikey: SERVICE_KEY,
+              Authorization: `Bearer ${SERVICE_KEY}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({
+              user_id: data.user_id || null,
+              product_id: data.product_id || null,
+              summary: data.summary || '',
+              status: 'New'
+            })
+          });
+          if (!lRes.ok) console.error('[email/send] lead insert failed', await lRes.text());
+        } catch (e) {
+          console.error('[email/send] lead insert exception', e.message);
+        }
+      }
+
       recipient = ADMIN_EMAIL;
       subject = `🔔 New enquiry from ${data.name || 'a customer'}`;
       html = `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#fdfaf3;">

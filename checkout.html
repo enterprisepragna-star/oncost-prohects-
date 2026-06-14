@@ -340,6 +340,16 @@
       if (state.profile) {
         if (state.profile.name)  document.getElementById('ck-name').value  = state.profile.name;
         if (state.profile.phone) document.getElementById('ck-phone').value = state.profile.phone;
+        if (state.profile.address) document.getElementById('ck-address').value = state.profile.address;
+        if (state.profile.city) document.getElementById('ck-city').value = state.profile.city;
+        if (state.profile.state) document.getElementById('ck-state').value = state.profile.state;
+        if (state.profile.zip) {
+          document.getElementById('ck-zip').value = state.profile.zip;
+          recalcShipping(); // trigger shipping calculation based on saved zip
+        }
+        if (state.profile.country) {
+          document.getElementById('ck-country').value = state.profile.country;
+        }
       }
 
       if (!state.cart.length) {
@@ -426,6 +436,24 @@
         price: it.unit_price != null ? Number(it.unit_price)
               : ((it.product?.offer_price && it.product.offer_price < it.product.price) ? it.product.offer_price : it.product?.price),
       }));
+
+      // Auto-save shipping details to user profile so they don't have to retype them next time
+      if (state.user) {
+        try {
+          await supabaseClient.from('profiles').upsert({
+            id: state.user.id,
+            name: ship.name,
+            phone: ship.phone,
+            address: ship.address,
+            city: ship.city,
+            state: ship.state,
+            zip: ship.zip,
+            country: ship.country
+          });
+        } catch (err) {
+          console.warn('Could not save profile details', err);
+        }
+      }
 
       // Call /api/ccavenue/initiate — this server endpoint INSERTS the pending order
       // into Supabase (via service role key, bypassing RLS) AND returns the encrypted
