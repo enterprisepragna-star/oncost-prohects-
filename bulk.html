@@ -33,7 +33,7 @@
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
             <label style="font-size:13px;font-weight:600;color:var(--ink-soft);">Name *<input class="field" required name="name" placeholder="Full name" style="margin-top:4px;width:100%;"></label>
             <label style="font-size:13px;font-weight:600;color:var(--ink-soft);">Email *<input class="field" required type="email" name="email" placeholder="you@example.com" style="margin-top:4px;width:100%;"></label>
-            <label style="font-size:13px;font-weight:600;color:var(--ink-soft);">Phone *<input class="field" required name="phone" placeholder="+91" style="margin-top:4px;width:100%;"></label>
+            <label style="font-size:13px;font-weight:600;color:var(--ink-soft);">Phone *<input class="field" type="tel" pattern="[0-9]{10}" maxlength="10" title="Please enter exactly 10 digits" required name="phone" placeholder="9999999999" style="margin-top:4px;width:100%;"></label>
             <label style="font-size:13px;font-weight:600;color:var(--ink-soft);">GSTIN <input class="field" name="gstin" placeholder="Optional" style="margin-top:4px;width:100%;"></label>
             <label style="font-size:13px;font-weight:600;color:var(--ink-soft);">Event Type
               <select class="select" name="eventType" style="margin-top:4px;width:100%;"><option>Birthday</option><option>Pooja</option><option>Wedding</option><option>Corporate</option><option>School Event</option><option>Other</option></select>

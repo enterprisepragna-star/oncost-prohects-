@@ -20,7 +20,7 @@
         <input class="field" id="name" required style="margin-top:6px;width:100%;" />
       </label>
       <label style="font-size:12px;font-weight:600;color:var(--ink-soft);letter-spacing:1px;text-transform:uppercase;">Phone
-        <input class="field" id="phone" placeholder="+91" style="margin-top:6px;width:100%;" />
+        <input class="field" id="phone" type="tel" pattern="[0-9]{10}" maxlength="10" title="Please enter exactly 10 digits" placeholder="9999999999" style="margin-top:6px;width:100%;" />
       </label>
       <label style="font-size:12px;font-weight:600;color:var(--ink-soft);letter-spacing:1px;text-transform:uppercase;">Email
         <input class="field" type="email" id="email" required style="margin-top:6px;width:100%;" />

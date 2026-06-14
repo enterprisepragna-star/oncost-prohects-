@@ -32,7 +32,7 @@
           <h2 style="font-size:1.4rem;margin-bottom:18px;">Delivery Details</h2>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
             <label style="font-size:13px;font-weight:600;color:var(--ink-soft);">Full Name *<input class="field" required id="ck-name" style="width:100%;margin-top:4px;"></label>
-            <label style="font-size:13px;font-weight:600;color:var(--ink-soft);">Phone *<input class="field" required id="ck-phone" placeholder="+91" style="width:100%;margin-top:4px;"></label>
+            <label style="font-size:13px;font-weight:600;color:var(--ink-soft);">Phone *<input class="field" type="tel" pattern="[0-9]{10}" maxlength="10" title="Please enter exactly 10 digits" required id="ck-phone" placeholder="9999999999" style="width:100%;margin-top:4px;"></label>
             <label style="font-size:13px;font-weight:600;color:var(--ink-soft);grid-column:1/-1;">Email *<input class="field" type="email" required id="ck-email" style="width:100%;margin-top:4px;"></label>
             <label style="font-size:13px;font-weight:600;color:var(--ink-soft);grid-column:1/-1;">Address *<textarea class="field" required id="ck-address" rows="2" style="width:100%;margin-top:4px;"></textarea></label>
             <label style="font-size:13px;font-weight:600;color:var(--ink-soft);">City *<input class="field" required id="ck-city" style="width:100%;margin-top:4px;"></label>
