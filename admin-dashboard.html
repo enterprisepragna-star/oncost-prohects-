@@ -50,6 +50,7 @@
           <div class="admin-nav-group-title">Engagement</div>
           <button class="admin-nav-link" data-view="leads" data-testid="nav-leads"><i class="fas fa-envelope"></i>Enquiries</button>
           <button class="admin-nav-link" data-view="testimonials" data-testid="nav-testimonials"><i class="fas fa-star"></i>Testimonials</button>
+          <button class="admin-nav-link" data-view="complaints" data-testid="nav-complaints"><i class="fas fa-headset"></i>Complaints <span id="nav-complaints-badge" style="display:none;background:#C0392B;color:#fff;border-radius:999px;font-size:10px;padding:1px 7px;margin-left:6px;font-weight:700;"></span></button>
         </div>
         <div class="admin-nav-group">
           <div class="admin-nav-group-title">Configuration</div>
@@ -365,6 +366,28 @@
           </div>
         </section>
 
+        <!-- ============ COMPLAINTS ============ -->
+        <section class="view" data-view-pane="complaints">
+          <div class="page-head">
+            <div>
+              <h1 class="page-title">Customer Complaints</h1>
+              <p class="page-sub">Track and resolve issues raised by customers. Tickets auto-numbered <code>CMP-YYYY-NNNNNN</code>.</p>
+            </div>
+            <div style="display:flex;gap:10px;">
+              <select class="select" id="complaints-status-filter" style="max-width:160px;" data-testid="complaints-status-filter">
+                <option value="">All status</option>
+                <option>Open</option><option>In Progress</option><option>Resolved</option><option>Closed</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data">
+              <thead><tr><th>Ticket</th><th>Customer</th><th>Subject</th><th>Category</th><th>Order</th><th>Priority</th><th>Status</th><th>Date</th><th style="width:90px"></th></tr></thead>
+              <tbody id="complaints-tbody"></tbody>
+            </table>
+          </div>
+        </section>
+
         <!-- ============ SITE SETTINGS ============ -->
         <section class="view" data-view-pane="settings">
           <div class="page-head">
@@ -446,15 +469,17 @@
 
           <div class="card" style="max-width:900px; margin-top:18px;">
             <h3 class="card-title">Image Upload Configuration</h3>
+            <div style="background:#E6F4EA;border:1px solid #A4D4B4;color:#1E5631;padding:10px 14px;border-radius:6px;margin-bottom:12px;font-size:13px;">
+              <strong><i class="fas fa-circle-check"></i> Supabase Storage is now the default</strong> — no API key needed. Images upload directly to your Supabase project's <code>product-images</code> bucket (free up to 1 GB).
+              Just run <code>migration_phase1.sql</code> once and you're set.
+            </div>
             <p style="font-size:13px;color:var(--admin-text-mute);margin:0 0 12px;">
-              To upload JPG images directly from the admin (instead of pasting URLs), add a free
-              <a href="https://api.imgbb.com/" target="_blank" style="color:var(--admin-primary);font-weight:600;">imgbb.com</a>
-              API key below. Without it, you can still paste image URLs manually.
+              <strong>Optional fallback:</strong> If you'd rather use <a href="https://api.imgbb.com/" target="_blank" style="color:var(--admin-primary);font-weight:600;">imgbb.com</a>, paste an API key below. (imgbb only kicks in if Supabase Storage fails for any reason.)
             </p>
             <div class="field" style="max-width:480px;">
-              <label>imgbb API Key</label>
-              <input class="input" id="set-imgbb_api_key" placeholder="Paste your imgbb API key here" data-testid="set-imgbb_api_key" />
-              <div class="hint">Get it free at imgbb.com → Account → API → Add key. Stored in your Supabase site_settings.</div>
+              <label>imgbb API Key <span style="color:var(--admin-text-mute);font-weight:400;font-size:11px;">(optional)</span></label>
+              <input class="input" id="set-imgbb_api_key" placeholder="Paste your imgbb API key here (leave empty for Supabase Storage)" data-testid="set-imgbb_api_key" />
+              <div class="hint">A real API key looks like <code>abcd1234efgh5678...</code> (32 chars). Don't paste a URL here.</div>
             </div>
           </div>
         </section>

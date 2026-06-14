@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Customer Support · ONCOST</title>
+  <link rel="stylesheet" href="storefront.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
+</head>
+<body>
+  <div id="sale-banner" class="sale-banner"></div>
+  <div class="topbar"><span><i class="fas fa-headset"></i> We're here to help</span></div>
+  <header class="site-header">
+    <a class="logo" href="index.html">ONCOST</a>
+    <nav class="desktop-nav"><a href="index.html">Home</a><a href="products.html">Shop</a><a href="bulk.html">Bulk</a><a href="account.html"><i class="fas fa-user"></i></a></nav>
+    <div class="header-actions">
+      <a class="icon-btn" href="cart.html"><i class="fas fa-cart-shopping"></i></a>
+      <a class="icon-btn" href="account.html"><i class="fas fa-user"></i></a>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-hero">
+      <div><span class="eyebrow">Customer Care</span><h1>Submit a Complaint</h1><p>Damaged product? Wrong item? Delivery issue? Tell us — we'll get back to you within 24 hours.</p></div>
+      <a class="btn outline" href="account.html?tab=orders"><i class="fas fa-receipt"></i> My Orders</a>
+    </section>
+
+    <section class="section">
+      <div style="max-width:680px;margin:0 auto;">
+        <!-- Success state -->
+        <div id="cmp-success" style="display:none;background:#E6F4EA;border:1px solid #A4D4B4;color:#1E5631;border-radius:var(--radius);padding:32px;text-align:center;">
+          <div style="font-size:48px;margin-bottom:12px;"><i class="fas fa-circle-check"></i></div>
+          <h2 style="margin:0 0 8px;color:var(--burgundy);font-family:Georgia,serif;">Ticket submitted</h2>
+          <p style="margin:0 0 8px;font-size:14px;">Your ticket number is <strong id="cmp-ticket" style="font-family:monospace;color:var(--burgundy);"></strong></p>
+          <p style="margin:0;font-size:13px;color:var(--muted);">Our team will reach out within 24 hours. You can view all your tickets in <a href="account.html?tab=tickets" style="color:var(--burgundy);font-weight:600;">My Orders → Support</a>.</p>
+          <div style="margin-top:18px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+            <a class="btn primary" href="products.html"><i class="fas fa-store"></i> Continue Shopping</a>
+            <button class="btn outline" onclick="resetForm()">Submit another</button>
+          </div>
+        </div>
+
+        <!-- Form -->
+        <form id="cmp-form" class="card" style="background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:24px;display:flex;flex-direction:column;gap:14px;">
+          <div style="background:#FFF8E7;border:1px solid #E8C36E;color:#7A4310;padding:10px 14px;border-radius:6px;font-size:12px;">
+            <i class="fas fa-circle-info"></i> For fastest resolution, please include your <strong>Order ID</strong> and (if possible) photos showing the issue.
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="field"><label>Your Name *</label><input class="field" id="cmp-name" type="text" required data-testid="cmp-name" placeholder="Full name" /></div>
+            <div class="field"><label>Email *</label><input class="field" id="cmp-email" type="email" required data-testid="cmp-email" placeholder="you@example.com" /></div>
+            <div class="field"><label>Mobile</label><input class="field" id="cmp-phone" type="tel" data-testid="cmp-phone" placeholder="+91-9999999999" /></div>
+            <div class="field"><label>Order ID (optional)</label><input class="field" id="cmp-order" type="text" data-testid="cmp-order" placeholder="OC-1781..." /></div>
+          </div>
+
+          <div class="field"><label>What's the issue? *</label>
+            <select class="field" id="cmp-category" required data-testid="cmp-category">
+              <option value="">— Select issue category —</option>
+              <option value="Damaged Product">Damaged product on arrival</option>
+              <option value="Wrong Item">Wrong item received</option>
+              <option value="Missing Item">Missing item from order</option>
+              <option value="Not Delivered">Order not delivered yet</option>
+              <option value="Quality Issue">Product quality concern</option>
+              <option value="Refund">Refund request</option>
+              <option value="Payment">Payment / billing issue</option>
+              <option value="Other">Something else</option>
+            </select>
+          </div>
+
+          <div class="field"><label>Subject *</label><input class="field" id="cmp-subject" type="text" required maxlength="120" data-testid="cmp-subject" placeholder="Brief one-line summary" /></div>
+
+          <div class="field"><label>Description *</label><textarea class="field" id="cmp-description" rows="5" required minlength="20" data-testid="cmp-description" placeholder="Please describe what happened, when, and what you'd like us to do…"></textarea></div>
+
+          <div class="field"><label>Attach photos (optional)</label>
+            <input type="file" id="cmp-files" accept="image/*" multiple data-testid="cmp-files" style="font-size:13px;" />
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;">Up to 4 images. Max 5MB each. Helps us resolve faster.</div>
+            <div id="cmp-files-preview" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
+          </div>
+
+          <div id="cmp-error" style="display:none;background:#FBECEC;border:1px solid #E8C1C1;color:#C0392B;padding:9px 12px;border-radius:6px;font-size:13px;" data-testid="cmp-error"></div>
+
+          <button type="submit" class="btn primary" id="cmp-submit" data-testid="cmp-submit"><i class="fas fa-paper-plane"></i> Submit Ticket</button>
+        </form>
+
+        <div style="margin-top:24px;display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+          <div style="background:var(--cream);padding:16px 18px;border-radius:var(--radius);">
+            <h4 style="margin:0 0 6px;color:var(--burgundy);font-size:14px;"><i class="fas fa-phone"></i> Phone</h4>
+            <p style="margin:0;font-size:13px;color:var(--muted);">+91-9999999999 (10am – 7pm IST)</p>
+          </div>
+          <div style="background:var(--cream);padding:16px 18px;border-radius:var(--radius);">
+            <h4 style="margin:0 0 6px;color:var(--burgundy);font-size:14px;"><i class="fab fa-whatsapp"></i> WhatsApp</h4>
+            <p style="margin:0;font-size:13px;color:var(--muted);">Fastest response. Tap <i class="fab fa-whatsapp"></i> at bottom-right.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-grid">
+      <div class="footer-col"><div class="brand">ONCOST</div><p>Premium gifting collections for every occasion.</p></div>
+      <div class="footer-col"><h4>Shop</h4><ul><li><a href="products.html">All Products</a></li><li><a href="bulk.html">Bulk Orders</a></li></ul></div>
+      <div class="footer-col"><h4>Account</h4><ul><li><a href="login.html">Sign in</a></li><li><a href="account.html">My Orders</a></li></ul></div>
+      <div class="footer-col"><h4>Help</h4><ul><li><a href="support.html">Submit complaint</a></li><li><a href="bulk.html">Bulk enquiry</a></li></ul></div>
+    </div>
+    <div class="footer-bottom"><div>© <span id="copy-year"></span> ONCOST.</div></div>
+  </footer>
+
+  <a id="fab-whatsapp" class="fab-whatsapp" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i></a>
+
+  <script>
+    document.getElementById('copy-year').textContent = new Date().getFullYear();
+    const params = new URLSearchParams(location.search);
+    const prefilledOrder = params.get('order_id');
+    if (prefilledOrder) document.getElementById('cmp-order').value = prefilledOrder;
+
+    // Pre-fill from logged-in user
+    supabaseClient.auth.getUser().then(({ data: { user } }) => {
+      if (user?.email) document.getElementById('cmp-email').value = user.email;
+      if (user?.user_metadata?.name) document.getElementById('cmp-name').value = user.user_metadata.name;
+    });
+
+    // File preview
+    let attachments = [];
+    document.getElementById('cmp-files').addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files || []).slice(0, 4);
+      attachments = [];
+      const preview = document.getElementById('cmp-files-preview');
+      preview.innerHTML = '';
+      for (const f of files) {
+        if (f.size > 5 * 1024 * 1024) { showErr(`${f.name} is too large (max 5MB)`); continue; }
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const img = document.createElement('img');
+          img.src = ev.target.result;
+          img.style.cssText = 'width:60px;height:60px;object-fit:cover;border-radius:4px;border:1px solid var(--line);';
+          preview.appendChild(img);
+        };
+        reader.readAsDataURL(f);
+        attachments.push(f);
+      }
+    });
+
+    function showErr(msg) {
+      const err = document.getElementById('cmp-error');
+      err.textContent = msg;
+      err.style.display = 'block';
+    }
+
+    document.getElementById('cmp-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('cmp-submit');
+      btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting…';
+      document.getElementById('cmp-error').style.display = 'none';
+
+      try {
+        // Upload attachments to Supabase Storage (best-effort)
+        const attachmentUrls = [];
+        for (const f of attachments) {
+          try {
+            const ext = (f.name.split('.').pop() || 'jpg').toLowerCase();
+            const path = `complaints/${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
+            const { error: upErr } = await supabaseClient.storage.from('product-images').upload(path, f, { upsert: false, contentType: f.type });
+            if (!upErr) {
+              const { data } = supabaseClient.storage.from('product-images').getPublicUrl(path);
+              attachmentUrls.push(data.publicUrl);
+            }
+          } catch (_) { /* skip failed upload */ }
+        }
+
+        // Look up order_id from CCAvenue order_id if provided
+        let orderUuid = null;
+        const orderInput = document.getElementById('cmp-order').value.trim();
+        if (orderInput) {
+          const { data: orders } = await supabaseClient
+            .from('orders')
+            .select('id')
+            .or(`id.eq.${orderInput.match(/^[0-9a-f-]{36}$/i)?orderInput:'00000000-0000-0000-0000-000000000000'},ccavenue_order_id.eq.${orderInput}`)
+            .limit(1);
+          if (orders && orders[0]) orderUuid = orders[0].id;
+        }
+
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        const payload = {
+          user_id: user?.id || null,
+          order_id: orderUuid,
+          guest_email: document.getElementById('cmp-email').value.trim(),
+          guest_phone: document.getElementById('cmp-phone').value.trim() || null,
+          customer_name: document.getElementById('cmp-name').value.trim(),
+          category: document.getElementById('cmp-category').value,
+          subject: document.getElementById('cmp-subject').value.trim(),
+          description: document.getElementById('cmp-description').value.trim(),
+          attachments: attachmentUrls,
+          status: 'Open',
+          priority: 'Normal',
+        };
+
+        const { data, error } = await supabaseClient.from('complaints').insert(payload).select().single();
+        if (error) throw error;
+
+        document.getElementById('cmp-form').style.display = 'none';
+        document.getElementById('cmp-success').style.display = 'block';
+        document.getElementById('cmp-ticket').textContent = data.ticket_number || 'CMP-' + data.id.substring(0,8);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (err) {
+        showErr(err.message?.includes('complaints') ? 'Run migration_phase1.sql in Supabase first.' : (err.message || 'Could not submit.'));
+        btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Ticket';
+      }
+    });
+
+    function resetForm() {
+      document.getElementById('cmp-form').reset();
+      document.getElementById('cmp-form').style.display = 'flex';
+      document.getElementById('cmp-success').style.display = 'none';
+      document.getElementById('cmp-files-preview').innerHTML = '';
+      attachments = [];
+    }
+  </script>
+  <script src="app.js"></script>
+</body>
+</html>

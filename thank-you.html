@@ -79,6 +79,7 @@
         <button class="inv-print-btn" id="btn-print-invoice" data-testid="invoice-download-btn"><i class="fas fa-file-pdf"></i> Download / Print Invoice</button>
         <a class="btn outline" href="account.html?tab=orders" data-testid="ty-view-orders"><i class="fas fa-receipt"></i> View My Orders</a>
         <a class="btn outline" href="products.html"><i class="fas fa-store"></i> Continue Shopping</a>
+        <a class="btn outline" id="ty-complaint-link" href="support.html"><i class="fas fa-circle-question"></i> Need Help?</a>
       </div>
     </section>
 
@@ -266,6 +267,8 @@
 
     if (status === 'success') {
       document.getElementById('invoice-section').style.display = 'block';
+      const cmpLink = document.getElementById('ty-complaint-link');
+      if (cmpLink && orderId) cmpLink.href = 'support.html?order_id=' + encodeURIComponent(orderId);
       loadInvoice();
 
       // Clear cart on success
