@@ -36,6 +36,15 @@ CREATE POLICY "Guests can view order by ccavenue_order_id"
   ON public.orders FOR SELECT
   USING (ccavenue_order_id IS NOT NULL);
 
+-- Users can view their own orders, AND any past guest order placed with their email
+DROP POLICY IF EXISTS "Users can view own orders or guest by email" ON public.orders;
+CREATE POLICY "Users can view own orders or guest by email"
+  ON public.orders FOR SELECT
+  USING (
+    auth.uid() = user_id
+    OR (user_id IS NULL AND auth.email() = guest_email)
+  );
+
 CREATE SEQUENCE IF NOT EXISTS public.invoice_seq START 1000;
 CREATE OR REPLACE FUNCTION public.set_invoice_number()
 RETURNS trigger AS $$
@@ -264,6 +273,20 @@ ALTER TABLE public.cart_items
   ADD COLUMN IF NOT EXISTS variant_label text,
   ADD COLUMN IF NOT EXISTS unit_price    numeric;
 CREATE INDEX IF NOT EXISTS idx_cart_items_variant ON public.cart_items (variant_id);
+
+-- ════════════════════════════════════════════════════════════════════
+-- PART 6 · Lead/Enquiry status workflow + admin notifications
+-- ════════════════════════════════════════════════════════════════════
+
+ALTER TABLE public.leads
+  ADD COLUMN IF NOT EXISTS status      text DEFAULT 'New',          -- New/Contacted/Discussed/Quoted/Accepted/Converted/Not Converted/Lost
+  ADD COLUMN IF NOT EXISTS admin_notes text,
+  ADD COLUMN IF NOT EXISTS deal_value  numeric,
+  ADD COLUMN IF NOT EXISTS contacted_at timestamp with time zone,
+  ADD COLUMN IF NOT EXISTS resolved_at timestamp with time zone;
+
+CREATE INDEX IF NOT EXISTS idx_leads_status     ON public.leads (status);
+CREATE INDEX IF NOT EXISTS idx_leads_created_at ON public.leads (created_at DESC);
 
 -- ════════════════════════════════════════════════════════════════════
 -- ALL DONE 🎉
