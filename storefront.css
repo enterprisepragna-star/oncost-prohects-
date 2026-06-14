@@ -674,6 +674,8 @@ h1,h2,h3,h4,h5 { font-family: var(--font-display); color: var(--burgundy); lette
 @media (max-width: 960px) {
   .desktop-nav { display: none; }
   .hero, .bulk-panel, .product-detail, .cart-grid, .account-grid { grid-template-columns: 1fr; }
+  .hero-visual { min-height: 360px; margin-top: 16px; }
+  .hero-kpi { right: 16px; top: 24px; transform: rotate(3deg); }
   .footer-grid { grid-template-columns: 1fr 1fr; }
   .collection-grid { grid-template-columns: repeat(2, 1fr); }
   .account-side { position: static; }
@@ -694,4 +696,6 @@ h1,h2,h3,h4,h5 { font-family: var(--font-display); color: var(--burgundy); lette
   .product-grid { grid-template-columns: 1fr 1fr; gap: 14px; }
   .product-card .info { padding: 12px; }
   .btn { padding: 11px 18px; font-size: 13px; }
+  .hero-visual { min-height: 280px; }
+  .hero-kpi { transform: scale(0.85) rotate(3deg); transform-origin: top right; right: 8px; top: 16px; }
 }
