@@ -1035,4 +1035,51 @@ async function bootstrap() {
   });
 }
 
-document.addEventListener('DOMContentLoaded', bootstrap);
+// ---------- Dynamic Validation Rules (Phone & ZIP) ----------
+window.updateCountryRules = function(selectEl) {
+  const wrapper = selectEl.closest('.phone-input-group');
+  if (!wrapper) return;
+  const displayEl = wrapper.querySelector('.prefix-display');
+  const inputEl = wrapper.querySelector('input[type="tel"]');
+  
+  const zipEl = document.getElementById('ck-zip') || document.getElementById('biz-pincode');
+  
+  const rules = {
+    'IN': { phonePat: '[0-9]{10}', phoneMax: 10, phonePlace: '9876543210', zipPat: '[0-9]{6}', zipMax: 6, zipPlace: '500001' },
+    'US': { phonePat: '[0-9]{10}', phoneMax: 10, phonePlace: '2025550123', zipPat: '[0-9]{5}', zipMax: 5, zipPlace: '90210' },
+    'GB': { phonePat: '[0-9]{10,11}', phoneMax: 11, phonePlace: '7700900123', zipPat: '[A-Za-z0-9 ]{5,8}', zipMax: 8, zipPlace: 'SW1A 1AA' },
+    'AE': { phonePat: '[0-9]{9}', phoneMax: 9, phonePlace: '501234567', zipPat: '.*', zipMax: 10, zipPlace: '00000' },
+    'AU': { phonePat: '[0-9]{9}', phoneMax: 9, phonePlace: '400123456', zipPat: '[0-9]{4}', zipMax: 4, zipPlace: '2000' },
+    'CA': { phonePat: '[0-9]{10}', phoneMax: 10, phonePlace: '4165550123', zipPat: '[A-Za-z][0-9][A-Za-z] [0-9][A-Za-z][0-9]', zipMax: 7, zipPlace: 'M5V 2H1' },
+    'DEFAULT': { phonePat: '[0-9]{7,15}', phoneMax: 15, phonePlace: 'Phone number', zipPat: '.*', zipMax: 12, zipPlace: 'Postal Code' }
+  };
+  
+  const optText = selectEl.options[selectEl.selectedIndex]?.text || '';
+  const match = optText.match(/\((\+\d+)\)/);
+  const codeStr = match ? match[1] : '';
+  if (displayEl && codeStr) displayEl.textContent = codeStr;
+  
+  const r = rules[selectEl.value] || rules['DEFAULT'];
+  
+  if (inputEl) {
+    inputEl.pattern = r.phonePat;
+    inputEl.maxLength = r.phoneMax;
+    inputEl.placeholder = r.phonePlace;
+    inputEl.setCustomValidity('');
+  }
+  
+  if (zipEl) {
+    zipEl.pattern = r.zipPat;
+    zipEl.maxLength = r.zipMax;
+    zipEl.placeholder = r.zipPlace;
+    zipEl.setCustomValidity('');
+  }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  bootstrap();
+  // Initialize rules on page load for all selects
+  document.querySelectorAll('.prefix-select').forEach(sel => {
+    if(window.updateCountryRules) window.updateCountryRules(sel);
+  });
+});
