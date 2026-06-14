@@ -5,7 +5,7 @@
 //   types: enquiry_admin_notify | order_confirm | order_invoice | order_shipped |
 //          testimonial_request | custom
 
-const { generateInvoicePDF } = require('./lib/invoice-pdf');
+const { generateInvoicePDF } = require('./_lib/invoice-pdf');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST required' });

@@ -10,7 +10,7 @@
 //
 // Also accepts trailing path: /api/delhivery/serviceability?... (uses last path segment as action).
 
-const { checkPincode, calculateRate, createShipment, schedulePickup, trackShipment, BASE, PICKUP_PINCODE } = require('./lib/client');
+const { checkPincode, calculateRate, createShipment, schedulePickup, trackShipment, BASE, PICKUP_PINCODE } = require('./_lib/client');
 
 function parseAction(req) {
   // Action from ?action= query OR last segment of URL path

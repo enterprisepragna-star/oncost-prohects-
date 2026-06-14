@@ -5,8 +5,8 @@
 // UPSERT logic: PATCH by ccavenue_order_id; if 0 rows matched (i.e. pre-insert failed),
 // INSERT a new row using the decrypted payload as the only source of truth.
 
-const { decrypt, parseResponse } = require('./lib/ccavenue-crypto');
-const { sendOrderConfirmation } = require('./lib/email');
+const { decrypt, parseResponse } = require('./_lib/ccavenue-crypto');
+const { sendOrderConfirmation } = require('../_lib/email');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST' && req.method !== 'GET') { res.status(405).send('Method Not Allowed'); return; }

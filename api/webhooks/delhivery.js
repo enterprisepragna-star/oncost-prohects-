@@ -1,4 +1,4 @@
-const { sendTrackingUpdate } = require('../lib/email');
+const { sendTrackingUpdate } = require('../_lib/email');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
