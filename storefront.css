@@ -571,6 +571,40 @@ h1,h2,h3,h4,h5 { font-family: var(--font-display); color: var(--burgundy); lette
 .toolbar .field { flex: 1; min-width: 240px; }
 .toolbar .select { min-width: 180px; }
 
+/* ---------- Phone Input Group ---------- */
+.phone-input-group {
+  display: flex; align-items: stretch;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #FFF;
+  overflow: hidden;
+  transition: var(--transition);
+}
+.phone-input-group:focus-within {
+  border-color: var(--burgundy);
+  box-shadow: 0 0 0 3px rgba(122,31,53,.12);
+}
+.phone-input-group .prefix {
+  background: var(--cream);
+  padding: 0 16px;
+  border-right: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-weight: 600;
+  font-size: 14px;
+  display: flex; align-items: center;
+}
+.phone-input-group input.field, .phone-input-group input.input {
+  border: none;
+  border-radius: 0;
+  flex: 1;
+  margin-top: 0 !important;
+  box-shadow: none !important;
+}
+.phone-input-group input:focus {
+  outline: none; box-shadow: none;
+}
+
+
 /* ---------- Product Detail ---------- */
 .product-detail {
   display: grid;
