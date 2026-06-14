@@ -680,6 +680,7 @@ function openProductForm(id) {
     <div class="tabs">
       <button type="button" class="tab-btn active" data-tab="general" data-testid="pf-tab-general">General</button>
       <button type="button" class="tab-btn" data-tab="media" data-testid="pf-tab-media">Media</button>
+      <button type="button" class="tab-btn" data-tab="variants" data-testid="pf-tab-variants">Variants</button>
       <button type="button" class="tab-btn" data-tab="shipping" data-testid="pf-tab-shipping">Shipping &amp; Tax</button>
       <button type="button" class="tab-btn" data-tab="inventory" data-testid="pf-tab-inventory">Inventory</button>
       <button type="button" class="tab-btn" data-tab="seo" data-testid="pf-tab-seo">SEO</button>
@@ -745,6 +746,40 @@ function openProductForm(id) {
             <input type="file" id="${formId}-gallery_file" accept="image/jpeg,image/png,image/webp" hidden multiple />
           </div>
           <div class="hint" style="margin-top:6px;">Gallery shows on the product detail page. Up to 8 images.</div>
+        </div>
+      </div>
+
+      <div class="tab-pane" data-pane="variants">
+        <div style="background:#E6F4EA;border:1px solid #A4D4B4;color:#1E5631;padding:10px 14px;border-radius:6px;margin-bottom:14px;font-size:13px;">
+          <i class="fas fa-layer-group"></i> <strong>Optional</strong> — add variants like sizes (55gms, 80gms), colors (Gold, Silver), or pack quantities. Customers will see Amazon-style chips to choose.
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;">
+            <input type="checkbox" id="${formId}-has_variants" data-testid="pf-has-variants" ${p?.has_variants?'checked':''} />
+            <span>This product has multiple variants</span>
+          </label>
+        </div>
+        <div id="${formId}-variants-block" style="display:${p?.has_variants?'block':'none'};">
+          <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">
+            <select class="select" id="${formId}-variant-type" style="max-width:160px;" data-testid="pf-variant-type">
+              <option value="Size">Size / Weight</option>
+              <option value="Color">Color</option>
+              <option value="Material">Material</option>
+              <option value="Capacity">Capacity</option>
+              <option value="Pack">Pack quantity</option>
+              <option value="Other">Other</option>
+            </select>
+            <button type="button" class="btn btn-secondary btn-sm" id="${formId}-add-variant" data-testid="pf-add-variant"><i class="fas fa-plus"></i> Add Variant</button>
+            <span style="font-size:11px;color:var(--admin-text-mute);margin-left:auto;">Tip: First variant becomes the default shown to customers</span>
+          </div>
+          <table class="data" style="font-size:13px;">
+            <thead><tr><th style="width:30px"></th><th>Label *</th><th>SKU</th><th style="text-align:right">Price *</th><th style="text-align:right">Stock</th><th style="text-align:right">Weight (g)</th><th>Image URL</th><th style="width:40px"></th></tr></thead>
+            <tbody id="${formId}-variants-tbody"></tbody>
+          </table>
+          <div id="${formId}-variants-empty" style="display:none;padding:24px;text-align:center;color:var(--admin-text-mute);font-size:13px;background:var(--admin-muted);border-radius:6px;">
+            <i class="fas fa-layer-group" style="font-size:28px;display:block;margin-bottom:8px;"></i>
+            No variants yet. Click <strong>Add Variant</strong> above to create one.
+          </div>
         </div>
       </div>
 
@@ -826,6 +861,96 @@ function openProductForm(id) {
   };
   $(`${formId}-barcode`).addEventListener('input', renderBarcodePreview);
   renderBarcodePreview();
+
+  // ============= VARIANTS MANAGEMENT =============
+  let variants = [];   // [{ id, variant_type, variant_label, sku, price, stock, weight_grams, image_url, is_default, sort_order }]
+  let nextLocalId = 1;
+
+  async function loadExistingVariants() {
+    if (!p?.id) return;
+    const { data } = await supabaseClient.from('product_variants').select('*').eq('product_id', p.id).order('sort_order', { ascending: true });
+    variants = (data || []).map(v => ({ ...v, _saved: true }));
+    renderVariantRows();
+  }
+
+  function renderVariantRows() {
+    const tbody = $(`${formId}-variants-tbody`);
+    const empty = $(`${formId}-variants-empty`);
+    if (!tbody) return;
+    if (!variants.length) {
+      tbody.innerHTML = '';
+      if (empty) empty.style.display = 'block';
+      return;
+    }
+    if (empty) empty.style.display = 'none';
+    tbody.innerHTML = variants.map((v, i) => `
+      <tr data-vrow="${i}">
+        <td style="text-align:center;color:var(--admin-text-mute);"><i class="fas fa-grip-vertical"></i></td>
+        <td><input class="input" data-vfield="variant_label" value="${escapeHTML(v.variant_label||'')}" placeholder="e.g. 55 gms" data-testid="pf-var-label-${i}" /></td>
+        <td><input class="input" data-vfield="sku" value="${escapeHTML(v.sku||'')}" placeholder="ONC-55" /></td>
+        <td><input class="input" type="number" min="0" step="0.01" data-vfield="price" value="${v.price ?? ''}" placeholder="299" style="text-align:right" /></td>
+        <td><input class="input" type="number" min="0" step="1" data-vfield="stock" value="${v.stock ?? 0}" style="text-align:right" /></td>
+        <td><input class="input" type="number" min="0" step="1" data-vfield="weight_grams" value="${v.weight_grams ?? ''}" placeholder="55" style="text-align:right" /></td>
+        <td><input class="input" data-vfield="image_url" value="${escapeHTML(v.image_url||'')}" placeholder="(uses product image if blank)" /></td>
+        <td style="text-align:center;"><button type="button" class="icon-btn danger" data-vdel="${i}" title="Remove variant"><i class="fas fa-trash"></i></button></td>
+      </tr>`).join('');
+    // Wire field updates
+    tbody.querySelectorAll('input[data-vfield]').forEach(inp => {
+      inp.addEventListener('input', e => {
+        const tr = e.target.closest('tr');
+        const idx = Number(tr.dataset.vrow);
+        const f = e.target.dataset.vfield;
+        let val = e.target.value;
+        if (['price','stock','weight_grams'].includes(f)) val = val === '' ? null : Number(val);
+        variants[idx][f] = val;
+      });
+    });
+    // Wire delete
+    tbody.querySelectorAll('[data-vdel]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const idx = Number(e.currentTarget.dataset.vdel);
+        const v = variants[idx];
+        if (v._saved && v.id) {
+          if (!await confirmDialog(`Permanently delete variant "${v.variant_label}"?`, { confirmLabel:'Delete', danger:true })) return;
+          await supabaseClient.from('product_variants').delete().eq('id', v.id);
+        }
+        variants.splice(idx, 1);
+        renderVariantRows();
+      });
+    });
+  }
+
+  $(`${formId}-has_variants`).addEventListener('change', e => {
+    $(`${formId}-variants-block`).style.display = e.target.checked ? 'block' : 'none';
+    if (e.target.checked && !variants.length) loadExistingVariants();
+  });
+  $(`${formId}-add-variant`).addEventListener('click', () => {
+    const type = $(`${formId}-variant-type`).value;
+    const basePrice = Number($(`${formId}-price`).value) || 0;
+    const baseSku = $(`${formId}-sku`).value.trim();
+    variants.push({
+      _localId: nextLocalId++,
+      variant_type: type,
+      variant_label: '',
+      sku: baseSku ? `${baseSku}-V${variants.length+1}` : '',
+      price: basePrice,
+      stock: 0,
+      weight_grams: null,
+      image_url: '',
+      is_default: variants.length === 0,
+      sort_order: variants.length,
+      _saved: false,
+    });
+    renderVariantRows();
+  });
+
+  // Load existing variants on open if editing
+  if (p?.has_variants) loadExistingVariants();
+
+  // Expose for save handler
+  window.__pf_variants = variants;
+  Object.defineProperty(window, '__pf_get_variants', { configurable: true, value: () => variants });
+
 
   // Upload
   const drop = $(`${formId}-drop`), file = $(`${formId}-file`);
@@ -978,6 +1103,7 @@ function openProductForm(id) {
       height_cm:  $(`${formId}-height_cm`).value  ? Number($(`${formId}-height_cm`).value)  : null,
       hsn_code:   $(`${formId}-hsn_code`).value.trim() || null,
       gst_percent: Number($(`${formId}-gst_percent`).value || 0),
+      has_variants: $(`${formId}-has_variants`).checked,
       status: $(`${formId}-status`).value,
       category: $(`${formId}-category`).value.trim() || null,
       badge: $(`${formId}-badge`).value.trim() || null,
@@ -997,6 +1123,34 @@ function openProductForm(id) {
       res = await supabaseClient.from('products').upsert(payload).select().single();
     }
     if (res.error) return showToast('Save failed: ' + res.error.message, 'error');
+
+    // ============= SAVE VARIANTS =============
+    if (payload.has_variants && window.__pf_get_variants) {
+      const productId = res.data.id;
+      const vList = window.__pf_get_variants();
+      for (let i = 0; i < vList.length; i++) {
+        const v = vList[i];
+        if (!v.variant_label || v.price == null) continue;   // skip incomplete rows
+        const vRow = {
+          product_id: productId,
+          variant_type: v.variant_type || 'Size',
+          variant_label: v.variant_label.trim(),
+          sku: v.sku?.trim() || null,
+          price: Number(v.price),
+          stock: Number(v.stock || 0),
+          weight_grams: v.weight_grams ? Number(v.weight_grams) : null,
+          image_url: v.image_url?.trim() || null,
+          is_default: i === 0,
+          sort_order: i,
+        };
+        if (v._saved && v.id) {
+          await supabaseClient.from('product_variants').update(vRow).eq('id', v.id);
+        } else {
+          await supabaseClient.from('product_variants').insert(vRow);
+        }
+      }
+    }
+
     // Update local cache
     const idx = state.products.findIndex(x => x.id === res.data.id);
     if (idx >= 0) state.products[idx] = res.data; else state.products.unshift(res.data);

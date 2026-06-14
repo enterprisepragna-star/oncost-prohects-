@@ -245,7 +245,7 @@ function populateCategoryFilter() {
   sel.innerHTML = `<option value="all">All Collections</option>` + existing.map(n => `<option value="${escapeHTML(n)}">${escapeHTML(n)}</option>`).join('');
 }
 
-function renderProductDetail() {
+async function renderProductDetail() {
   const slot = $('[data-product-detail]');
   if (!slot) return;
   const id = param('id');
@@ -257,9 +257,25 @@ function renderProductDetail() {
   if (state.settings.site_title) document.title = `${p.name} · ${state.settings.site_title}`;
   if (p.seo_description) setMeta('description', p.seo_description);
 
-  const offer = p.offer_price && p.offer_price < p.price;
-  const save = offer ? Math.round(((p.price - p.offer_price) / p.price) * 100) : 0;
-  const stock = Number(p.stock || 0);
+  // Load variants if this product has them
+  let variants = [];
+  let selectedVariant = null;
+  if (p.has_variants) {
+    try {
+      const { data } = await supabaseClient.from('product_variants').select('*').eq('product_id', p.id).eq('status', 'Active').order('sort_order', { ascending: true });
+      variants = data || [];
+      selectedVariant = variants[0] || null;
+    } catch (e) { console.warn('variants load failed', e); }
+  }
+
+  // Use selected variant data if available, else product data
+  const v = selectedVariant;
+  const offer = v ? (v.offer_price && v.offer_price < v.price) : (p.offer_price && p.offer_price < p.price);
+  const displayPrice = v ? (offer ? v.offer_price : v.price) : (offer ? p.offer_price : p.price);
+  const originalPrice = v ? v.price : p.price;
+  const save = offer ? Math.round(((originalPrice - displayPrice) / originalPrice) * 100) : 0;
+  const stock = v ? Number(v.stock || 0) : Number(p.stock || 0);
+  const displayImage = v?.image_url || p.image_url;
   // Build full image array: primary + gallery
   const allImages = [];
   if (p.image_url) allImages.push(p.image_url);
@@ -295,9 +311,22 @@ function renderProductDetail() {
           ${reviewToken ? `<button type="button" class="btn primary sm" onclick="openProductReviewModal('${escapeHTML(p.id)}','${escapeHTML(reviewToken)}')" style="margin-left:auto;" data-testid="pd-review-token-btn"><i class="fas fa-pen"></i> Write a Review</button>` : ''}
         </div>
         <div class="price-row">
-          <span class="price">${fmtINR(offer ? p.offer_price : p.price)}</span>
-          ${offer ? `<span class="price-old">${fmtINR(p.price)}</span><span class="save-tag">Save ${save}%</span>` : ''}
+          <span class="price" data-pd-price>${fmtINR(displayPrice)}</span>
+          ${offer ? `<span class="price-old" data-pd-price-old>${fmtINR(originalPrice)}</span><span class="save-tag" data-pd-save>Save ${save}%</span>` : ''}
         </div>
+        ${variants.length ? `
+          <div class="variant-selector" style="margin:14px 0 18px;padding:14px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);">
+            <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;">
+              <span style="font-weight:600;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);">${escapeHTML(variants[0]?.variant_type||'Variant')}:</span>
+              <strong id="pd-variant-name" style="color:var(--burgundy);font-size:14px;">${escapeHTML(selectedVariant?.variant_label||'')}</strong>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;" data-testid="pd-variants">
+              ${variants.map((vv, i) => {
+                const outOfStock = Number(vv.stock||0) <= 0;
+                return `<button type="button" class="variant-chip ${i===0?'active':''}" data-variant-id="${escapeHTML(vv.id)}" data-variant-idx="${i}" ${outOfStock?'data-oos':''} style="border:1.5px solid ${i===0?'var(--burgundy)':'var(--line)'};background:${i===0?'var(--burgundy)':'#fff'};color:${i===0?'#fff':'var(--ink)'};padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:500;font-size:13px;transition:all 0.15s;${outOfStock?'opacity:0.4;text-decoration:line-through;':''}" data-testid="pd-variant-${i}">${escapeHTML(vv.variant_label)}${outOfStock?' · OOS':''}</button>`;
+              }).join('')}
+            </div>
+          </div>` : ''}
         ${p.description ? `<p class="desc">${escapeHTML(p.description)}</p>` : ''}
         <div class="qty-row">
           <span style="font-weight:600;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);">Quantity</span>
@@ -351,6 +380,31 @@ function renderProductDetail() {
     const main = $('#pd-main-img');
     if (main) main.src = btn.dataset.img;
   }));
+
+  // Variant chip handlers — swap price/stock/image when customer picks a variant
+  if (variants.length) {
+    state._selectedVariant = selectedVariant;
+    $$('.variant-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        if (chip.hasAttribute('data-oos')) return;
+        const idx = Number(chip.dataset.variantIdx);
+        const vv = variants[idx];
+        state._selectedVariant = vv;
+        // Update visuals
+        $$('.variant-chip').forEach(c => {
+          c.style.background = '#fff'; c.style.color = 'var(--ink)';
+          c.style.borderColor = 'var(--line)'; c.classList.remove('active');
+        });
+        chip.style.background = 'var(--burgundy)'; chip.style.color = '#fff';
+        chip.style.borderColor = 'var(--burgundy)'; chip.classList.add('active');
+        // Update display
+        const sel = $('#pd-variant-name'); if (sel) sel.textContent = vv.variant_label;
+        const priceEl = $('[data-pd-price]'); if (priceEl) priceEl.textContent = fmtINR(vv.offer_price && vv.offer_price < vv.price ? vv.offer_price : vv.price);
+        const oldEl = $('[data-pd-price-old]'); if (oldEl) oldEl.textContent = vv.offer_price && vv.offer_price < vv.price ? fmtINR(vv.price) : '';
+        if (vv.image_url) { const main = $('#pd-main-img'); if (main) main.src = vv.image_url; }
+      });
+    });
+  }
 }
 window.changeQty = function(delta) {
   const inp = $('#pd-qty');
@@ -360,7 +414,8 @@ window.changeQty = function(delta) {
 };
 window.addToCartFromDetail = async function(productId) {
   const qty = Math.max(1, parseInt($('#pd-qty')?.value, 10) || 1);
-  await addToCart(productId, qty);
+  const variant = state._selectedVariant || null;
+  await addToCart(productId, qty, variant);
 };
 
 // ---------- Cart ----------
@@ -379,32 +434,48 @@ async function loadCart() {
 }
 function saveGuestCart() {
   if (state.user) return;
-  const minimal = state.cart.map(it => ({ id: it.id, product_id: it.product_id, qty: it.qty }));
+  const minimal = state.cart.map(it => ({ id: it.id, product_id: it.product_id, variant_id: it.variant_id || null, variant_label: it.variant_label || null, unit_price: it.unit_price, qty: it.qty }));
   localStorage.setItem('oncost_cart', JSON.stringify(minimal));
 }
 
-async function addToCart(productId, qty = 1) {
+async function addToCart(productId, qty = 1, variant = null) {
   const product = state.products.find(p => p.id === productId);
   if (!product) return toast('Product not available', 'err');
+  const variantId = variant?.id || null;
+  const variantLabel = variant?.variant_label || null;
+  const unitPrice = variant
+    ? Number(variant.offer_price && variant.offer_price < variant.price ? variant.offer_price : variant.price)
+    : Number(product.offer_price && product.offer_price < product.price ? product.offer_price : product.price);
   if (state.user) {
-    // Check existing
-    const existing = state.cart.find(it => it.product_id === productId);
+    // Match by product_id + variant_id
+    const existing = state.cart.find(it => it.product_id === productId && (it.variant_id || null) === variantId);
     if (existing) {
       await supabaseClient.from('cart_items').update({ qty: existing.qty + qty }).eq('id', existing.id);
       existing.qty += qty;
     } else {
-      const { data, error } = await supabaseClient.from('cart_items').insert({ user_id: state.user.id, product_id: productId, qty }).select().single();
-      if (error) return toast('Could not add: ' + error.message, 'err');
-      data.product = product;
-      state.cart.push(data);
+      const insertRow = { user_id: state.user.id, product_id: productId, qty };
+      if (variantId) { insertRow.variant_id = variantId; insertRow.variant_label = variantLabel; }
+      const { data, error } = await supabaseClient.from('cart_items').insert(insertRow).select().single();
+      if (error) {
+        // If variant columns don't exist yet, fall back to product-only insert (graceful pre-migration)
+        if (error.message?.includes('variant_id') || error.message?.includes('variant_label')) {
+          const { data: d2, error: e2 } = await supabaseClient.from('cart_items').insert({ user_id: state.user.id, product_id: productId, qty }).select().single();
+          if (e2) return toast('Could not add: ' + e2.message, 'err');
+          d2.product = product; d2.variant_id = variantId; d2.variant_label = variantLabel; d2.unit_price = unitPrice;
+          state.cart.push(d2);
+        } else return toast('Could not add: ' + error.message, 'err');
+      } else {
+        data.product = product; data.unit_price = unitPrice;
+        state.cart.push(data);
+      }
     }
   } else {
-    const existing = state.cart.find(it => it.product_id === productId);
+    const existing = state.cart.find(it => it.product_id === productId && (it.variant_id || null) === variantId);
     if (existing) existing.qty += qty;
-    else state.cart.push({ id: 'g-' + Date.now(), product_id: productId, qty, product });
+    else state.cart.push({ id: 'g-' + Date.now(), product_id: productId, variant_id: variantId, variant_label: variantLabel, unit_price: unitPrice, qty, product });
     saveGuestCart();
   }
-  toast(`Added "${product.name}" × ${qty}`, 'ok');
+  toast(`Added "${product.name}${variantLabel?' · '+variantLabel:''}" × ${qty}`, 'ok');
   updateCartBadge();
 }
 async function updateCartQty(rowId, qty) {
@@ -443,7 +514,13 @@ function cartTotals() {
   let subtotal = 0;
   state.cart.forEach(it => {
     if (!it.product) return;
-    const eff = (it.product.offer_price && it.product.offer_price < it.product.price) ? it.product.offer_price : it.product.price;
+    // Use variant unit_price if available, else product price
+    let eff;
+    if (it.unit_price != null) {
+      eff = Number(it.unit_price);
+    } else {
+      eff = (it.product.offer_price && it.product.offer_price < it.product.price) ? it.product.offer_price : it.product.price;
+    }
     subtotal += eff * it.qty;
   });
   let discount = 0;
@@ -474,13 +551,14 @@ function renderCart() {
         ${state.cart.map(it => {
           if (!it.product) return '';
           const p = it.product;
-          const eff = (p.offer_price && p.offer_price < p.price) ? p.offer_price : p.price;
+          const eff = it.unit_price != null ? Number(it.unit_price)
+                    : ((p.offer_price && p.offer_price < p.price) ? p.offer_price : p.price);
           const img = p.image_url
             ? `<img src="${escapeHTML(p.image_url)}" alt="" onerror="this.style.display='none'" />`
             : `<div style="width:100%;height:100%;display:grid;place-items:center;color:var(--muted);"><i class="fas fa-image"></i></div>`;
           return `<div class="cart-row" data-testid="cart-row-${escapeHTML(it.id)}">
             <div class="thumb">${img}</div>
-            <div class="meta"><h4>${escapeHTML(p.name)}</h4><div class="c">${escapeHTML(p.category||'')} · ${fmtINR(eff)} each</div></div>
+            <div class="meta"><h4>${escapeHTML(p.name)}${it.variant_label?` <span style="font-weight:400;font-size:12px;color:var(--burgundy);background:var(--gold-soft);padding:2px 8px;border-radius:999px;margin-left:4px;">${escapeHTML(it.variant_label)}</span>`:''}</h4><div class="c">${escapeHTML(p.category||'')} · ${fmtINR(eff)} each</div></div>
             <div class="qty-stepper">
               <button onclick="updateCartQty('${escapeHTML(it.id)}', ${it.qty - 1})"><i class="fas fa-minus"></i></button>
               <input value="${it.qty}" onchange="updateCartQty('${escapeHTML(it.id)}', this.value)" type="number" min="1" />

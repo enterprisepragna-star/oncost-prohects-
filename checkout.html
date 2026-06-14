@@ -171,8 +171,13 @@
       };
       const orderId = 'OC-' + Date.now() + '-' + Math.floor(Math.random()*9999);
       const items = state.cart.map(it => ({
-        product_id: it.product_id, name: it.product?.name, qty: it.qty,
-        price: (it.product?.offer_price && it.product.offer_price < it.product.price) ? it.product.offer_price : it.product?.price,
+        product_id: it.product_id,
+        variant_id: it.variant_id || null,
+        variant_label: it.variant_label || null,
+        name: it.product?.name + (it.variant_label ? ` (${it.variant_label})` : ''),
+        qty: it.qty,
+        price: it.unit_price != null ? Number(it.unit_price)
+              : ((it.product?.offer_price && it.product.offer_price < it.product.price) ? it.product.offer_price : it.product?.price),
       }));
 
       // Call /api/ccavenue/initiate — this server endpoint INSERTS the pending order
