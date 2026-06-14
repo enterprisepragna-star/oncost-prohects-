@@ -1,0 +1,18 @@
+# Tell Vercel to ignore the old React/Next.js scaffold left over from Emergent
+# Even if these folders exist in the repo, they won't be deployed.
+frontend/
+backend/
+node_modules/
+__pycache__/
+*.pyc
+.env
+.env.local
+.next/
+dist/
+build/
+.DS_Store
+
+# Memory and test files (development only)
+memory/
+test_reports/
+tests/

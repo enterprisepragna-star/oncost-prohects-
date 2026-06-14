@@ -1,4 +1,15 @@
 {
+  "name": "oncost-storefront",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ONCOST premium gifting storefront — static HTML + Vercel serverless functions + Supabase",
+  "scripts": {
+    "build": "echo 'No build needed — static site'",
+    "vercel-build": "echo 'No build needed — static site'"
+  },
+  "engines": {
+    "node": "18.x"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0"
   }
