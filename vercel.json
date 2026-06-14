@@ -1,4 +1,7 @@
 {
+  "rewrites": [
+    { "source": "/api/delhivery/:action", "destination": "/api/delhivery?action=:action" }
+  ],
   "crons": [
     {
       "path": "/api/whatsapp/abandoned-cart-cron",
