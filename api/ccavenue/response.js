@@ -132,6 +132,18 @@ module.exports = async function handler(req, res) {
     console.error('[ccavenue/response] Skipping DB write — Supabase env or order_id missing.');
   }
 
+  // ============= AUTO-CREATE DELHIVERY AWB ON PAID =============
+  if (dbStatus === 'Paid' && orderRow && !orderRow.awb_number && process.env.DELHIVERY_TOKEN) {
+    const ADMIN_KEY = process.env.ADMIN_RECOVERY_KEY;
+    fetch(`${SITE_URL}/api/delhivery/create-shipment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': ADMIN_KEY || '' },
+      body: JSON.stringify({ order_id: orderRow.id }),
+    }).then(r => r.json()).then(j => {
+      console.log('[ccavenue/response] AWB auto-create result:', JSON.stringify(j));
+    }).catch(err => console.error('[ccavenue/response] AWB auto-create failed:', err.message));
+  }
+
   // ============= FIRE-AND-FORGET WHATSAPP CONFIRM =============
   if (dbStatus === 'Paid' && orderRow) {
     const INTERNAL_KEY = process.env.INTERNAL_API_KEY;

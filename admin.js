@@ -1477,10 +1477,19 @@ function viewOrder(id) {
     <!-- SHIPPING / LOGISTICS -->
     <h4 class="card-title" style="margin:18px 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:1.2px;color:var(--admin-text-mute);">Logistics</h4>
     <div class="grid-2" style="gap:14px;">
-      <div class="field"><label>Courier Partner</label><div><strong>${escapeHTML(o.courier_partner || 'Delhivery')}</strong> <span style="color:var(--admin-text-mute);font-size:11px;">(Phase 2 — auto-creates shipment after payment)</span></div></div>
-      <div class="field"><label>AWB / Tracking Number</label><div>${o.awb_number ? `<code>${escapeHTML(o.awb_number)}</code> · <a href="${escapeHTML(o.tracking_url||'#')}" target="_blank" style="color:var(--admin-primary);font-size:12px;">Track →</a>` : '<span style="color:var(--admin-text-mute);font-size:12px;">Not yet generated</span>'}</div></div>
+      <div class="field"><label>Courier Partner</label><div><strong>${escapeHTML(o.courier_partner || 'Delhivery')}</strong> ${o.awb_number ? '· <span style="color:#1E5631;font-size:12px;"><i class="fas fa-check-circle"></i> AWB generated</span>' : '<span style="color:var(--admin-text-mute);font-size:11px;">(click below to generate AWB)</span>'}</div></div>
+      <div class="field"><label>AWB / Tracking Number</label><div>${o.awb_number ? `<code style="font-size:13px;">${escapeHTML(o.awb_number)}</code> · <a href="${escapeHTML(o.tracking_url||'#')}" target="_blank" style="color:var(--admin-primary);font-size:12px;">Track →</a>` : '<span style="color:var(--admin-text-mute);font-size:12px;">Not yet generated</span>'}</div></div>
       <div class="field"><label>Total Shipment Weight</label><div><strong>${totalWeight} g</strong> (${(totalWeight/1000).toFixed(2)} kg)</div></div>
       <div class="field"><label>Internal Notes</label><textarea id="ov-notes" class="input" rows="2" data-testid="ov-notes" placeholder="e.g. Customer requested gift wrapping">${escapeHTML(o.internal_notes||'')}</textarea></div>
+    </div>
+
+    <!-- DELHIVERY ACTIONS -->
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+      ${o.awb_number
+        ? `<a class="btn btn-secondary btn-sm" href="/api/delhivery/label?awb=${encodeURIComponent(o.awb_number)}" target="_blank" data-testid="ov-print-label"><i class="fas fa-print"></i> Print Shipping Label</a>
+           <a class="btn btn-secondary btn-sm" href="${escapeHTML(o.tracking_url||'#')}" target="_blank" data-testid="ov-track"><i class="fas fa-truck-fast"></i> Track Shipment</a>`
+        : (['Paid','Confirmed','Packed'].includes(o.status) ? `<button class="btn btn-primary btn-sm" id="ov-gen-awb" data-testid="ov-gen-awb"><i class="fas fa-truck"></i> Generate Delhivery AWB</button>` : '')}
+      <button class="btn btn-secondary btn-sm" id="ov-schedule-pickup" data-testid="ov-pickup"><i class="fas fa-calendar-day"></i> Schedule Pickup</button>
     </div>
 
     <!-- ITEMS -->
@@ -1530,6 +1539,57 @@ function viewOrder(id) {
     if (error) return showToast('Save failed: ' + error.message, 'error');
     o.internal_notes = notes;
     showToast('Notes saved.');
+  };
+
+  // Generate AWB
+  const awbBtn = $('ov-gen-awb');
+  if (awbBtn) awbBtn.onclick = async () => {
+    const key = localStorage.getItem('oncost_recover_key') || prompt('Enter your ADMIN_RECOVERY_KEY (from Vercel env):');
+    if (!key) return;
+    awbBtn.disabled = true; awbBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Calling Delhivery…';
+    try {
+      const r = await fetch('/api/delhivery/create-shipment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
+        body: JSON.stringify({ order_id: o.id }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || 'AWB creation failed');
+      localStorage.setItem('oncost_recover_key', key);
+      o.awb_number = j.awb;
+      o.tracking_url = j.tracking_url;
+      showToast(`AWB generated: ${j.awb}`);
+      m.close();
+      viewOrder(o.id);
+      loadOrders().then(() => renderOrders());
+    } catch (err) {
+      showToast(err.message, 'error');
+      awbBtn.disabled = false; awbBtn.innerHTML = '<i class="fas fa-truck"></i> Generate Delhivery AWB';
+    }
+  };
+
+  // Schedule pickup
+  const pickupBtn = $('ov-schedule-pickup');
+  if (pickupBtn) pickupBtn.onclick = async () => {
+    const today = new Date();
+    today.setDate(today.getDate() + 1);
+    const tomorrow = today.toISOString().split('T')[0];
+    const date = prompt('Schedule pickup for date (YYYY-MM-DD):', tomorrow);
+    if (!date) return;
+    const key = localStorage.getItem('oncost_recover_key') || prompt('Enter your ADMIN_RECOVERY_KEY:');
+    if (!key) return;
+    try {
+      const r = await fetch('/api/delhivery/schedule-pickup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
+        body: JSON.stringify({ pickup_date: date, expected_package_count: 1 }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || 'Pickup scheduling failed');
+      showToast(`Pickup scheduled for ${date} (ref ${j.pickup_id || 'OK'})`);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
   };
   // Wire action buttons
   m.root.querySelectorAll('[data-status-action]').forEach(btn => {

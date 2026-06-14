@@ -117,10 +117,39 @@
       document.getElementById('ck-totals').innerHTML = `
         <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;"><span>Subtotal</span><span>${fmtINR(t.subtotal)}</span></div>
         ${t.discount > 0 ? `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:var(--success);"><span>Discount</span><span>−${fmtINR(t.discount)}</span></div>` : ''}
-        <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;"><span>Shipping</span><span>${t.shipping === 0 ? 'Free' : fmtINR(t.shipping)}</span></div>
-        <div style="display:flex;justify-content:space-between;padding:10px 0 0;border-top:1px solid var(--line);margin-top:8px;font-weight:700;font-size:16px;color:var(--burgundy);"><span>Total</span><span>${fmtINR(t.total)}</span></div>`;
+        <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;" id="ck-ship-row"><span>Shipping <span id="ck-ship-hint" style="font-size:11px;color:var(--muted);"></span></span><span id="ck-ship-amount">${t.shipping === 0 ? 'Free' : fmtINR(t.shipping)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:10px 0 0;border-top:1px solid var(--line);margin-top:8px;font-weight:700;font-size:16px;color:var(--burgundy);" id="ck-total-row"><span>Total</span><span id="ck-total-amount">${fmtINR(t.total)}</span></div>`;
       document.getElementById('ck-pay-label').textContent = `Pay ${fmtINR(t.total)}`;
     });
+
+    // ----- Live Delhivery shipping calculation when pincode is entered -----
+    let liveShipping = null;
+    async function recalcShipping() {
+      const pin = document.getElementById('ck-zip').value.trim();
+      if (!/^\d{6}$/.test(pin)) return;
+      const hint = document.getElementById('ck-ship-hint');
+      hint.innerHTML = '<i class="fas fa-spinner fa-spin"></i> calculating…';
+      try {
+        // Sum product weights from cart (fallback 500g per item)
+        const totalWeight = state.cart.reduce((s, it) => s + (Number(it.product?.weight_grams || 500) * it.qty), 0);
+        const r = await fetch(`/api/delhivery/serviceability?drop_pincode=${pin}&weight_grams=${totalWeight}`);
+        const j = await r.json();
+        if (!r.ok || j.serviceable === false) {
+          hint.innerHTML = '<span style="color:#C0392B;">⚠ Not serviceable</span>';
+          return;
+        }
+        liveShipping = Number(j.shipping_amount || 79);
+        const t = cartTotals();
+        const newTotal = Math.max(0, t.subtotal - t.discount + liveShipping);
+        document.getElementById('ck-ship-amount').textContent = liveShipping === 0 ? 'Free' : fmtINR(liveShipping);
+        document.getElementById('ck-total-amount').textContent = fmtINR(newTotal);
+        document.getElementById('ck-pay-label').textContent = `Pay ${fmtINR(newTotal)}`;
+        hint.innerHTML = `<span style="color:#1E5631;font-size:11px;">${j.district || j.state || 'Live rate'} · ${totalWeight}g</span>`;
+      } catch (e) {
+        hint.innerHTML = '<span style="color:var(--muted);">flat rate</span>';
+      }
+    }
+    document.getElementById('ck-zip').addEventListener('blur', recalcShipping);
 
     document.getElementById('checkout-form').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -128,6 +157,8 @@
       btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Preparing payment…';
 
       const t = cartTotals();
+      const ship_amt = liveShipping != null ? liveShipping : t.shipping;
+      const total_amt = Math.max(0, t.subtotal - t.discount + ship_amt);
       const ship = {
         name:    document.getElementById('ck-name').value.trim(),
         phone:   document.getElementById('ck-phone').value.trim(),
@@ -153,9 +184,9 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             order_id: orderId,
-            total_amount: t.total,
+            total_amount: total_amt,
             items_subtotal: t.subtotal,
-            shipping_amount: t.shipping,
+            shipping_amount: ship_amt,
             discount_amount: t.discount,
             items,
             shipping_address: ship,
