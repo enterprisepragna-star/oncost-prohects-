@@ -246,17 +246,28 @@
         <div style="padding:48px 28px;text-align:center;">
           <i class="fas fa-receipt" style="font-size:42px;color:var(--muted);"></i>
           <h3 style="margin:14px 0 6px;">Invoice is being prepared</h3>
-          <p style="color:var(--muted);font-size:14px;max-width:480px;margin:0 auto;">Your payment was successful and we received the confirmation from CCAvenue. The invoice will appear in <a href="account.html?tab=orders">My Orders</a> within a couple of minutes. ${reason ? '<br><br><small style="font-size:11px;opacity:0.6;">(' + escapeHTML(reason) + ')</small>' : ''}</p>
+          <p style="color:var(--muted);font-size:14px;max-width:520px;margin:0 auto 12px;">Your payment was successful and we received the confirmation from CCAvenue. The invoice will appear in <a href="account.html?tab=orders">My Orders</a> within a couple of minutes.</p>
+          ${orderId ? `<div style="margin:14px auto;display:inline-block;padding:10px 14px;background:var(--cream);border:1px solid var(--line);border-radius:8px;font-family:monospace;font-size:13px;color:var(--burgundy);"><b>Order ID:</b> ${escapeHTML(orderId)}</div><br>` : ''}
+          <button onclick="loadInvoice()" class="btn outline" style="margin-top:8px;"><i class="fas fa-rotate-right"></i> Retry now</button>
+          ${reason ? '<div style="margin-top:14px;font-size:11px;opacity:0.55;">(' + escapeHTML(reason) + ')</div>' : ''}
+          <p style="margin-top:18px;font-size:12px;color:var(--muted);">If your order doesn't appear within 5 minutes, please contact us with the Order ID above — we'll resolve it manually.</p>
         </div>`;
     }
 
+    let _lookupAttempts = 0;
     async function loadInvoice() {
       if (!orderId) { renderUnavailable('No order ID'); return; }
+      _lookupAttempts++;
       try {
         const r = await fetch('/api/orders/lookup?order_id=' + encodeURIComponent(orderId));
         if (!r.ok) {
-          if (r.status === 404) { renderUnavailable('Order not yet recorded — refresh in 30s'); return; }
-          renderUnavailable('Lookup error: HTTP ' + r.status); return;
+          if (r.status === 404) {
+            // Auto-retry up to 4 times (the webhook may still be processing)
+            if (_lookupAttempts < 5) { setTimeout(loadInvoice, 4000); return; }
+            renderUnavailable('Order not yet recorded after ' + _lookupAttempts + ' retries'); return;
+          }
+          let detail = ''; try { const j = await r.json(); detail = j.error || ''; } catch {}
+          renderUnavailable('Lookup error: HTTP ' + r.status + (detail ? ' - ' + detail : '')); return;
         }
         const { order, business } = await r.json();
         renderInvoice(order, business);
