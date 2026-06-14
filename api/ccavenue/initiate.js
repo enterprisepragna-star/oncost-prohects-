@@ -2,9 +2,6 @@
 // Body: { items, total_amount, shipping_address: {name,email,phone,address,city,state,zip}, user_id, applied_coupon }
 // 1. Inserts a 'Processing' order row into Supabase (using SERVICE_ROLE_KEY → bypasses RLS).
 // 2. Returns an auto-submitting HTML form that posts to CCAvenue's secure checkout endpoint.
-//
-// This is the SINGLE source of order creation — frontend never touches the orders table directly
-// for new orders. That guarantees no RLS / schema-mismatch failures.
 
 const { encrypt, buildMerchantData } = require('./lib/ccavenue-crypto');
 
@@ -82,13 +79,11 @@ module.exports = async function handler(req, res) {
     if (!insertRes.ok) {
       const errTxt = await insertRes.text();
       console.error('[ccavenue/initiate] Supabase insert failed:', insertRes.status, errTxt);
-      // Do NOT block payment — webhook will UPSERT later. But log it loudly.
     } else {
       console.log('[ccavenue/initiate] Supabase order created:', orderId);
     }
   } catch (e) {
     console.error('[ccavenue/initiate] Supabase insert exception:', e.message);
-    // continue anyway — webhook will upsert
   }
 
   // 2️⃣  Build CCAvenue encrypted payload

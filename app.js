@@ -366,15 +366,14 @@ window.addToCartFromDetail = async function(productId) {
 // ---------- Cart ----------
 async function loadCart() {
   if (!state.user) {
-    // Guest cart in localStorage
     try { state.cart = JSON.parse(localStorage.getItem('oncost_cart') || '[]'); }
     catch { state.cart = []; }
-    state.cart.forEach(it => { it.product = state.products.find(p => p.id === it.product_id); });
+    state.cart = state.cart.map(it => ({ ...it, product: state.products.find(p => p.id === it.product_id) })).filter(it => it.product);
     return;
   }
   try {
     const { data } = await supabaseClient.from('cart_items').select('*').eq('user_id', state.user.id);
-    state.cart = (data || []).map(it => ({ ...it, product: state.products.find(p => p.id === it.product_id) }));
+    state.cart = (data || []).map(it => ({ ...it, product: state.products.find(p => p.id === it.product_id) })).filter(it => it.product);
   } catch { state.cart = []; }
 }
 function saveGuestCart() {
@@ -686,16 +685,22 @@ function renderAccountWishlist() {
 }
 function renderAccountOrders(orders) {
   if (!orders.length) return `<h2>My Orders</h2><div class="empty-state"><i class="fas fa-receipt"></i><h3>No orders yet</h3><p>Your orders will show up here.</p><a class="btn primary" href="products.html">Browse Products</a></div>`;
-  return `<h2>My Orders</h2>${orders.map(o => `
-    <div style="border:1px solid var(--line);border-radius:6px;padding:16px;margin-bottom:12px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <div><b>#${escapeHTML(String(o.id).substring(0,8))}</b> <span style="color:var(--muted);font-size:12px;">· ${new Date(o.created_at).toLocaleDateString()}</span></div>
-        <span style="padding:3px 10px;border-radius:4px;background:var(--cream);color:var(--burgundy);font-size:12px;font-weight:600;">${escapeHTML(o.status)}</span>
+  return `<h2>My Orders</h2>${orders.map(o => {
+    const ship = o.shipping_address || {};
+    const trackUrl = ship.tracking_url || '';
+    return `
+    <div style="border:1px solid var(--line);border-radius:6px;padding:16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:flex-start;">
+      <div>
+        <div style="margin-bottom:8px;"><b>#${escapeHTML(String(o.id).substring(0,8))}</b> <span style="color:var(--muted);font-size:12px;">· ${new Date(o.created_at).toLocaleDateString()}</span></div>
+        <div style="font-size:13px;color:var(--muted);">${(Array.isArray(o.items) ? o.items : []).map(i => escapeHTML(i.name)).join(' · ')}</div>
+        <div style="margin-top:8px;font-weight:700;color:var(--burgundy);">${fmtINR(o.total_amount)}</div>
       </div>
-      <div style="font-size:13px;color:var(--muted);">${(Array.isArray(o.items) ? o.items : []).map(i => escapeHTML(i.name)).join(' · ')}</div>
-      <div style="margin-top:8px;font-weight:700;color:var(--burgundy);">${fmtINR(o.total_amount)}</div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+        <span style="padding:3px 10px;border-radius:4px;background:var(--cream);color:var(--burgundy);font-size:12px;font-weight:600;">${escapeHTML(o.status)}</span>
+        ${trackUrl ? `<a href="${escapeHTML(trackUrl)}" target="_blank" class="btn outline sm" style="font-size:11px;padding:4px 8px;text-decoration:none;"><i class="fas fa-truck"></i> Track Order</a>` : (o.status !== 'Cancelled' ? `<button class="btn outline sm" onclick="toast('Tracking link will be available once shipped.', 'ok')" style="font-size:11px;padding:4px 8px;"><i class="fas fa-truck"></i> Track Order</button>` : '')}
+      </div>
     </div>
-  `).join('')}`;
+  `;}).join('')}`;
 }
 function renderAccountLeads(leads) {
   if (!leads.length) return `<h2>My Enquiries</h2><div class="empty-state"><i class="fas fa-envelope-open"></i><h3>No enquiries yet</h3><p>Need bulk pricing or customization? Send us an enquiry.</p><a class="btn primary" href="bulk.html">Submit Bulk Enquiry</a></div>`;
@@ -738,7 +743,18 @@ function setupEnquiryForm() {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(form);
-    const summary = `Name: ${fd.get('name')} | Email: ${fd.get('email')} | Phone: ${fd.get('phone')} | GSTIN: ${fd.get('gstin')||'—'} | Event: ${fd.get('eventType')} | Qty: ${fd.get('quantity')} | Date: ${fd.get('eventDate')||'—'} | Budget: ${fd.get('budget')||'—'} | Message: ${fd.get('message')||'—'}`;
+    const details = {
+      Name: fd.get('name'),
+      Email: fd.get('email'),
+      Phone: fd.get('phone'),
+      GSTIN: fd.get('gstin') || '—',
+      Event: fd.get('eventType') || '—',
+      Qty: fd.get('quantity') || '—',
+      Date: fd.get('eventDate') || '—',
+      Budget: fd.get('budget') || '—',
+      Message: fd.get('message') || '—'
+    };
+    const summary = JSON.stringify(details);
     try {
       await supabaseClient.from('leads').insert({
         user_id: state.user?.id || null,

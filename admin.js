@@ -21,11 +21,8 @@ const state = {
   sales: [],
   leads: [],
   testimonials: [],
-  complaints: [],
   inv: [],
   imgbbKey: '',
-  selectedProducts: new Set(),
-  selectedOrders: new Set(),
 };
 
 // ------------------------- Utilities -------------------------
@@ -125,7 +122,6 @@ async function bootstrap() {
       loadSales(),
       loadLeads(),
       loadTestimonials(),
-      loadComplaints(),
     ]);
     renderAllOnce();
   } catch (err) {
@@ -246,49 +242,18 @@ async function saveBusinessProfile() {
 }
 window.saveBusinessProfile = saveBusinessProfile;
 
-// ------------------------- Image upload (Supabase Storage with imgbb fallback) -------------------------
-// Primary: Supabase Storage (bucket: product-images) — free, built-in, no API key needed.
-// Fallback: imgbb if a key is set (for users who prefer it).
-async function uploadProductImage(file) {
-  if (!file) throw new Error('No file selected.');
-  if (file.size > 5 * 1024 * 1024) throw new Error('Image too large. Max 5 MB.');
-  if (!/^image\//.test(file.type)) throw new Error('Only image files (JPG, PNG, WEBP, GIF) supported.');
-
-  // 1️⃣ Try Supabase Storage (preferred)
-  try {
-    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-    const path = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
-    const { error } = await supabaseClient.storage.from('product-images').upload(path, file, {
-      cacheControl: '31536000',
-      upsert: false,
-      contentType: file.type,
-    });
-    if (error) throw error;
-    const { data } = supabaseClient.storage.from('product-images').getPublicUrl(path);
-    return data.publicUrl;
-  } catch (storageErr) {
-    console.warn('[upload] Supabase Storage failed, trying imgbb fallback:', storageErr.message);
-    // 2️⃣ Fall back to imgbb if a key is configured
-    if (state.imgbbKey && state.imgbbKey.startsWith('http') === false && state.imgbbKey.length > 10) {
-      const fd = new FormData();
-      fd.append('image', file);
-      const r = await fetch(`https://api.imgbb.com/1/upload?key=${encodeURIComponent(state.imgbbKey)}`, { method: 'POST', body: fd });
-      const j = await r.json();
-      if (!j.success) throw new Error(j.error?.message || 'imgbb upload failed');
-      return j.data.url;
-    }
-    // No fallback available
-    if (storageErr.message?.toLowerCase().includes('bucket') || storageErr.message?.toLowerCase().includes('not found')) {
-      throw new Error('Run migration_phase1.sql in Supabase to enable image upload.');
-    }
-    if (storageErr.message?.toLowerCase().includes('policy') || storageErr.statusCode === '403' || storageErr.message?.toLowerCase().includes('unauthorized')) {
-      throw new Error('Storage permission denied — make sure you are logged in to admin.');
-    }
-    throw new Error('Upload failed: ' + storageErr.message);
+// ------------------------- Image upload (imgbb) -------------------------
+async function uploadImageToImgbb(file) {
+  if (!state.imgbbKey) {
+    throw new Error('Add an imgbb API key in Site Settings to enable JPG upload.');
   }
+  const fd = new FormData();
+  fd.append('image', file);
+  const r = await fetch(`https://api.imgbb.com/1/upload?key=${encodeURIComponent(state.imgbbKey)}`, { method: 'POST', body: fd });
+  const j = await r.json();
+  if (!j.success) throw new Error(j.error?.message || 'imgbb upload failed');
+  return j.data.url; // direct image url
 }
-// Keep old name as alias for backward compat with bulk-import code
-const uploadImageToImgbb = uploadProductImage;
 
 // ------------------------- Dashboard -------------------------
 function renderDashboard() {
@@ -445,7 +410,7 @@ function applyProductFilters() {
     if (cat && (p.category || '') !== cat) return false;
     if (st && (p.status || 'Active') !== st) return false;
     if (q) {
-      const hay = `${p.name || ''} ${p.sku || ''} ${p.barcode || ''} ${p.category || ''} ${p.id || ''}`.toLowerCase();
+      const hay = `${p.name || ''} ${p.sku || ''} ${p.category || ''} ${p.id || ''}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -485,51 +450,22 @@ function renderProducts() {
     const stock = Number(p.stock || 0);
     const stockBadge = stock === 0 ? 'b-error' : stock <= 5 ? 'b-warn' : 'b-muted';
     const offer = (p.offer_price && Number(p.offer_price) !== Number(p.price));
-    const checked = state.selectedProducts.has(p.id) ? 'checked' : '';
-    return `<tr data-testid="product-row-${escapeHTML(p.id)}" ${state.selectedProducts.has(p.id)?'style="background:#FFF8E7;"':''}>
-      <td style="text-align:center;"><input type="checkbox" class="product-row-check" data-id="${escapeHTML(p.id)}" ${checked} data-testid="check-product-${escapeHTML(p.id)}" /></td>
+    return `<tr data-testid="product-row-${escapeHTML(p.id)}">
       <td>${img}</td>
       <td><div style="font-weight:600">${escapeHTML(p.name)}</div><div style="font-size:11px;color:var(--admin-text-mute)">${escapeHTML((p.description||'').substring(0,60))}</div></td>
-      <td>
-        <code style="font-size:11px;color:var(--admin-text-mute)">${escapeHTML(p.sku || '—')}</code>
-        ${p.barcode ? `<div style="margin-top:4px;"><svg class="row-barcode" data-bc="${escapeHTML(p.barcode)}" style="display:block;max-width:140px;"></svg><div style="font-size:10px;color:var(--admin-text-mute);font-family:monospace;margin-top:1px;">${escapeHTML(p.barcode)}</div></div>` : ''}
-      </td>
+      <td><code style="font-size:11px;color:var(--admin-text-mute)">${escapeHTML(p.sku || '—')}</code></td>
       <td>${escapeHTML(p.category || '—')}</td>
       <td style="text-align:right"><div style="font-weight:600">${fmtINR(p.price)}</div>${offer ? `<div style="font-size:11px;color:var(--admin-primary)">Sale ${fmtINR(p.offer_price)}</div>` : ''}</td>
       <td style="text-align:right"><span class="badge ${stockBadge}">${stock}</span></td>
       <td>${statusBadge(p.status || 'Active')}</td>
       <td>
         <div class="row-actions">
-          ${p.barcode ? `<button class="icon-btn" onclick="printBarcodeLabel('${escapeHTML(p.id)}')" title="Print barcode label" data-testid="print-barcode-${escapeHTML(p.id)}"><i class="fas fa-print"></i></button>` : ''}
           <button class="icon-btn" onclick="openProductForm('${escapeHTML(p.id)}')" data-testid="edit-product-${escapeHTML(p.id)}" title="Edit"><i class="fas fa-pen"></i></button>
           <button class="icon-btn danger" onclick="deleteProduct('${escapeHTML(p.id)}')" data-testid="delete-product-${escapeHTML(p.id)}" title="Delete"><i class="fas fa-trash"></i></button>
         </div>
       </td>
     </tr>`;
   }).join('');
-
-  // Wire row checkboxes
-  document.querySelectorAll('.product-row-check').forEach(cb => {
-    cb.addEventListener('change', (e) => {
-      const id = e.target.dataset.id;
-      if (e.target.checked) state.selectedProducts.add(id);
-      else state.selectedProducts.delete(id);
-      updateProductsBulkBar();
-      // Highlight row
-      e.target.closest('tr').style.background = e.target.checked ? '#FFF8E7' : '';
-    });
-  });
-
-  // Render inline barcodes after DOM update
-  if (window.JsBarcode) {
-    document.querySelectorAll('.row-barcode').forEach(svg => {
-      const code = svg.dataset.bc;
-      if (!code) return;
-      try { window.JsBarcode(svg, code, { format: 'CODE128', width: 1.2, height: 28, fontSize: 0, margin: 0, displayValue: false }); } catch (_) { /* invalid */ }
-    });
-  }
-
-  updateProductsBulkBar();
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(state.productsFiltered.length / ps));
@@ -557,121 +493,6 @@ async function deleteProduct(id) {
 }
 window.deleteProduct = deleteProduct;
 
-// ------------------------- Bulk Product Actions -------------------------
-function updateProductsBulkBar() {
-  const bar = $('products-bulk-bar');
-  const count = state.selectedProducts.size;
-  if (!bar) return;
-  if (count === 0) { bar.style.display = 'none'; }
-  else {
-    bar.style.display = 'flex';
-    $('products-bulk-count').textContent = `${count} selected`;
-  }
-  // Sync header checkbox
-  const all = $('products-check-all');
-  if (all) {
-    const visible = state.productsFiltered.slice((state.productsPage-1)*state.productsPageSize, state.productsPage*state.productsPageSize);
-    const visIds = visible.map(p => p.id);
-    const allSel = visIds.length > 0 && visIds.every(id => state.selectedProducts.has(id));
-    all.checked = allSel;
-    all.indeterminate = !allSel && visIds.some(id => state.selectedProducts.has(id));
-  }
-}
-function clearProductSelection() {
-  state.selectedProducts.clear();
-  renderProducts();
-}
-window.clearProductSelection = clearProductSelection;
-
-async function bulkProductDelete() {
-  const ids = Array.from(state.selectedProducts);
-  if (!ids.length) return;
-  if (!await confirmDialog(`Delete ${ids.length} product${ids.length>1?'s':''} permanently? This cannot be undone.`, { confirmLabel: `Delete ${ids.length}`, danger: true })) return;
-  const { error } = await supabaseClient.from('products').delete().in('id', ids);
-  if (error) return showToast('Delete failed: ' + error.message, 'error');
-  state.products = state.products.filter(p => !state.selectedProducts.has(p.id));
-  state.selectedProducts.clear();
-  applyProductFilters();
-  showToast(`${ids.length} product${ids.length>1?'s':''} deleted.`);
-}
-window.bulkProductDelete = bulkProductDelete;
-
-async function bulkProductStatus(status) {
-  const ids = Array.from(state.selectedProducts);
-  if (!ids.length) return;
-  const { error } = await supabaseClient.from('products').update({ status }).in('id', ids);
-  if (error) return showToast('Update failed: ' + error.message, 'error');
-  state.products = state.products.map(p => state.selectedProducts.has(p.id) ? { ...p, status } : p);
-  applyProductFilters();
-  showToast(`${ids.length} product${ids.length>1?'s':''} → ${status}.`);
-}
-window.bulkProductStatus = bulkProductStatus;
-
-async function bulkProductCategory() {
-  const ids = Array.from(state.selectedProducts);
-  if (!ids.length) return;
-  const html = `
-    <p style="margin:0 0 10px;color:var(--admin-text-mute);font-size:13px;">Set category for ${ids.length} selected product${ids.length>1?'s':''}.</p>
-    <div class="field"><label>Category</label>
-      <input class="input" list="bc-catlist" id="bc-cat" data-testid="bc-cat" placeholder="Pick or type new" />
-      <datalist id="bc-catlist">${state.categories.map(c => `<option value="${escapeHTML(c.name)}">`).join('')}</datalist>
-    </div>`;
-  const footer = el('div', {});
-  footer.innerHTML = `<button class="btn btn-secondary" id="bc-cancel" data-testid="bc-cancel">Cancel</button><button class="btn btn-primary" id="bc-save" data-testid="bc-save">Apply</button>`;
-  const m = openModal({ title: 'Change Category', body: html, footer, size: 'sm', testid: 'bc' });
-  $('bc-cancel').onclick = () => m.close();
-  $('bc-save').onclick = async () => {
-    const cat = $('bc-cat').value.trim();
-    if (!cat) return showToast('Category required.', 'error');
-    const { error } = await supabaseClient.from('products').update({ category: cat }).in('id', ids);
-    if (error) return showToast('Update failed: ' + error.message, 'error');
-    state.products = state.products.map(p => state.selectedProducts.has(p.id) ? { ...p, category: cat } : p);
-    applyProductFilters();
-    showToast(`${ids.length} product${ids.length>1?'s':''} moved to "${cat}".`);
-    m.close();
-  };
-}
-window.bulkProductCategory = bulkProductCategory;
-
-// ------------------------- Barcode helpers -------------------------
-function generateBarcodeForForm(formId) {
-  // Strategy: if SKU exists → use SKU; else generate random 12-digit
-  const sku = $(`${formId}-sku`).value.trim();
-  const code = sku || String(Math.floor(100000000000 + Math.random() * 900000000000));
-  $(`${formId}-barcode`).value = code;
-  $(`${formId}-barcode`).dispatchEvent(new Event('input'));
-}
-window.generateBarcodeForForm = generateBarcodeForForm;
-
-function printBarcodeLabel(productId) {
-  const p = state.products.find(x => x.id === productId);
-  if (!p || !p.barcode) return showToast('No barcode set for this product.', 'error');
-  const w = window.open('', '_blank', 'width=420,height=320');
-  if (!w) return showToast('Pop-up blocked. Allow pop-ups to print labels.', 'error');
-  w.document.write(`<!doctype html><html><head><title>Label · ${escapeHTML(p.name)}</title>
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
-    <style>
-      @page { size: 60mm 40mm; margin: 0; }
-      body { margin: 0; font-family: system-ui; padding: 4mm; }
-      .lbl { text-align: center; }
-      .lbl .nm { font-size: 11px; font-weight: 600; margin-bottom: 2px; line-height: 1.2; }
-      .lbl .pr { font-size: 14px; font-weight: 700; margin-top: 4px; }
-      .lbl .sku { font-size: 9px; color: #666; }
-    </style></head><body>
-    <div class="lbl">
-      <div class="nm">${escapeHTML(p.name).substring(0, 32)}</div>
-      <svg id="bc"></svg>
-      <div class="sku">SKU: ${escapeHTML(p.sku || '—')}</div>
-      <div class="pr">₹${Number(p.offer_price || p.price || 0).toFixed(2)}</div>
-    </div>
-    <script>
-      JsBarcode('#bc', '${escapeHTML(p.barcode).replace(/'/g,"\\'")}', { format:'CODE128', width:1.6, height:40, fontSize:10, margin:2 });
-      setTimeout(() => window.print(), 300);
-    <\/script></body></html>`);
-  w.document.close();
-}
-window.printBarcodeLabel = printBarcodeLabel;
-
 function openProductForm(id) {
   const p = id ? state.products.find(x => x.id === id) : null;
   const isEdit = !!p;
@@ -680,7 +501,6 @@ function openProductForm(id) {
     <div class="tabs">
       <button type="button" class="tab-btn active" data-tab="general" data-testid="pf-tab-general">General</button>
       <button type="button" class="tab-btn" data-tab="media" data-testid="pf-tab-media">Media</button>
-      <button type="button" class="tab-btn" data-tab="shipping" data-testid="pf-tab-shipping">Shipping &amp; Tax</button>
       <button type="button" class="tab-btn" data-tab="inventory" data-testid="pf-tab-inventory">Inventory</button>
       <button type="button" class="tab-btn" data-tab="seo" data-testid="pf-tab-seo">SEO</button>
     </div>
@@ -688,15 +508,7 @@ function openProductForm(id) {
       <div class="tab-pane active" data-pane="general">
         <div class="grid-2">
           <div class="field" style="grid-column:1/-1"><label>Name *</label><input class="input" id="${formId}-name" required data-testid="pf-name" value="${escapeHTML(p?.name||'')}" /></div>
-          <div class="field"><label>SKU</label><input class="input" id="${formId}-sku" data-testid="pf-sku" value="${escapeHTML(p?.sku||'')}" placeholder="ONC-001" /></div>
-          <div class="field">
-            <label>Barcode <span style="font-weight:400;color:var(--admin-text-mute);font-size:11px;">(optional — EAN-13, UPC, or any code)</span></label>
-            <div style="display:flex;gap:6px;">
-              <input class="input" id="${formId}-barcode" data-testid="pf-barcode" value="${escapeHTML(p?.barcode||'')}" placeholder="8901234567890" style="flex:1;" />
-              <button type="button" class="btn btn-secondary btn-sm" onclick="generateBarcodeForForm('${formId}')" title="Auto-generate from SKU or random 12-digit number" data-testid="pf-gen-barcode"><i class="fas fa-wand-magic-sparkles"></i></button>
-            </div>
-            <div id="${formId}-barcode-preview" style="margin-top:8px;text-align:center;"></div>
-          </div>
+          <div class="field"><label>SKU</label><input class="input" id="${formId}-sku" data-testid="pf-sku" value="${escapeHTML(p?.sku||'')}" /></div>
           <div class="field"><label>Status</label>
             <select class="select" id="${formId}-status" data-testid="pf-status">
               ${['Active','Inactive','Draft'].map(s => `<option ${(p?.status||'Active')===s?'selected':''}>${s}</option>`).join('')}
@@ -722,7 +534,7 @@ function openProductForm(id) {
         <div class="dropzone" id="${formId}-drop" data-testid="pf-drop">
           <div class="big-icon"><i class="fas fa-image"></i></div>
           <div style="font-weight:600;margin-bottom:4px">Drop a JPG/PNG to upload</div>
-          <div style="font-size:12px;color:var(--admin-text-mute)" id="${formId}-drop-sub">Stored in your Supabase project · JPG/PNG/WEBP/GIF · max 5 MB</div>
+          <div style="font-size:12px;color:var(--admin-text-mute)" id="${formId}-drop-sub">Uses imgbb (configure key in Site Settings → Image Upload)</div>
           <input type="file" id="${formId}-file" accept="image/jpeg,image/png,image/webp" hidden />
         </div>
         <div style="margin:14px 0 6px;font-size:12px;color:var(--admin-text-mute);text-align:center;">— or —</div>
@@ -745,30 +557,6 @@ function openProductForm(id) {
             <input type="file" id="${formId}-gallery_file" accept="image/jpeg,image/png,image/webp" hidden multiple />
           </div>
           <div class="hint" style="margin-top:6px;">Gallery shows on the product detail page. Up to 8 images.</div>
-        </div>
-      </div>
-
-      <div class="tab-pane" data-pane="shipping">
-        <div style="background:#FFF8E7;border:1px solid #E8C36E;color:#7A4310;padding:10px 14px;border-radius:6px;margin-bottom:14px;font-size:13px;">
-          <i class="fas fa-truck"></i> These details are used to calculate shipping cost (Delhivery) and generate GST-compliant invoices. Fill them once per product.
-        </div>
-        <h4 style="margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--admin-text-mute);">Package dimensions (per unit)</h4>
-        <div class="grid-2">
-          <div class="field"><label>Weight (grams) *</label><input class="input" id="${formId}-weight_grams" type="number" min="0" step="1" data-testid="pf-weight" value="${p?.weight_grams ?? ''}" placeholder="e.g. 500" />
-            <div class="hint">Net weight of a single unit including packaging</div></div>
-          <div class="field"><label>Length (cm)</label><input class="input" id="${formId}-length_cm" type="number" min="0" step="0.1" data-testid="pf-length" value="${p?.length_cm ?? ''}" placeholder="e.g. 15" /></div>
-          <div class="field"><label>Breadth (cm)</label><input class="input" id="${formId}-breadth_cm" type="number" min="0" step="0.1" data-testid="pf-breadth" value="${p?.breadth_cm ?? ''}" placeholder="e.g. 10" /></div>
-          <div class="field"><label>Height (cm)</label><input class="input" id="${formId}-height_cm" type="number" min="0" step="0.1" data-testid="pf-height" value="${p?.height_cm ?? ''}" placeholder="e.g. 6" /></div>
-        </div>
-        <h4 style="margin:18px 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--admin-text-mute);">Tax classification</h4>
-        <div class="grid-2">
-          <div class="field"><label>HSN Code</label><input class="input" id="${formId}-hsn_code" data-testid="pf-hsn" value="${escapeHTML(p?.hsn_code||'')}" placeholder="e.g. 7117 (imitation jewellery) or 4421 (wooden articles)" />
-            <div class="hint">Harmonised System Nomenclature — required on GST invoices. <a href="https://services.gst.gov.in/services/searchhsnsac" target="_blank" style="color:var(--admin-primary);">Find your HSN →</a></div></div>
-          <div class="field"><label>GST %</label>
-            <select class="select" id="${formId}-gst_percent" data-testid="pf-gst">
-              ${[0,5,12,18,28].map(g => `<option value="${g}" ${Number(p?.gst_percent ?? 0)===g?'selected':''}>${g}%</option>`).join('')}
-            </select>
-            <div class="hint">Standard rates: 5% (essentials), 12% (most), 18% (electronics/luxury), 28% (premium)</div></div>
         </div>
       </div>
 
@@ -812,21 +600,6 @@ function openProductForm(id) {
   $(`${formId}-seo_description`).addEventListener('input', upd);
   upd();
 
-  // Barcode live preview
-  const renderBarcodePreview = () => {
-    const code = $(`${formId}-barcode`).value.trim();
-    const target = $(`${formId}-barcode-preview`);
-    if (!code) { target.innerHTML = ''; return; }
-    target.innerHTML = `<svg id="${formId}-bc-svg"></svg>`;
-    try {
-      if (window.JsBarcode) {
-        window.JsBarcode(`#${formId}-bc-svg`, code, { format: 'CODE128', width: 1.8, height: 48, fontSize: 12, margin: 4, displayValue: true });
-      }
-    } catch (e) { target.innerHTML = `<div style="color:var(--admin-text-mute);font-size:11px;">Invalid barcode value</div>`; }
-  };
-  $(`${formId}-barcode`).addEventListener('input', renderBarcodePreview);
-  renderBarcodePreview();
-
   // Upload
   const drop = $(`${formId}-drop`), file = $(`${formId}-file`);
   drop.addEventListener('click', () => file.click());
@@ -835,16 +608,17 @@ function openProductForm(id) {
   drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('drag'); if (e.dataTransfer.files[0]) handleUpload(e.dataTransfer.files[0]); });
   file.addEventListener('change', (e) => e.target.files[0] && handleUpload(e.target.files[0]));
   async function handleUpload(f) {
+    if (!state.imgbbKey) { showToast('Add an imgbb API key in Site Settings first.', 'error'); return; }
     $(`${formId}-drop-sub`).innerHTML = '<span class="spin"></span> Uploading…';
     try {
-      const url = await uploadProductImage(f);
+      const url = await uploadImageToImgbb(f);
       $(`${formId}-image_url`).value = url;
       $(`${formId}-img-block`).innerHTML = `<div style="margin-bottom:12px;"><img src="${escapeHTML(url)}" alt="" style="max-width:240px;border-radius:6px;border:1px solid var(--admin-border);" /></div>`;
       $(`${formId}-drop-sub`).textContent = 'Uploaded · ready to save';
       showToast('Image uploaded.');
     } catch (e) {
       showToast(e.message, 'error');
-      $(`${formId}-drop-sub`).textContent = 'Stored in your Supabase project · JPG/PNG/WEBP/GIF · max 5 MB';
+      $(`${formId}-drop-sub`).textContent = 'Uses imgbb (configure key in Site Settings)';
     }
   }
 
@@ -873,9 +647,10 @@ function openProductForm(id) {
   };
   $(`${formId}-gallery_upload_btn`).onclick = () => $(`${formId}-gallery_file`).click();
   $(`${formId}-gallery_file`).onchange = async (e) => {
+    if (!state.imgbbKey) { showToast('Add an imgbb API key in Site Settings first.', 'error'); return; }
     for (const f of Array.from(e.target.files || [])) {
       if (gallery.length >= 8) break;
-      try { const url = await uploadProductImage(f); gallery.push(url); renderGallery(); }
+      try { const url = await uploadImageToImgbb(f); gallery.push(url); renderGallery(); }
       catch (err) { showToast(err.message, 'error'); }
     }
     e.target.value = '';
@@ -885,6 +660,7 @@ function openProductForm(id) {
   $(`${formId}-ai_img`).onclick = async () => {
     const geminiKey = state.settings.gemini_api_key;
     if (!geminiKey) return showToast('Add a Gemini API key in Site Settings → AI & Alerts.', 'error');
+    if (!state.imgbbKey) return showToast('Also add an imgbb API key (to host the generated image).', 'error');
     const name = $(`${formId}-name`).value.trim();
     if (!name) return showToast('Enter product name first.', 'error');
     const category = $(`${formId}-category`).value.trim() || 'premium gift';
@@ -903,19 +679,21 @@ function openProductForm(id) {
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error?.message || `Gemini error ${r.status}`);
+      // Find the inline_data part in the response
       const parts = j.candidates?.[0]?.content?.parts || [];
       const img = parts.find(p => p.inlineData || p.inline_data);
       const dataBlock = img?.inlineData || img?.inline_data;
       if (!dataBlock?.data) throw new Error('No image returned by Gemini');
+      // Convert base64 → Blob → imgbb upload
       const byteChars = atob(dataBlock.data);
       const byteArr = new Uint8Array(byteChars.length);
       for (let i = 0; i < byteChars.length; i++) byteArr[i] = byteChars.charCodeAt(i);
       const blob = new Blob([byteArr], { type: dataBlock.mimeType || dataBlock.mime_type || 'image/png' });
       const file = new File([blob], `ai-${slugify(name)}.png`, { type: blob.type });
       btn.innerHTML = '<span class="spin"></span> Uploading…';
-      const imgUrl = await uploadProductImage(file);
-      $(`${formId}-image_url`).value = imgUrl;
-      $(`${formId}-img-block`).innerHTML = `<div style="margin-bottom:12px;"><img src="${escapeHTML(imgUrl)}" alt="" style="max-width:240px;border-radius:6px;border:1px solid var(--admin-border);" /></div>`;
+      const imgbbUrl = await uploadImageToImgbb(file);
+      $(`${formId}-image_url`).value = imgbbUrl;
+      $(`${formId}-img-block`).innerHTML = `<div style="margin-bottom:12px;"><img src="${escapeHTML(imgbbUrl)}" alt="" style="max-width:240px;border-radius:6px;border:1px solid var(--admin-border);" /></div>`;
       showToast('🎨 AI image generated. Review and save.');
     } catch (err) {
       showToast('AI image failed: ' + err.message, 'error');
@@ -971,13 +749,6 @@ function openProductForm(id) {
     const payload = {
       id: newId, name,
       sku: $(`${formId}-sku`).value.trim() || null,
-      barcode: $(`${formId}-barcode`).value.trim() || null,
-      weight_grams: $(`${formId}-weight_grams`).value ? Math.round(Number($(`${formId}-weight_grams`).value)) : null,
-      length_cm:  $(`${formId}-length_cm`).value  ? Number($(`${formId}-length_cm`).value)  : null,
-      breadth_cm: $(`${formId}-breadth_cm`).value ? Number($(`${formId}-breadth_cm`).value) : null,
-      height_cm:  $(`${formId}-height_cm`).value  ? Number($(`${formId}-height_cm`).value)  : null,
-      hsn_code:   $(`${formId}-hsn_code`).value.trim() || null,
-      gst_percent: Number($(`${formId}-gst_percent`).value || 0),
       status: $(`${formId}-status`).value,
       category: $(`${formId}-category`).value.trim() || null,
       badge: $(`${formId}-badge`).value.trim() || null,
@@ -1184,13 +955,6 @@ function mapRow(r) {
   return {
     name,
     sku: (r.SKU || '').toString().trim() || null,
-    barcode: (r.BARCODE || r.EAN || r.UPC || '').toString().trim() || null,
-    weight_grams: r.WEIGHT_G || r.WEIGHT || r['WEIGHT (G)'] ? Math.round(Number(r.WEIGHT_G || r.WEIGHT || r['WEIGHT (G)'])) || null : null,
-    length_cm:  r.LENGTH  || r['LENGTH (CM)']  ? Number(r.LENGTH  || r['LENGTH (CM)'])  || null : null,
-    breadth_cm: r.BREADTH || r['BREADTH (CM)'] ? Number(r.BREADTH || r['BREADTH (CM)']) || null : null,
-    height_cm:  r.HEIGHT  || r['HEIGHT (CM)']  ? Number(r.HEIGHT  || r['HEIGHT (CM)'])  || null : null,
-    hsn_code:   (r.HSN || r['HSN CODE'] || '').toString().trim() || null,
-    gst_percent: r.GST || r['GST %'] || r['GST PERCENT'] ? Number(r.GST || r['GST %'] || r['GST PERCENT']) || 0 : 0,
     category: (r.SHORTCODE || r.CATEGORY || '').toString().trim() || null,
     badge: (r.BADGE || '').toString().trim() || null,
     description: (r.DESCRIPTION || '').toString().trim() || null,
@@ -1318,9 +1082,7 @@ function renderOrders() {
     const invLink = ccId ? `<a href="thank-you.html?status=success&order_id=${encodeURIComponent(ccId)}&tracking_id=${encodeURIComponent(o.payment_tracking_id||'')}&amount=${encodeURIComponent(o.total_amount||'')}" target="_blank" class="icon-btn" title="View / print invoice" data-testid="invoice-btn-${escapeHTML(o.id)}"><i class="fas fa-file-invoice"></i></a>` : '';
     const reviewable = ['Paid','Packed','Shipped','Delivered'].includes(o.status);
     const reviewBtn = reviewable ? `<button class="icon-btn" onclick="requestReview('${escapeHTML(o.id)}')" title="Request review via WhatsApp" data-testid="review-req-${escapeHTML(o.id)}"><i class="fas fa-star"></i></button>` : '';
-    const checked = state.selectedOrders.has(o.id) ? 'checked' : '';
-    return `<tr data-testid="order-row-${escapeHTML(o.id)}" ${state.selectedOrders.has(o.id)?'style="background:#FBECEC;"':''}>
-      <td style="text-align:center;"><input type="checkbox" class="order-row-check" data-id="${escapeHTML(o.id)}" ${checked} data-testid="check-order-${escapeHTML(o.id)}" /></td>
+    return `<tr data-testid="order-row-${escapeHTML(o.id)}">
       <td><code style="font-size:11px">${escapeHTML(ccId || '#' + String(o.id).substring(0,8))}</code><div style="font-size:10px;color:var(--admin-text-mute);font-family:monospace;">${escapeHTML(o.payment_tracking_id || '')}</div></td>
       <td><div style="font-size:12px;font-weight:600;color:var(--admin-primary);">${escapeHTML(o.invoice_number || '—')}</div></td>
       <td><div style="font-size:12px">${escapeHTML(o.guest_email || o.user_id || '—')}</div><div style="font-size:11px;color:var(--admin-text-mute)">${escapeHTML(o.guest_phone || '')}</div></td>
@@ -1332,353 +1094,42 @@ function renderOrders() {
         </select>
       </td>
       <td style="font-size:12px;color:var(--admin-text-mute)">${new Date(o.created_at).toLocaleDateString()}</td>
-      <td><div class="row-actions">${invLink}${reviewBtn}<button class="icon-btn" onclick="viewOrder('${escapeHTML(o.id)}')" title="View"><i class="fas fa-eye"></i></button><button class="icon-btn danger" onclick="deleteOrder('${escapeHTML(o.id)}')" title="Delete" data-testid="del-order-${escapeHTML(o.id)}"><i class="fas fa-trash"></i></button></div></td>
+      <td><div class="row-actions">${invLink}${reviewBtn}<button class="icon-btn" onclick="viewOrder('${escapeHTML(o.id)}')" title="View"><i class="fas fa-eye"></i></button></div></td>
     </tr>`;
   }).join('');
-
-  // Wire row checkboxes
-  document.querySelectorAll('.order-row-check').forEach(cb => {
-    cb.addEventListener('change', (e) => {
-      const id = e.target.dataset.id;
-      if (e.target.checked) state.selectedOrders.add(id);
-      else state.selectedOrders.delete(id);
-      updateOrdersBulkBar();
-      e.target.closest('tr').style.background = e.target.checked ? '#FBECEC' : '';
-    });
-  });
-
-  updateOrdersBulkBar();
 }
-// Update order status + append timestamped status_history entry
-async function updateOrderStatus(id, status, opts = {}) {
-  const o = state.orders.find(x => x.id === id);
-  if (!o) return;
-  const now = new Date().toISOString();
-  const update = { status };
-  const history = Array.isArray(o.status_history) ? [...o.status_history] : [];
-  history.push({ status, at: now, by: state.user?.email || 'admin', note: opts.note || null });
-  update.status_history = history;
-
-  // Stamp timestamps for major lifecycle events
-  if (status === 'Confirmed' && !o.confirmed_at) update.confirmed_at = now;
-  if (status === 'Packed'    && !o.packed_at)    update.packed_at    = now;
-  if (status === 'Shipped'   && !o.shipped_at)   update.shipped_at   = now;
-  if (status === 'Delivered' && !o.delivered_at) update.delivered_at = now;
-  if (status === 'Cancelled' && !o.cancelled_at) update.cancelled_at = now;
-
-  const { error } = await supabaseClient.from('orders').update(update).eq('id', id);
-  if (error) {
-    if (error.message?.includes('status_history') || error.message?.includes('confirmed_at')) {
-      return showToast('Run migration_phase1.sql in Supabase first.', 'error');
-    }
-    return showToast('Update failed: ' + error.message, 'error');
-  }
-  Object.assign(o, update);
-  renderOrders();
+async function updateOrderStatus(id, status) {
+  const { error } = await supabaseClient.from('orders').update({ status }).eq('id', id);
+  if (error) return showToast('Update failed: ' + error.message, 'error');
+  const o = state.orders.find(x => x.id === id); if (o) o.status = status;
+  showToast(`Order #${id.substring(0,8)} → ${status}`);
   renderDashboard();
-  showToast(`Order → ${status}`);
 }
 window.updateOrderStatus = updateOrderStatus;
-
-// ------------------------- Enhanced Order Detail / Fulfilment View -------------------------
 function viewOrder(id) {
-  const o = state.orders.find(x => x.id === id);
-  if (!o) return;
+  const o = state.orders.find(x => x.id === id); if (!o) return;
   const items = Array.isArray(o.items) ? o.items : (o.items?.items || []);
   const ship = o.shipping_address || {};
-  const cc = o.ccavenue_order_id || ('#' + String(o.id).substring(0, 8));
-  const totalWeight = items.reduce((s, it) => {
-    const prod = state.products.find(p => p.id === it.product_id);
-    const w = (prod?.weight_grams || 500) * (it.qty || it.quantity || 1);
-    return s + w;
-  }, 0);
-
-  // Status timeline
-  const stages = ['Pending', 'Confirmed', 'Packed', 'Shipped', 'Delivered'];
-  const stageTimestamps = {
-    'Pending':   o.created_at,
-    'Confirmed': o.confirmed_at,
-    'Packed':    o.packed_at,
-    'Shipped':   o.shipped_at,
-    'Delivered': o.delivered_at,
-  };
-  const currentIdx = stages.indexOf(o.status === 'Paid' ? 'Confirmed' : o.status);
-  const cancelled = o.status === 'Cancelled' || o.status === 'Failed';
-
-  const timelineHTML = cancelled
-    ? `<div style="background:#FBECEC;border:1px solid #E8C1C1;color:#C0392B;padding:10px 14px;border-radius:6px;font-size:13px;"><strong><i class="fas fa-circle-xmark"></i> Order ${o.status}</strong>${o.cancelled_at ? ' on ' + new Date(o.cancelled_at).toLocaleString() : ''}</div>`
-    : `<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:4px;margin:14px 0 4px;">
-        ${stages.map((st, i) => {
-          const done = i <= currentIdx && currentIdx >= 0;
-          const ts = stageTimestamps[st];
-          return `<div style="flex:1;text-align:center;position:relative;">
-            <div style="width:32px;height:32px;border-radius:50%;margin:0 auto;background:${done?'var(--admin-primary)':'#E8E0D2'};color:${done?'#fff':'var(--admin-text-mute)'};display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px;border:2px solid ${done?'var(--admin-primary)':'#E8E0D2'};">${done?'<i class="fas fa-check"></i>':(i+1)}</div>
-            ${i<stages.length-1?`<div style="position:absolute;top:15px;left:calc(50% + 22px);right:calc(-50% + 22px);height:2px;background:${done && i<currentIdx ? 'var(--admin-primary)' : '#E8E0D2'};"></div>`:''}
-            <div style="margin-top:6px;font-size:11px;font-weight:${done?'600':'400'};color:${done?'var(--admin-ink)':'var(--admin-text-mute)'};">${st}</div>
-            <div style="font-size:9px;color:var(--admin-text-mute);">${ts ? new Date(ts).toLocaleDateString('en-IN',{day:'2-digit',month:'short'}) : ''}</div>
-          </div>`;
-        }).join('')}
-      </div>`;
-
-  // Action buttons based on current status
-  const actionBtns = [];
-  if (o.status === 'Paid' || o.status === 'Processing') actionBtns.push({ label: 'Confirm Order', status: 'Confirmed', icon: 'fa-circle-check', style: 'btn-primary' });
-  if (o.status === 'Confirmed' || o.status === 'Paid') actionBtns.push({ label: 'Mark as Packed', status: 'Packed',   icon: 'fa-box',         style: 'btn-primary' });
-  if (o.status === 'Packed')                          actionBtns.push({ label: 'Mark as Shipped', status: 'Shipped',  icon: 'fa-truck',       style: 'btn-primary' });
-  if (o.status === 'Shipped')                         actionBtns.push({ label: 'Mark Delivered', status: 'Delivered', icon: 'fa-circle-check', style: 'btn-primary' });
-  if (!['Cancelled','Delivered','Failed'].includes(o.status)) actionBtns.push({ label: 'Cancel', status: 'Cancelled', icon: 'fa-circle-xmark', style: 'btn-danger' });
-
-  const invLink = cc ? `<a href="thank-you.html?status=success&order_id=${encodeURIComponent(o.ccavenue_order_id||'')}&tracking_id=${encodeURIComponent(o.payment_tracking_id||'')}&amount=${encodeURIComponent(o.total_amount||'')}" target="_blank" class="btn btn-secondary btn-sm"><i class="fas fa-file-invoice"></i> View / Print Invoice</a>` : '';
-
   const body = `
-    <!-- TOP STATUS BAR -->
-    ${timelineHTML}
-
-    <!-- ACTION BAR -->
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 22px;padding-top:14px;border-top:1px solid var(--admin-border);">
-      ${actionBtns.map(b => `<button class="btn ${b.style} btn-sm" data-status-action="${b.status}" data-testid="ov-action-${b.status.toLowerCase()}"><i class="fas ${b.icon}"></i> ${b.label}</button>`).join('')}
-      ${invLink}
+    <div class="grid-2">
+      <div><div class="field"><label>Order ID</label><div><code>${escapeHTML(o.id)}</code></div></div></div>
+      <div><div class="field"><label>Status</label><div>${statusBadge(o.status)}</div></div></div>
+      <div><div class="field"><label>Customer Email</label><div>${escapeHTML(o.guest_email||o.user_id||'—')}</div></div></div>
+      <div><div class="field"><label>Phone</label><div>${escapeHTML(o.guest_phone||'—')}</div></div></div>
+      <div style="grid-column:1/-1"><div class="field"><label>Shipping Address</label><div style="white-space:pre-wrap;font-size:13px;">${escapeHTML(JSON.stringify(ship, null, 2))}</div></div></div>
     </div>
-
-    <div class="grid-2" style="gap:18px;">
-      <!-- CUSTOMER -->
-      <div style="background:var(--admin-muted);padding:14px 16px;border-radius:8px;">
-        <h4 style="margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--admin-text-mute);">Customer</h4>
-        <div style="font-size:14px;font-weight:600;color:var(--admin-ink);">${escapeHTML(ship.name || '—')}</div>
-        <div style="font-size:13px;color:var(--admin-text-soft);margin-top:4px;">
-          <div><i class="fas fa-envelope" style="width:14px;color:var(--admin-text-mute);"></i> ${escapeHTML(o.guest_email || ship.email || '—')}</div>
-          <div><i class="fas fa-phone" style="width:14px;color:var(--admin-text-mute);"></i> ${escapeHTML(o.guest_phone || ship.phone || '—')}</div>
-        </div>
-      </div>
-
-      <!-- PAYMENT -->
-      <div style="background:var(--admin-muted);padding:14px 16px;border-radius:8px;">
-        <h4 style="margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--admin-text-mute);">Payment</h4>
-        <div style="font-size:14px;font-weight:600;color:var(--admin-ink);">${fmtINR(o.total_amount)} <span style="font-weight:400;font-size:11px;color:#1E5631;">· ${escapeHTML(o.payment_status || 'Pending')}</span></div>
-        <div style="font-size:12px;color:var(--admin-text-soft);margin-top:4px;font-family:monospace;">
-          <div>Order: ${escapeHTML(cc)}</div>
-          <div>Track ID: ${escapeHTML(o.payment_tracking_id || '—')}</div>
-          <div>Invoice: <strong style="color:var(--admin-primary);">${escapeHTML(o.invoice_number || '—')}</strong></div>
-        </div>
-      </div>
-
-      <!-- SHIPPING ADDRESS -->
-      <div style="background:var(--admin-muted);padding:14px 16px;border-radius:8px;grid-column:1/-1;">
-        <h4 style="margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--admin-text-mute);">Ship To</h4>
-        <div style="font-size:13px;color:var(--admin-text-soft);line-height:1.5;">
-          ${escapeHTML(ship.name||'')}<br>
-          ${escapeHTML(ship.address||'—')}<br>
-          ${escapeHTML([ship.city, ship.state, ship.zip].filter(Boolean).join(', '))}<br>
-          ${escapeHTML(ship.country||'India')} · <i class="fas fa-phone"></i> ${escapeHTML(ship.phone||'')}
-        </div>
-      </div>
-    </div>
-
-    <!-- SHIPPING / LOGISTICS -->
-    <h4 class="card-title" style="margin:18px 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:1.2px;color:var(--admin-text-mute);">Logistics</h4>
-    <div class="grid-2" style="gap:14px;">
-      <div class="field"><label>Courier Partner</label><div><strong>${escapeHTML(o.courier_partner || 'Delhivery')}</strong> ${o.awb_number ? '· <span style="color:#1E5631;font-size:12px;"><i class="fas fa-check-circle"></i> AWB generated</span>' : '<span style="color:var(--admin-text-mute);font-size:11px;">(click below to generate AWB)</span>'}</div></div>
-      <div class="field"><label>AWB / Tracking Number</label><div>${o.awb_number ? `<code style="font-size:13px;">${escapeHTML(o.awb_number)}</code> · <a href="${escapeHTML(o.tracking_url||'#')}" target="_blank" style="color:var(--admin-primary);font-size:12px;">Track →</a>` : '<span style="color:var(--admin-text-mute);font-size:12px;">Not yet generated</span>'}</div></div>
-      <div class="field"><label>Total Shipment Weight</label><div><strong>${totalWeight} g</strong> (${(totalWeight/1000).toFixed(2)} kg)</div></div>
-      <div class="field"><label>Internal Notes</label><textarea id="ov-notes" class="input" rows="2" data-testid="ov-notes" placeholder="e.g. Customer requested gift wrapping">${escapeHTML(o.internal_notes||'')}</textarea></div>
-    </div>
-
-    <!-- DELHIVERY ACTIONS -->
-    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
-      ${o.awb_number
-        ? `<a class="btn btn-secondary btn-sm" href="/api/delhivery/label?awb=${encodeURIComponent(o.awb_number)}" target="_blank" data-testid="ov-print-label"><i class="fas fa-print"></i> Print Shipping Label</a>
-           <a class="btn btn-secondary btn-sm" href="${escapeHTML(o.tracking_url||'#')}" target="_blank" data-testid="ov-track"><i class="fas fa-truck-fast"></i> Track Shipment</a>`
-        : (['Paid','Confirmed','Packed'].includes(o.status) ? `<button class="btn btn-primary btn-sm" id="ov-gen-awb" data-testid="ov-gen-awb"><i class="fas fa-truck"></i> Generate Delhivery AWB</button>` : '')}
-      <button class="btn btn-secondary btn-sm" id="ov-schedule-pickup" data-testid="ov-pickup"><i class="fas fa-calendar-day"></i> Schedule Pickup</button>
-    </div>
-
-    <!-- ITEMS -->
-    <h4 class="card-title" style="margin:18px 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:1.2px;color:var(--admin-text-mute);">Items (${items.length})</h4>
+    <h4 class="card-title" style="margin:16px 0 8px;">Items</h4>
     <table class="data">
-      <thead><tr><th style="width:50px"></th><th>Product</th><th>SKU</th><th>HSN</th><th style="text-align:right">Qty</th><th style="text-align:right">Unit Price</th><th style="text-align:right">Subtotal</th></tr></thead>
-      <tbody>
-        ${items.map(it => {
-          const prod = state.products.find(p => p.id === it.product_id);
-          const qty = it.qty || it.quantity || 1;
-          const price = Number(it.price || 0);
-          const img = prod?.image_url || (Array.isArray(prod?.image_urls) && prod.image_urls[0]) || null;
-          return `<tr>
-            <td>${img ? `<img src="${escapeHTML(img)}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid var(--admin-border);" onerror="this.style.display='none'" />` : '<i class="fas fa-image" style="color:var(--admin-text-mute);"></i>'}</td>
-            <td><div style="font-weight:500;font-size:13px;">${escapeHTML(it.name || it.product_id || '—')}</div>${prod?.weight_grams ? `<div style="font-size:11px;color:var(--admin-text-mute);">${prod.weight_grams}g per unit</div>`:''}</td>
-            <td><code style="font-size:11px;">${escapeHTML(prod?.sku || '—')}</code></td>
-            <td style="font-size:12px;">${escapeHTML(prod?.hsn_code || '—')}</td>
-            <td style="text-align:right;font-weight:500;">${qty}</td>
-            <td style="text-align:right;">${fmtINR(price)}</td>
-            <td style="text-align:right;font-weight:600;">${fmtINR(price * qty)}</td>
-          </tr>`;
-        }).join('')}
-      </tbody>
-      <tfoot>
-        <tr><td colspan="6" style="text-align:right">Subtotal</td><td style="text-align:right">${fmtINR(o.items_subtotal || o.total_amount)}</td></tr>
-        ${o.shipping_amount ? `<tr><td colspan="6" style="text-align:right">Shipping</td><td style="text-align:right">${fmtINR(o.shipping_amount)}</td></tr>` : ''}
-        ${o.discount_amount ? `<tr><td colspan="6" style="text-align:right;color:#2E7D32;">Discount</td><td style="text-align:right;color:#2E7D32;">− ${fmtINR(o.discount_amount)}</td></tr>` : ''}
-        <tr><td colspan="6" style="text-align:right;font-weight:700;border-top:2px solid var(--admin-border);">Total</td><td style="text-align:right;font-weight:700;color:var(--admin-primary);border-top:2px solid var(--admin-border);">${fmtINR(o.total_amount)}</td></tr>
-      </tfoot>
-    </table>
-
-    <!-- STATUS HISTORY -->
-    ${Array.isArray(o.status_history) && o.status_history.length ? `
-      <h4 class="card-title" style="margin:18px 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:1.2px;color:var(--admin-text-mute);">Status History</h4>
-      <div style="background:var(--admin-muted);border-radius:6px;padding:10px 14px;font-size:12px;max-height:160px;overflow-y:auto;">
-        ${o.status_history.slice().reverse().map(h => `<div style="padding:4px 0;border-bottom:1px solid var(--admin-border);"><strong>${escapeHTML(h.status)}</strong> · <span style="color:var(--admin-text-mute);">${new Date(h.at).toLocaleString('en-IN')}</span> by ${escapeHTML(h.by||'system')}${h.note?` · <em>${escapeHTML(h.note)}</em>`:''}</div>`).join('')}
-      </div>` : ''}
-  `;
-
+      <thead><tr><th>Product</th><th style="text-align:right">Qty</th><th style="text-align:right">Price</th><th style="text-align:right">Subtotal</th></tr></thead>
+      <tbody>${items.map(it => `<tr><td>${escapeHTML(it.name || it.product_id || '—')}</td><td style="text-align:right">${it.qty || it.quantity || 1}</td><td style="text-align:right">${fmtINR(it.price)}</td><td style="text-align:right">${fmtINR((it.price||0) * (it.qty||it.quantity||1))}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td colspan="3" style="text-align:right;font-weight:600">Total</td><td style="text-align:right;font-weight:700;color:var(--admin-primary)">${fmtINR(o.total_amount)}</td></tr></tfoot>
+    </table>`;
   const footer = el('div', {});
-  footer.innerHTML = `<button class="btn btn-secondary" id="ov-close" data-testid="ov-close">Close</button><button class="btn btn-primary" id="ov-save-notes" data-testid="ov-save-notes"><i class="fas fa-save"></i> Save Notes</button>`;
-  const m = openModal({ title: `Order ${cc}`, body, footer, size: 'lg', testid: 'order-view' });
+  footer.innerHTML = `<button class="btn btn-secondary" id="ov-close">Close</button>`;
+  const m = openModal({ title: `Order #${o.id.substring(0,8)}`, body, footer, size: 'lg', testid: 'order-view' });
   $('ov-close').onclick = () => m.close();
-  $('ov-save-notes').onclick = async () => {
-    const notes = $('ov-notes').value.trim();
-    const { error } = await supabaseClient.from('orders').update({ internal_notes: notes }).eq('id', o.id);
-    if (error) return showToast('Save failed: ' + error.message, 'error');
-    o.internal_notes = notes;
-    showToast('Notes saved.');
-  };
-
-  // Generate AWB
-  const awbBtn = $('ov-gen-awb');
-  if (awbBtn) awbBtn.onclick = async () => {
-    const key = localStorage.getItem('oncost_recover_key') || prompt('Enter your ADMIN_RECOVERY_KEY (from Vercel env):');
-    if (!key) return;
-    awbBtn.disabled = true; awbBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Calling Delhivery…';
-    try {
-      const r = await fetch('/api/delhivery/create-shipment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
-        body: JSON.stringify({ order_id: o.id }),
-      });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error || 'AWB creation failed');
-      localStorage.setItem('oncost_recover_key', key);
-      o.awb_number = j.awb;
-      o.tracking_url = j.tracking_url;
-      showToast(`AWB generated: ${j.awb}`);
-      m.close();
-      viewOrder(o.id);
-      loadOrders().then(() => renderOrders());
-    } catch (err) {
-      showToast(err.message, 'error');
-      awbBtn.disabled = false; awbBtn.innerHTML = '<i class="fas fa-truck"></i> Generate Delhivery AWB';
-    }
-  };
-
-  // Schedule pickup
-  const pickupBtn = $('ov-schedule-pickup');
-  if (pickupBtn) pickupBtn.onclick = async () => {
-    const today = new Date();
-    today.setDate(today.getDate() + 1);
-    const tomorrow = today.toISOString().split('T')[0];
-    const date = prompt('Schedule pickup for date (YYYY-MM-DD):', tomorrow);
-    if (!date) return;
-    const key = localStorage.getItem('oncost_recover_key') || prompt('Enter your ADMIN_RECOVERY_KEY:');
-    if (!key) return;
-    try {
-      const r = await fetch('/api/delhivery/schedule-pickup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
-        body: JSON.stringify({ pickup_date: date, expected_package_count: 1 }),
-      });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error || 'Pickup scheduling failed');
-      showToast(`Pickup scheduled for ${date} (ref ${j.pickup_id || 'OK'})`);
-    } catch (err) {
-      showToast(err.message, 'error');
-    }
-  };
-  // Wire action buttons
-  m.root.querySelectorAll('[data-status-action]').forEach(btn => {
-    btn.onclick = async () => {
-      const newStatus = btn.dataset.statusAction;
-      if (newStatus === 'Cancelled') {
-        if (!await confirmDialog(`Cancel order ${cc}? This cannot be undone.`, { confirmLabel: 'Yes, cancel', danger: true })) return;
-      }
-      await updateOrderStatus(o.id, newStatus);
-      m.close();
-      viewOrder(o.id);  // reopen with new state
-    };
-  });
 }
 window.viewOrder = viewOrder;
-
-// ------------------------- Order Delete + Bulk Actions -------------------------
-async function deleteOrder(id) {
-  const o = state.orders.find(x => x.id === id);
-  if (!o) return;
-  const label = o.ccavenue_order_id || ('#' + String(o.id).substring(0, 8));
-  if (!await confirmDialog(`Permanently delete order ${label}? This cannot be undone.`, { confirmLabel: 'Delete', danger: true })) return;
-  const { error } = await supabaseClient.from('orders').delete().eq('id', id);
-  if (error) return showToast('Delete failed: ' + error.message, 'error');
-  state.orders = state.orders.filter(x => x.id !== id);
-  state.selectedOrders.delete(id);
-  renderOrders();
-  renderDashboard();
-  showToast('Order deleted.');
-}
-window.deleteOrder = deleteOrder;
-
-function updateOrdersBulkBar() {
-  const bar = $('orders-bulk-bar');
-  const count = state.selectedOrders.size;
-  if (!bar) return;
-  if (count === 0) { bar.style.display = 'none'; }
-  else {
-    bar.style.display = 'flex';
-    $('orders-bulk-count').textContent = `${count} selected`;
-  }
-  const all = $('orders-check-all');
-  if (all) {
-    const visible = (state.orders || []).filter(o => {
-      const q = ($('orders-search').value || '').toLowerCase().trim();
-      const st = $('orders-status-filter').value;
-      if (st && o.status !== st) return false;
-      if (q) { const hay = `${o.id} ${o.ccavenue_order_id||''} ${o.guest_email||''} ${o.guest_phone||''}`.toLowerCase(); if (!hay.includes(q)) return false; }
-      return true;
-    });
-    const allSel = visible.length > 0 && visible.every(o => state.selectedOrders.has(o.id));
-    all.checked = allSel;
-    all.indeterminate = !allSel && visible.some(o => state.selectedOrders.has(o.id));
-  }
-}
-function clearOrderSelection() {
-  state.selectedOrders.clear();
-  renderOrders();
-}
-window.clearOrderSelection = clearOrderSelection;
-
-async function bulkOrderDelete() {
-  const ids = Array.from(state.selectedOrders);
-  if (!ids.length) return;
-  if (!await confirmDialog(`Permanently delete ${ids.length} order${ids.length>1?'s':''}? This cannot be undone. Customer payment data will be lost.`, { confirmLabel: `Delete ${ids.length}`, danger: true })) return;
-  const { error } = await supabaseClient.from('orders').delete().in('id', ids);
-  if (error) return showToast('Delete failed: ' + error.message, 'error');
-  state.orders = state.orders.filter(o => !state.selectedOrders.has(o.id));
-  state.selectedOrders.clear();
-  renderOrders();
-  renderDashboard();
-  showToast(`${ids.length} order${ids.length>1?'s':''} deleted.`);
-}
-window.bulkOrderDelete = bulkOrderDelete;
-
-async function bulkOrderDeleteByStatus(status) {
-  const candidates = state.orders.filter(o => o.status === status);
-  if (!candidates.length) return showToast(`No ${status} orders to delete.`, '');
-  if (!await confirmDialog(`Permanently delete ALL ${candidates.length} ${status} order${candidates.length>1?'s':''}? This is typically done to clear out test/abandoned orders before going live.`, { confirmLabel: `Delete ${candidates.length}`, danger: true })) return;
-  const ids = candidates.map(c => c.id);
-  const { error } = await supabaseClient.from('orders').delete().in('id', ids);
-  if (error) return showToast('Delete failed: ' + error.message, 'error');
-  state.orders = state.orders.filter(o => o.status !== status);
-  ids.forEach(id => state.selectedOrders.delete(id));
-  renderOrders();
-  renderDashboard();
-  showToast(`${candidates.length} ${status} order${candidates.length>1?'s':''} cleared.`);
-}
-window.bulkOrderDeleteByStatus = bulkOrderDeleteByStatus;
 
 // ------------------------- Recover Missed Order -------------------------
 // Used to backfill orders that succeeded on CCAvenue but never reached Supabase
@@ -2121,119 +1572,6 @@ async function requestReview(orderId) {
 }
 window.requestReview = requestReview;
 
-// ------------------------- Complaints -------------------------
-async function loadComplaints() {
-  try {
-    const { data } = await supabaseClient.from('complaints').select('*').order('created_at', { ascending: false });
-    state.complaints = data || [];
-  } catch { state.complaints = []; }
-  // Badge for sidebar showing open count
-  const openCount = state.complaints.filter(c => c.status === 'Open' || c.status === 'In Progress').length;
-  const badge = $('nav-complaints-badge');
-  if (badge) { badge.style.display = openCount ? 'inline-block' : 'none'; badge.textContent = openCount; }
-}
-
-function renderComplaints() {
-  const tbody = $('complaints-tbody');
-  if (!tbody) return;
-  const filter = $('complaints-status-filter')?.value;
-  let list = state.complaints;
-  if (filter) list = list.filter(c => c.status === filter);
-  if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="9"><div class="empty"><div class="ic"><i class="fas fa-headset"></i></div><h4>No complaints ${filter?`with status "${filter}"`:'yet'}</h4><p>Customer complaints submitted via the storefront contact form will appear here.</p></div></td></tr>`;
-    return;
-  }
-  const priorityColor = { Low:'#7A726B', Normal:'#1E5631', High:'#E8A53A', Urgent:'#C0392B' };
-  tbody.innerHTML = list.map(c => {
-    const order = c.order_id ? state.orders.find(o => o.id === c.order_id) : null;
-    return `<tr data-testid="complaint-row-${escapeHTML(c.id)}">
-      <td><strong style="color:var(--admin-primary);font-size:12px;">${escapeHTML(c.ticket_number || '—')}</strong></td>
-      <td><div style="font-weight:500;">${escapeHTML(c.customer_name)}</div><div style="font-size:11px;color:var(--admin-text-mute);">${escapeHTML(c.guest_email||'')}</div></td>
-      <td style="max-width:260px;"><div style="font-size:13px;font-weight:500;">${escapeHTML(c.subject)}</div><div style="font-size:11px;color:var(--admin-text-mute);">${escapeHTML((c.description||'').substring(0,80))}${(c.description||'').length>80?'…':''}</div></td>
-      <td><span class="badge b-muted" style="font-size:10px;">${escapeHTML(c.category)}</span></td>
-      <td style="font-size:11px;">${order ? `<code>${escapeHTML(order.ccavenue_order_id||'#'+String(order.id).substring(0,8))}</code>` : '<span style="color:var(--admin-text-mute);">—</span>'}</td>
-      <td><span style="color:${priorityColor[c.priority||'Normal']};font-weight:600;font-size:12px;">${escapeHTML(c.priority||'Normal')}</span></td>
-      <td>${statusBadge(c.status || 'Open')}</td>
-      <td style="font-size:12px;color:var(--admin-text-mute);">${new Date(c.created_at).toLocaleDateString()}</td>
-      <td><div class="row-actions">
-        <button class="icon-btn" onclick="viewComplaint('${escapeHTML(c.id)}')" title="View / respond" data-testid="view-complaint-${escapeHTML(c.id)}"><i class="fas fa-eye"></i></button>
-        <button class="icon-btn danger" onclick="deleteComplaint('${escapeHTML(c.id)}')" title="Delete" data-testid="del-complaint-${escapeHTML(c.id)}"><i class="fas fa-trash"></i></button>
-      </div></td>
-    </tr>`;
-  }).join('');
-}
-
-function viewComplaint(id) {
-  const c = state.complaints.find(x => x.id === id);
-  if (!c) return;
-  const order = c.order_id ? state.orders.find(o => o.id === c.order_id) : null;
-  const responses = Array.isArray(c.responses) ? c.responses : [];
-  const html = `
-    <div class="grid-2" style="gap:14px;margin-bottom:18px;">
-      <div><label class="hint" style="font-weight:700;text-transform:uppercase;letter-spacing:1px;">Customer</label><div style="font-size:14px;font-weight:600;">${escapeHTML(c.customer_name)}</div><div style="font-size:12px;color:var(--admin-text-mute);">${escapeHTML(c.guest_email || '')} · ${escapeHTML(c.guest_phone || '')}</div></div>
-      <div><label class="hint" style="font-weight:700;text-transform:uppercase;letter-spacing:1px;">Ticket</label><div style="font-size:14px;font-weight:600;color:var(--admin-primary);">${escapeHTML(c.ticket_number || '—')}</div><div style="font-size:11px;color:var(--admin-text-mute);">Opened ${new Date(c.created_at).toLocaleString('en-IN')}</div></div>
-      ${order ? `<div style="grid-column:1/-1;"><label class="hint" style="font-weight:700;text-transform:uppercase;letter-spacing:1px;">Related Order</label><div style="font-size:13px;"><code>${escapeHTML(order.ccavenue_order_id||'#'+String(order.id).substring(0,8))}</code> · ${fmtINR(order.total_amount)} · <a href="#" onclick="event.preventDefault();viewOrder('${escapeHTML(order.id)}')" style="color:var(--admin-primary);">Open →</a></div></div>` : ''}
-    </div>
-
-    <div class="grid-2" style="gap:14px;">
-      <div class="field"><label>Category</label><div><span class="badge b-muted">${escapeHTML(c.category)}</span></div></div>
-      <div class="field"><label>Priority</label>
-        <select class="select" id="cv-priority" data-testid="cv-priority">
-          ${['Low','Normal','High','Urgent'].map(p => `<option ${(c.priority||'Normal')===p?'selected':''}>${p}</option>`).join('')}
-        </select>
-      </div>
-      <div class="field"><label>Status</label>
-        <select class="select" id="cv-status" data-testid="cv-status">
-          ${['Open','In Progress','Resolved','Closed'].map(s => `<option ${(c.status||'Open')===s?'selected':''}>${s}</option>`).join('')}
-        </select>
-      </div>
-      <div class="field" style="grid-column:1/-1;"><label>Subject</label><div style="font-size:14px;font-weight:500;">${escapeHTML(c.subject)}</div></div>
-      <div class="field" style="grid-column:1/-1;"><label>Description</label><div style="font-size:13px;color:var(--admin-text-soft);background:var(--admin-muted);padding:10px 14px;border-radius:6px;white-space:pre-wrap;line-height:1.5;">${escapeHTML(c.description)}</div></div>
-      ${Array.isArray(c.attachments) && c.attachments.length ? `<div class="field" style="grid-column:1/-1;"><label>Attachments</label><div style="display:flex;gap:8px;flex-wrap:wrap;">${c.attachments.map(u => `<a href="${escapeHTML(u)}" target="_blank"><img src="${escapeHTML(u)}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;border:1px solid var(--admin-border);" /></a>`).join('')}</div></div>` : ''}
-      <div class="field" style="grid-column:1/-1;"><label>Admin Notes (internal)</label><textarea class="input" id="cv-notes" rows="2" data-testid="cv-notes" placeholder="Internal notes — not visible to customer">${escapeHTML(c.admin_notes || '')}</textarea></div>
-      <div class="field" style="grid-column:1/-1;"><label>Resolution (visible to customer)</label><textarea class="input" id="cv-resolution" rows="3" data-testid="cv-resolution" placeholder="How was the issue resolved? This message is shown to the customer.">${escapeHTML(c.resolution || '')}</textarea></div>
-    </div>
-
-    ${responses.length ? `
-      <h4 style="margin:18px 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--admin-text-mute);">Conversation</h4>
-      <div style="max-height:200px;overflow-y:auto;background:var(--admin-muted);padding:10px;border-radius:6px;font-size:12px;">
-        ${responses.map(r => `<div style="padding:6px 8px;margin-bottom:6px;background:#fff;border-radius:4px;border-left:3px solid ${r.author==='admin'?'var(--admin-primary)':'#A4D4B4'};"><strong>${escapeHTML(r.author||'system')}</strong> · <span style="color:var(--admin-text-mute);">${new Date(r.at).toLocaleString('en-IN')}</span><div style="margin-top:4px;white-space:pre-wrap;">${escapeHTML(r.message)}</div></div>`).join('')}
-      </div>` : ''}
-  `;
-  const footer = el('div', {});
-  footer.innerHTML = `<button class="btn btn-secondary" id="cv-close" data-testid="cv-close">Close</button><button class="btn btn-primary" id="cv-save" data-testid="cv-save"><i class="fas fa-save"></i> Save Changes</button>`;
-  const m = openModal({ title: `Ticket ${c.ticket_number || ''}`, body: html, footer, size: 'lg', testid: 'complaint-view' });
-  $('cv-close').onclick = () => m.close();
-  $('cv-save').onclick = async () => {
-    const update = {
-      status: $('cv-status').value,
-      priority: $('cv-priority').value,
-      admin_notes: $('cv-notes').value.trim() || null,
-      resolution: $('cv-resolution').value.trim() || null,
-    };
-    if (update.status === 'Resolved' && !c.resolved_at) update.resolved_at = new Date().toISOString();
-    const { error } = await supabaseClient.from('complaints').update(update).eq('id', c.id);
-    if (error) return showToast('Save failed: ' + error.message, 'error');
-    Object.assign(c, update);
-    renderComplaints();
-    loadComplaints();   // refresh badge
-    showToast('Ticket updated.');
-    m.close();
-  };
-}
-window.viewComplaint = viewComplaint;
-
-async function deleteComplaint(id) {
-  if (!await confirmDialog('Permanently delete this complaint ticket? This cannot be undone.', { confirmLabel: 'Delete', danger: true })) return;
-  const { error } = await supabaseClient.from('complaints').delete().eq('id', id);
-  if (error) return showToast('Delete failed: ' + error.message, 'error');
-  state.complaints = state.complaints.filter(c => c.id !== id);
-  renderComplaints();
-  loadComplaints();
-  showToast('Ticket deleted.');
-}
-window.deleteComplaint = deleteComplaint;
-
 // ------------------------- Render orchestration -------------------------
 function setupSearches() {
   let pt; $('products-search').addEventListener('input', () => { clearTimeout(pt); pt = setTimeout(applyProductFilters, 200); });
@@ -2243,29 +1581,6 @@ function setupSearches() {
   $('inv-low-only').addEventListener('change', renderInventory);
   let ot; $('orders-search').addEventListener('input', () => { clearTimeout(ot); ot = setTimeout(renderOrders, 200); });
   $('orders-status-filter').addEventListener('change', renderOrders);
-  $('complaints-status-filter')?.addEventListener('change', renderComplaints);
-
-  // Products "select all on page" header checkbox
-  $('products-check-all').addEventListener('change', (e) => {
-    const visible = state.productsFiltered.slice((state.productsPage-1)*state.productsPageSize, state.productsPage*state.productsPageSize);
-    if (e.target.checked) visible.forEach(p => state.selectedProducts.add(p.id));
-    else                  visible.forEach(p => state.selectedProducts.delete(p.id));
-    renderProducts();
-  });
-
-  // Orders "select all on page" header checkbox
-  $('orders-check-all').addEventListener('change', (e) => {
-    const visible = (state.orders || []).filter(o => {
-      const q = ($('orders-search').value || '').toLowerCase().trim();
-      const st = $('orders-status-filter').value;
-      if (st && o.status !== st) return false;
-      if (q) { const hay = `${o.id} ${o.ccavenue_order_id||''} ${o.guest_email||''} ${o.guest_phone||''}`.toLowerCase(); if (!hay.includes(q)) return false; }
-      return true;
-    });
-    if (e.target.checked) visible.forEach(o => state.selectedOrders.add(o.id));
-    else                  visible.forEach(o => state.selectedOrders.delete(o.id));
-    renderOrders();
-  });
 }
 
 function renderAllOnce() {
@@ -2275,7 +1590,6 @@ function renderAllOnce() {
   renderSales();
   renderLeads();
   renderTestimonials();
-  renderComplaints();
   renderInventory();
   renderOrders();
   renderDashboard();
