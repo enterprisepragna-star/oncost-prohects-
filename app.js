@@ -729,7 +729,15 @@ async function renderAccount() {
   }
   const tab = param('tab') || 'orders';
   let orders = [], leads = [];
-  try { const r = await supabaseClient.from('orders').select('*').eq('user_id', state.user.id).order('created_at', { ascending: false }); orders = r.data || []; } catch { /* ignore */ }
+  // Match orders by user_id OR by email (so guest orders placed BEFORE signup also appear)
+  try {
+    const r = await supabaseClient
+      .from('orders')
+      .select('*')
+      .or(`user_id.eq.${state.user.id},guest_email.eq.${state.user.email}`)
+      .order('created_at', { ascending: false });
+    orders = r.data || [];
+  } catch { /* ignore */ }
   try { const r = await supabaseClient.from('leads').select('*').eq('user_id', state.user.id).order('created_at', { ascending: false }); leads = r.data || []; } catch { /* ignore */ }
 
   slot.innerHTML = `
@@ -816,13 +824,25 @@ function setupEnquiryForm() {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(form);
-    const summary = `Name: ${fd.get('name')} | Email: ${fd.get('email')} | Phone: ${fd.get('phone')} | GSTIN: ${fd.get('gstin')||'—'} | Event: ${fd.get('eventType')} | Qty: ${fd.get('quantity')} | Date: ${fd.get('eventDate')||'—'} | Budget: ${fd.get('budget')||'—'} | Message: ${fd.get('message')||'—'}`;
+    const data = {
+      name: fd.get('name'), email: fd.get('email'), phone: fd.get('phone'),
+      gstin: fd.get('gstin')||'', event: fd.get('eventType'), qty: fd.get('quantity'),
+      date: fd.get('eventDate')||'', budget: fd.get('budget')||'', message: fd.get('message')||'',
+    };
+    const summary = `Name: ${data.name} | Email: ${data.email} | Phone: ${data.phone} | GSTIN: ${data.gstin||'—'} | Event: ${data.event} | Qty: ${data.qty} | Date: ${data.date||'—'} | Budget: ${data.budget||'—'} | Message: ${data.message||'—'}`;
     try {
       await supabaseClient.from('leads').insert({
         user_id: state.user?.id || null,
         product_id: param('product') || null,
         summary,
+        status: 'New',
       });
+      // Fire admin notification email (non-blocking)
+      fetch('/api/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'enquiry_admin_notify', data }),
+      }).catch(() => {/* silent fail — lead is already saved */});
       toast('Enquiry sent — we will reach out soon!', 'ok');
       form.reset();
     } catch (err) { toast('Failed: ' + err.message, 'err'); }

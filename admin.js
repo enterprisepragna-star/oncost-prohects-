@@ -2083,20 +2083,110 @@ async function loadLeads() {
   const { data } = await supabaseClient.from('leads').select('*').order('created_at', { ascending: false });
   state.leads = data || [];
 }
+function parseLeadSummary(summary) {
+  if (!summary) return {};
+  // Try JSON parse first
+  if (summary.trim().startsWith('{')) {
+    try { return JSON.parse(summary); } catch { /* fall through */ }
+  }
+  // Parse pipe-separated "Name: X | Email: Y | Phone: Z..."
+  const out = {};
+  summary.split('|').forEach(part => {
+    const m = part.match(/^\s*([^:]+):\s*(.*)$/);
+    if (m) out[m[1].trim()] = m[2].trim();
+  });
+  return out;
+}
+
 function renderLeads() {
   const tbody = $('leads-tbody');
   if (!state.leads.length) {
-    tbody.innerHTML = `<tr><td colspan="4"><div class="empty"><div class="ic"><i class="fas fa-envelope"></i></div><h4>No enquiries yet</h4><p>Customer enquiries from the storefront will appear here.</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty"><div class="ic"><i class="fas fa-envelope"></i></div><h4>No enquiries yet</h4><p>Customer enquiries from the storefront will appear here.</p></div></td></tr>`;
     return;
   }
-  tbody.innerHTML = state.leads.map(l => `
-    <tr>
-      <td style="font-size:12px">${new Date(l.created_at).toLocaleDateString()}</td>
-      <td><code style="font-size:11px">${escapeHTML(l.product_id||'—')}</code></td>
-      <td style="max-width:500px">${escapeHTML(l.summary||'')}</td>
-      <td style="font-size:11px;color:var(--admin-text-mute)">${escapeHTML((l.user_id||'').substring(0,8))}</td>
-    </tr>`).join('');
+  const statusColor = { 'New':'#1E88E5', 'Contacted':'#7A4310', 'Discussed':'#7A4310', 'Accepted':'#1E5631', 'Converted':'#1E5631', 'Not Converted':'#C0392B', 'Lost':'#C0392B' };
+  tbody.innerHTML = state.leads.map(l => {
+    const d = parseLeadSummary(l.summary || '');
+    const status = l.status || 'New';
+    const color = statusColor[status] || '#7A726B';
+    return `<tr data-testid="lead-row-${escapeHTML(l.id)}">
+      <td style="font-size:12px;">${new Date(l.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'})}</td>
+      <td><div style="font-weight:500;">${escapeHTML(d.Name || d.name || '—')}</div></td>
+      <td><div style="font-size:12px;">${escapeHTML(d.Email || d.email || '—')}</div><div style="font-size:11px;color:var(--admin-text-mute);">${escapeHTML(d.Phone || d.phone || '')}</div></td>
+      <td style="font-size:12px;">${escapeHTML(d.Event || d.event || '—')}</td>
+      <td style="font-size:12px;text-align:right;">${escapeHTML(d.Qty || d.qty || '—')}</td>
+      <td style="font-size:12px;text-align:right;">${d.Budget||d.budget ? '₹'+escapeHTML(d.Budget || d.budget) : '—'}</td>
+      <td style="max-width:240px;font-size:12px;color:var(--admin-text-soft);">${escapeHTML((d.Message || d.message || '').substring(0,80))}${(d.Message||d.message||'').length>80?'…':''}</td>
+      <td><span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;background:${color}20;color:${color};">${escapeHTML(status)}</span></td>
+      <td><div class="row-actions">
+        <button class="icon-btn" onclick="viewLead('${escapeHTML(l.id)}')" title="View / Update" data-testid="view-lead-${escapeHTML(l.id)}"><i class="fas fa-eye"></i></button>
+        <button class="icon-btn danger" onclick="deleteLead('${escapeHTML(l.id)}')" title="Delete" data-testid="del-lead-${escapeHTML(l.id)}"><i class="fas fa-trash"></i></button>
+      </div></td>
+    </tr>`;
+  }).join('');
 }
+
+function viewLead(id) {
+  const l = state.leads.find(x => x.id === id);
+  if (!l) return;
+  const d = parseLeadSummary(l.summary || '');
+  const html = `
+    <div class="grid-2" style="gap:14px;margin-bottom:14px;">
+      <div><label class="hint" style="font-weight:700;text-transform:uppercase;letter-spacing:1px;">Name</label><div style="font-size:14px;font-weight:600;">${escapeHTML(d.Name||d.name||'—')}</div></div>
+      <div><label class="hint" style="font-weight:700;text-transform:uppercase;letter-spacing:1px;">Date</label><div style="font-size:13px;">${new Date(l.created_at).toLocaleString('en-IN')}</div></div>
+      <div><label class="hint" style="font-weight:700;text-transform:uppercase;letter-spacing:1px;">Email</label><div style="font-size:13px;"><a href="mailto:${escapeHTML(d.Email||d.email||'')}" style="color:var(--admin-primary);">${escapeHTML(d.Email||d.email||'—')}</a></div></div>
+      <div><label class="hint" style="font-weight:700;text-transform:uppercase;letter-spacing:1px;">Phone</label><div style="font-size:13px;"><a href="tel:${escapeHTML(d.Phone||d.phone||'')}" style="color:var(--admin-primary);">${escapeHTML(d.Phone||d.phone||'—')}</a> · <a href="https://wa.me/${(d.Phone||d.phone||'').replace(/[^\d]/g,'').replace(/^0+/,'91')}" target="_blank" style="color:#25D366;"><i class="fab fa-whatsapp"></i> WhatsApp</a></div></div>
+      <div><label class="hint" style="font-weight:700;text-transform:uppercase;letter-spacing:1px;">Event Type</label><div style="font-size:13px;">${escapeHTML(d.Event||d.event||'—')}</div></div>
+      <div><label class="hint" style="font-weight:700;text-transform:uppercase;letter-spacing:1px;">Event Date</label><div style="font-size:13px;">${escapeHTML(d.Date||d.date||'—')}</div></div>
+      <div><label class="hint" style="font-weight:700;text-transform:uppercase;letter-spacing:1px;">Quantity</label><div style="font-size:13px;font-weight:600;">${escapeHTML(d.Qty||d.qty||'—')}</div></div>
+      <div><label class="hint" style="font-weight:700;text-transform:uppercase;letter-spacing:1px;">Budget</label><div style="font-size:13px;font-weight:600;color:var(--admin-primary);">${d.Budget||d.budget ? '₹'+escapeHTML(d.Budget||d.budget) : '—'}</div></div>
+      <div style="grid-column:1/-1;"><label class="hint" style="font-weight:700;text-transform:uppercase;letter-spacing:1px;">Message</label><div style="font-size:13px;background:var(--admin-muted);padding:10px;border-radius:6px;white-space:pre-wrap;line-height:1.5;">${escapeHTML(d.Message||d.message||'—')}</div></div>
+      <div><label class="hint" style="font-weight:700;text-transform:uppercase;letter-spacing:1px;">Status *</label>
+        <select class="select" id="lv-status" data-testid="lv-status">
+          ${['New','Contacted','Discussed','Quoted','Accepted','Converted','Not Converted','Lost'].map(s => `<option ${(l.status||'New')===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </div>
+      <div><label class="hint" style="font-weight:700;text-transform:uppercase;letter-spacing:1px;">Deal Value (₹) <span style="font-weight:400;">if converted</span></label>
+        <input class="input" id="lv-deal-value" type="number" min="0" step="100" data-testid="lv-deal-value" value="${l.deal_value || ''}" placeholder="0" />
+      </div>
+      <div style="grid-column:1/-1;"><label class="hint" style="font-weight:700;text-transform:uppercase;letter-spacing:1px;">Admin Notes (call log, next steps)</label>
+        <textarea class="input" id="lv-notes" rows="3" data-testid="lv-notes" placeholder="e.g. Called 14-Jun, said they'll confirm by Friday. Sent quote for 50 boxes at ₹6/each.">${escapeHTML(l.admin_notes||'')}</textarea>
+      </div>
+    </div>`;
+  const footer = el('div', {});
+  footer.innerHTML = `<button class="btn btn-secondary" id="lv-close" data-testid="lv-close">Close</button><button class="btn btn-primary" id="lv-save" data-testid="lv-save"><i class="fas fa-save"></i> Save Update</button>`;
+  const m = openModal({ title: `Enquiry · ${d.Name || d.name || '—'}`, body: html, footer, size: 'lg', testid: 'lead-view' });
+  $('lv-close').onclick = () => m.close();
+  $('lv-save').onclick = async () => {
+    const update = {
+      status: $('lv-status').value,
+      admin_notes: $('lv-notes').value.trim() || null,
+      deal_value: Number($('lv-deal-value').value) || null,
+    };
+    const { error } = await supabaseClient.from('leads').update(update).eq('id', l.id);
+    if (error) {
+      if (error.message?.includes('status') || error.message?.includes('admin_notes') || error.message?.includes('deal_value')) {
+        return showToast('Run migration_ALL_IN_ONE.sql to enable lead status tracking.', 'error');
+      }
+      return showToast('Save failed: ' + error.message, 'error');
+    }
+    Object.assign(l, update);
+    renderLeads();
+    showToast(`Enquiry → ${update.status}`);
+    m.close();
+  };
+}
+window.viewLead = viewLead;
+
+async function deleteLead(id) {
+  if (!await confirmDialog('Delete this enquiry permanently?', { confirmLabel:'Delete', danger:true })) return;
+  const { error } = await supabaseClient.from('leads').delete().eq('id', id);
+  if (error) return showToast('Delete failed: ' + error.message, 'error');
+  state.leads = state.leads.filter(x => x.id !== id);
+  renderLeads();
+  showToast('Enquiry deleted.');
+}
+window.deleteLead = deleteLead;
 
 // ------------------------- Testimonials -------------------------
 async function loadTestimonials() {
