@@ -1,8 +1,11 @@
 // POST /api/email/send
 // Unified email dispatcher via Resend.
-// Auth: x-admin-key OR called internally from other API routes
-// Body: { type, to, data }
-//   types: enquiry_admin_notify | order_confirm | order_shipped | testimonial_request | custom
+// Auth: x-admin-key OR called internally from other API routes (x-internal: 1)
+// Body: { type, to, data, order_id? }
+//   types: enquiry_admin_notify | order_confirm | order_invoice | order_shipped |
+//          testimonial_request | custom
+
+const { generateInvoicePDF } = require('./lib/invoice-pdf');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST required' });
@@ -12,6 +15,8 @@ module.exports = async function handler(req, res) {
   const REPLY_TO        = (process.env.RESEND_REPLY_TO || '').trim();
   const ADMIN_EMAIL     = (process.env.ADMIN_EMAIL || 'enterprisepragna@gmail.com').trim();
   const ADMIN_KEY       = process.env.ADMIN_RECOVERY_KEY;
+  const SUPABASE_URL    = (process.env.SUPABASE_URL || '').trim();
+  const SERVICE_KEY     = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
   if (!RESEND_API_KEY) return res.status(500).json({ error: 'RESEND_API_KEY missing in Vercel env' });
 
   // Allow internal calls (no key check) OR admin key
@@ -22,8 +27,9 @@ module.exports = async function handler(req, res) {
     if (req.body?.type !== 'enquiry_admin_notify') return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const { type = 'custom', to, data = {} } = req.body || {};
+  const { type = 'custom', to, data = {}, order_id } = req.body || {};
   let subject = '', html = '', recipient = to;
+  let attachments = undefined;
 
   switch (type) {
     case 'enquiry_admin_notify':
@@ -54,19 +60,97 @@ module.exports = async function handler(req, res) {
       break;
 
     case 'order_confirm':
-      subject = `✓ Order confirmed · ${data.order_id || ''}`;
+    case 'order_invoice': {
+      // Optionally load order + products from Supabase to attach PDF invoice
+      let order = data.order || null;
+      let products = {};
+      if ((type === 'order_invoice' || data.attach_invoice) && order_id && SUPABASE_URL && SERVICE_KEY) {
+        try {
+          const oRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${encodeURIComponent(order_id)}&select=*&limit=1`, {
+            headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` },
+          });
+          const arr = await oRes.json();
+          order = (Array.isArray(arr) ? arr[0] : null) || order;
+          // Enrich items with HSN/GST from products table
+          const ids = Array.from(new Set((order?.items || []).map(it => it.product_id).filter(Boolean)));
+          if (ids.length) {
+            const filter = ids.map(id => `"${id}"`).join(',');
+            const pRes = await fetch(`${SUPABASE_URL}/rest/v1/products?id=in.(${filter})&select=id,name,hsn_code,gst_percent`, {
+              headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` },
+            });
+            const ps = await pRes.json();
+            (Array.isArray(ps) ? ps : []).forEach(p => { products[p.id] = p; });
+          }
+        } catch (e) { console.error('[email/send] order load failed:', e.message); }
+      }
+
+      const invoiceNo = (order && order.invoice_number) || data.invoice_number || data.order_id || '';
+      const grand = (order && order.total_amount) || data.amount || '';
+      subject = type === 'order_invoice'
+        ? `Your ONCOST Invoice · ${invoiceNo}`
+        : `✓ Order confirmed · ${data.order_id || invoiceNo}`;
+
       html = `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#fdfaf3;">
         <div style="background:#7a1f35;color:#f2dd92;padding:24px;border-radius:8px 8px 0 0;text-align:center;">
           <h1 style="margin:0;font-family:Georgia,serif;font-size:26px;">ONCOST</h1>
           <p style="margin:6px 0 0;font-size:14px;opacity:.9;">Thank you for your order!</p>
         </div>
         <div style="background:#fff;padding:24px;border:1px solid #e8e0d2;border-top:none;border-radius:0 0 8px 8px;">
-          <p style="font-size:15px;">Hi ${(data.name||'Customer')},</p>
-          <p>Your order <strong>${(data.order_id||'')}</strong> has been confirmed. Total paid: <strong style="color:#7a1f35;">₹${(data.amount||'')}</strong></p>
-          ${data.invoice_url ? `<p><a href="${data.invoice_url}" style="background:#7a1f35;color:#f2dd92;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block;">View Invoice →</a></p>` : ''}
-          <p style="color:#7a726b;font-size:13px;margin-top:24px;">We'll send you tracking details once your order is shipped (usually within 24 hours).</p>
+          <p style="font-size:15px;">Hi ${(data.name || order?.shipping_address?.name || 'Customer')},</p>
+          <p>Your order <strong>${(data.order_id || order?.ccavenue_order_id || invoiceNo)}</strong> is confirmed.
+             Total paid: <strong style="color:#7a1f35;">₹${grand}</strong></p>
+          ${invoiceNo ? `<p style="margin:6px 0 0;color:#7a726b;font-size:13px;">Invoice number: <strong>${invoiceNo}</strong></p>` : ''}
+          <p style="margin-top:14px;">${type === 'order_invoice' ? 'Your GST invoice is attached to this email (PDF).' : ''}</p>
+          ${data.invoice_url ? `<p><a href="${data.invoice_url}" style="background:#7a1f35;color:#f2dd92;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block;">View Order →</a></p>` : ''}
+          <p style="color:#7a726b;font-size:13px;margin-top:24px;">We'll send tracking details once your order ships (usually within 24 hours).</p>
           <hr style="border:none;border-top:1px solid #e8e0d2;margin:24px 0;">
           <p style="font-size:12px;color:#7a726b;margin:0;">Questions? Reply to this email or visit <a href="https://www.oncost.shop/support.html" style="color:#7a1f35;">support</a>.</p>
+        </div>
+      </div>`;
+
+      if (type === 'order_invoice' && order) {
+        try {
+          const pdfBuf = await generateInvoicePDF({ order, products });
+          attachments = [{
+            filename: `Invoice-${(invoiceNo || 'oncost').replace(/[^A-Za-z0-9_-]/g,'_')}.pdf`,
+            content: pdfBuf.toString('base64'),
+          }];
+        } catch (e) {
+          console.error('[email/send] invoice PDF generation failed:', e.message);
+        }
+      }
+      break;
+    }
+
+    case 'order_shipped':
+      subject = `📦 Your order is on the way · ${data.order_id || ''}`;
+      html = `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#fdfaf3;">
+        <div style="background:#7a1f35;color:#f2dd92;padding:24px;border-radius:8px 8px 0 0;text-align:center;">
+          <h2 style="margin:0;font-family:Georgia,serif;">Your order has shipped!</h2>
+        </div>
+        <div style="background:#fff;padding:24px;border:1px solid #e8e0d2;border-top:none;border-radius:0 0 8px 8px;">
+          <p>Hi ${(data.name || 'Customer')},</p>
+          <p>Order <strong>${(data.order_id || '')}</strong> is now on its way.</p>
+          <p><strong>Courier:</strong> ${(data.courier || 'Delhivery')}<br>
+             <strong>AWB:</strong> ${(data.awb || '—')}</p>
+          ${data.tracking_url ? `<p><a href="${data.tracking_url}" style="background:#7a1f35;color:#f2dd92;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block;">Track shipment →</a></p>` : ''}
+        </div>
+      </div>`;
+      break;
+
+    case 'testimonial_request':
+      subject = `How was your ONCOST order?`;
+      html = `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#fdfaf3;">
+        <div style="background:#7a1f35;color:#f2dd92;padding:24px;border-radius:8px 8px 0 0;text-align:center;">
+          <h2 style="margin:0;font-family:Georgia,serif;">Loved your order?</h2>
+        </div>
+        <div style="background:#fff;padding:24px;border:1px solid #e8e0d2;border-top:none;border-radius:0 0 8px 8px;">
+          <p>Hi ${(data.name || 'Customer')},</p>
+          <p>Hope you enjoyed <strong>${(data.product_name || 'your recent order')}</strong>. Your review helps other customers and means the world to us.</p>
+          <p style="text-align:center;margin:28px 0;">
+            <a href="${(data.review_link || 'https://www.oncost.shop')}" style="background:#7a1f35;color:#f2dd92;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block;">Leave a review ★★★★★</a>
+          </p>
+          <p style="color:#7a726b;font-size:13px;">It only takes 30 seconds. Thank you!</p>
         </div>
       </div>`;
       break;
@@ -91,6 +175,7 @@ module.exports = async function handler(req, res) {
         subject,
         html,
         reply_to: REPLY_TO || undefined,
+        attachments: attachments || undefined,
       }),
     });
     const j = await r.json();
