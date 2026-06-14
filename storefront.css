@@ -586,12 +586,16 @@ h1,h2,h3,h4,h5 { font-family: var(--font-display); color: var(--burgundy); lette
 }
 .phone-input-group .prefix {
   background: var(--cream);
-  padding: 0 16px;
+  padding: 0 8px 0 16px;
+  border: none;
   border-right: 1px solid var(--line);
   color: var(--ink-soft);
   font-weight: 600;
   font-size: 14px;
   display: flex; align-items: center;
+  cursor: pointer;
+  outline: none;
+  border-radius: 0;
 }
 .phone-input-group input.field, .phone-input-group input.input {
   border: none;
