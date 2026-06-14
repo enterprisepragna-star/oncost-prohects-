@@ -1057,7 +1057,14 @@ window.updateCountryRules = function(selectEl) {
   const optText = selectEl.options[selectEl.selectedIndex]?.text || '';
   const match = optText.match(/\((\+\d+)\)/);
   const codeStr = match ? match[1] : '';
+  const nameStr = optText.replace(/\s*\(\+\d+\)\s*$/, '');
+  
   if (displayEl && codeStr) displayEl.textContent = codeStr;
+  
+  const countryInput1 = document.getElementById('ck-country');
+  const countryInput2 = document.getElementById('biz-country');
+  if (countryInput1) countryInput1.value = nameStr;
+  if (countryInput2) countryInput2.value = nameStr;
   
   const r = rules[selectEl.value] || rules['DEFAULT'];
   
