@@ -1,4 +1,8 @@
 {
+  "framework": null,
+  "buildCommand": null,
+  "outputDirectory": null,
+  "installCommand": "npm install --production",
   "rewrites": [
     { "source": "/api/delhivery/:action", "destination": "/api/delhivery?action=:action" }
   ],
