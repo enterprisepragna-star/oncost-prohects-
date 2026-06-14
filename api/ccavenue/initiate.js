@@ -25,7 +25,7 @@ module.exports = async function handler(req, res) {
   const WORKING_KEY  = (process.env.CCAVENUE_WORKING_KEY || '').trim();
   const ENV          = (process.env.CCAVENUE_ENV || 'test').trim().toLowerCase();
   const SITE_URL     = (process.env.SITE_URL || `https://${req.headers.host}`).trim();
-  const SUPABASE_URL = (process.env.SUPABASE_URL || '').trim();
+  const SUPABASE_URL = (process.env.SUPABASE_URL?.replace(/\/$/, '').replace(/^(?!https?:\/\/)/, 'https://') || '').trim();
   const SERVICE_KEY  = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
 
   if (!MERCHANT_ID || !ACCESS_CODE || !WORKING_KEY) {
@@ -91,39 +91,46 @@ module.exports = async function handler(req, res) {
     // continue anyway — webhook will upsert
   }
 
+  // Sanitize inputs to prevent CCAvenue WAF from blocking the transaction
+  const safeStr = (str) => String(str || '').replace(/[^a-zA-Z0-9\s@.,-]/g, '').substring(0, 250);
+  const safePhone = (str) => String(str || '').replace(/[^0-9+]/g, '').substring(0, 15);
+
+  const SITE_URL_CLEAN = SITE_URL.replace(/\/$/, ''); // Remove trailing slash
+
   // 2️⃣  Build CCAvenue encrypted payload
   const payload = {
     merchant_id:      MERCHANT_ID,
     order_id:         orderId,
     amount,
     currency:         'INR',
-    redirect_url:     `${SITE_URL}/api/ccavenue/response`,
-    cancel_url:       `${SITE_URL}/api/ccavenue/response`,
+    redirect_url:     `${SITE_URL_CLEAN}/api/ccavenue/response`,
+    cancel_url:       `${SITE_URL_CLEAN}/api/ccavenue/response`,
     language:         'EN',
-    billing_name:     ship.name,
-    billing_address:  ship.address || '',
-    billing_city:     ship.city || '',
-    billing_state:    ship.state || '',
-    billing_zip:      ship.zip || '',
-    billing_country:  ship.country || 'India',
-    billing_tel:      ship.phone,
-    billing_email:    ship.email,
-    delivery_name:    ship.name,
-    delivery_address: ship.address || '',
-    delivery_city:    ship.city || '',
-    delivery_state:   ship.state || '',
-    delivery_zip:     ship.zip || '',
-    delivery_country: ship.country || 'India',
-    delivery_tel:     ship.phone,
-    merchant_param1:  userId || 'guest',
-    merchant_param2:  ship.email.substring(0, 250),
-    merchant_param3:  appliedCoup,
+    billing_name:     safeStr(ship.name),
+    billing_address:  safeStr(ship.address),
+    billing_city:     safeStr(ship.city),
+    billing_state:    safeStr(ship.state),
+    billing_zip:      safeStr(ship.zip),
+    billing_country:  safeStr(ship.country || 'India'),
+    billing_tel:      safePhone(ship.phone),
+    billing_email:    safeStr(ship.email),
+    delivery_name:    safeStr(ship.name),
+    delivery_address: safeStr(ship.address),
+    delivery_city:    safeStr(ship.city),
+    delivery_state:   safeStr(ship.state),
+    delivery_zip:     safeStr(ship.zip),
+    delivery_country: safeStr(ship.country || 'India'),
+    delivery_tel:     safePhone(ship.phone),
+    merchant_param1:  safeStr(userId || 'guest'),
+    merchant_param2:  safeStr(ship.email),
+    merchant_param3:  safeStr(appliedCoup),
   };
 
   const plaintext  = buildMerchantData(payload);
   const ciphertext = encrypt(plaintext, WORKING_KEY);
 
-  const checkoutUrl = CCAV_URL[ENV] || CCAV_URL.test;
+  // Force Production URL for CCAvenue to eliminate Test environment mismatch
+  const checkoutUrl = 'https://secure.ccavenue.com/transaction/transaction.do?command=initiateTransaction';
 
   const html = `<!doctype html>
 <html><head><meta charset="utf-8"><title>Redirecting to CCAvenue…</title>
