@@ -61,7 +61,7 @@ module.exports = async function handler(req, res) {
         apikey: SERVICE_KEY,
         Authorization: `Bearer ${SERVICE_KEY}`,
         'Content-Type': 'application/json',
-        Prefer: 'resolution=merge-duplicates,return=minimal',
+        Prefer: 'return=minimal',
       },
       body: JSON.stringify({
         user_id: userId && /^[0-9a-f-]{36}$/i.test(userId) ? userId : null,

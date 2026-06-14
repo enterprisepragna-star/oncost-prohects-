@@ -6,6 +6,7 @@
 // INSERT a new row using the decrypted payload as the only source of truth.
 
 const { decrypt, parseResponse } = require('./lib/ccavenue-crypto');
+const { sendOrderConfirmation } = require('./lib/email');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST' && req.method !== 'GET') { res.status(405).send('Method Not Allowed'); return; }
@@ -172,6 +173,8 @@ module.exports = async function handler(req, res) {
     const INTERNAL_KEY = process.env.INTERNAL_API_KEY;
     const phone = orderRow.guest_phone || (orderRow.shipping_address && orderRow.shipping_address.phone);
     const name  = (orderRow.shipping_address && orderRow.shipping_address.name) || 'Customer';
+    
+    // 1. Send WhatsApp confirmation
     if (phone) {
       fetch(`${SITE_URL}/api/whatsapp?action=send`, {
         method: 'POST',
@@ -188,6 +191,9 @@ module.exports = async function handler(req, res) {
         }),
       }).catch(err => console.error('[ccavenue/response] WhatsApp confirm failed:', err.message));
     }
+
+    // 2. Send Custom HTML Invoice Email
+    sendOrderConfirmation(orderRow).catch(err => console.error('[ccavenue/response] Email confirm failed:', err.message));
   }
 
   // ============= REDIRECT TO THANK-YOU =============

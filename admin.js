@@ -1,7 +1,5 @@
-/* =============================================================
    ONCOST Admin Console · admin.js
    Vanilla JS · Supabase JS v2 · Single-file SPA
-   ============================================================= */
 /* global supabaseClient, Chart, Papa, XLSX */
 'use strict';
 
@@ -862,7 +860,6 @@ function openProductForm(id) {
   $(`${formId}-barcode`).addEventListener('input', renderBarcodePreview);
   renderBarcodePreview();
 
-  // ============= VARIANTS MANAGEMENT =============
   let variants = [];   // [{ id, variant_type, variant_label, sku, price, stock, weight_grams, image_url, is_default, sort_order }]
   let nextLocalId = 1;
 
@@ -1124,7 +1121,6 @@ function openProductForm(id) {
     }
     if (res.error) return showToast('Save failed: ' + res.error.message, 'error');
 
-    // ============= SAVE VARIANTS =============
     if (payload.has_variants && window.__pf_get_variants) {
       const productId = res.data.id;
       const vList = window.__pf_get_variants();
@@ -1759,6 +1755,57 @@ function viewOrder(id) {
   });
 }
 window.viewOrder = viewOrder;
+
+window.createDelhiveryShipment = async function(id) {
+  const btn = document.getElementById(`btn-delhivery-${id}`);
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Generating...'; }
+  
+  let savedKey = localStorage.getItem('oncost_recover_key') || '';
+  if (!savedKey) {
+    savedKey = prompt('Please enter the Admin Recovery Key (found in Vercel environment variables) to authorize Delhivery shipment creation:');
+    if (!savedKey) {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-truck"></i> Auto-Generate via Delhivery'; }
+      return;
+    }
+    localStorage.setItem('oncost_recover_key', savedKey);
+  }
+
+  try {
+    const r = await fetch('/api/admin/create-delhivery-shipment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': savedKey },
+      body: JSON.stringify({ order_id: id })
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || 'Server error');
+    
+    showToast(`Shipment created! AWB: ${j.awb}`);
+    const o = state.orders.find(x => x.id === id);
+    if (o) {
+      if (!o.shipping_address) o.shipping_address = {};
+      o.shipping_address.tracking_url = j.tracking_url;
+      o.status = 'Packed';
+    }
+    renderOrders();
+    // close modal if open
+    document.getElementById('ov-close')?.click();
+  } catch(err) {
+    showToast(err.message, 'error');
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-truck"></i> Auto-Generate via Delhivery'; }
+  }
+};
+
+window.saveTrackingUrl = async function(id) {
+  const o = state.orders.find(x => x.id === id); if (!o) return;
+  const url = document.getElementById('ov-tracking-url').value.trim();
+  const ship = o.shipping_address || {};
+  ship.tracking_url = url || null;
+  const { error } = await supabaseClient.from('orders').update({ shipping_address: ship }).eq('id', id);
+  if (error) return showToast('Failed to save tracking: ' + error.message, 'error');
+  o.shipping_address = ship;
+  showToast('Tracking URL saved.');
+  renderOrders();
+};
 
 // ------------------------- Order Delete + Bulk Actions -------------------------
 async function deleteOrder(id) {
