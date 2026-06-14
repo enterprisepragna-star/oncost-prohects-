@@ -144,7 +144,7 @@ module.exports = async function handler(req, res) {
     }).catch(err => console.error('[ccavenue/response] AWB auto-create failed:', err.message));
   }
 
-  // ============= FIRE-AND-FORGET ORDER CONFIRM EMAIL (Resend) =============
+  // ============= FIRE-AND-FORGET ORDER INVOICE EMAIL (Resend + PDF) =============
   if (dbStatus === 'Paid' && orderRow && process.env.RESEND_API_KEY) {
     const email = orderRow.guest_email || (orderRow.shipping_address && orderRow.shipping_address.email);
     const name  = (orderRow.shipping_address && orderRow.shipping_address.name) || 'Customer';
@@ -153,15 +153,17 @@ module.exports = async function handler(req, res) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-internal': '1' },
         body: JSON.stringify({
-          type: 'order_confirm',
+          type: 'order_invoice',
           to: email,
+          order_id: orderRow.id,
           data: {
-            name, order_id: orderId,
+            name,
+            order_id: orderId,
             amount: String(amount || orderRow.total_amount || ''),
             invoice_url: `${SITE_URL}/thank-you.html?status=success&order_id=${encodeURIComponent(orderId)}&tracking_id=${encodeURIComponent(trackingId||'')}&amount=${encodeURIComponent(amount||'')}`,
           },
         }),
-      }).catch(err => console.error('[ccavenue/response] order_confirm email failed:', err.message));
+      }).catch(err => console.error('[ccavenue/response] order_invoice email failed:', err.message));
     }
   }
 
@@ -171,7 +173,7 @@ module.exports = async function handler(req, res) {
     const phone = orderRow.guest_phone || (orderRow.shipping_address && orderRow.shipping_address.phone);
     const name  = (orderRow.shipping_address && orderRow.shipping_address.name) || 'Customer';
     if (phone) {
-      fetch(`${SITE_URL}/api/whatsapp/send`, {
+      fetch(`${SITE_URL}/api/whatsapp?action=send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(INTERNAL_KEY ? { 'x-internal-key': INTERNAL_KEY } : {}) },
         body: JSON.stringify({
