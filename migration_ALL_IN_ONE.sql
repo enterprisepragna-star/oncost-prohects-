@@ -26,6 +26,7 @@ CREATE INDEX IF NOT EXISTS idx_orders_ccavenue_order_id ON public.orders (ccaven
 CREATE INDEX IF NOT EXISTS idx_orders_created_at        ON public.orders (created_at DESC);
 
 DROP POLICY IF EXISTS "Users can insert own orders" ON public.orders;
+DROP POLICY IF EXISTS "Anyone can insert pending orders" ON public.orders;
 CREATE POLICY "Anyone can insert pending orders"
   ON public.orders FOR INSERT
   WITH CHECK ((auth.uid() IS NOT NULL AND auth.uid() = user_id) OR (user_id IS NULL));
