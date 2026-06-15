@@ -73,6 +73,11 @@ CREATE POLICY "Admins can view all leads"
   ON public.leads FOR SELECT 
   USING (auth.email() = 'enterprisepragna@gmail.com');
 
+DROP POLICY IF EXISTS "Admins can manage leads" ON public.leads;
+CREATE POLICY "Admins can manage leads" 
+  ON public.leads FOR ALL 
+  USING (auth.email() = 'enterprisepragna@gmail.com');
+
 -- 4. Products Table
 CREATE TABLE IF NOT EXISTS public.products (
   id text PRIMARY KEY,

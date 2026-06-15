@@ -285,6 +285,9 @@ ALTER TABLE public.leads
   ADD COLUMN IF NOT EXISTS contacted_at timestamp with time zone,
   ADD COLUMN IF NOT EXISTS resolved_at timestamp with time zone;
 
+DROP POLICY IF EXISTS "Admins can manage leads" ON public.leads;
+CREATE POLICY "Admins can manage leads" ON public.leads FOR ALL USING (auth.email() = 'enterprisepragna@gmail.com');
+
 CREATE INDEX IF NOT EXISTS idx_leads_status     ON public.leads (status);
 CREATE INDEX IF NOT EXISTS idx_leads_created_at ON public.leads (created_at DESC);
 

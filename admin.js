@@ -2165,7 +2165,11 @@ function renderLeads() {
       <td style="font-size:12px;text-align:right;">${escapeHTML(d.Qty || d.qty || '—')}</td>
       <td style="font-size:12px;text-align:right;">${d.Budget||d.budget ? '₹'+escapeHTML(d.Budget || d.budget) : '—'}</td>
       <td style="max-width:240px;font-size:12px;color:var(--admin-text-soft);">${escapeHTML((d.Message || d.message || '').substring(0,80))}${(d.Message||d.message||'').length>80?'…':''}</td>
-      <td><span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;background:${color}20;color:${color};">${escapeHTML(status)}</span></td>
+      <td>
+        <select class="select" style="font-size:11px; padding:3px 6px; width:110px; background:${color}20; color:${color}; font-weight:600; border:1px solid ${color}40;" onchange="updateLeadInline('${escapeHTML(l.id)}', this.value)">
+          ${['New','Contacted','Discussed','Quoted','Accepted','Converted','Not Converted','Lost'].map(s => `<option value="${s}" ${status===s?'selected':''} style="color:#000;background:#fff;">${s}</option>`).join('')}
+        </select>
+      </td>
       <td><div class="row-actions">
         <button class="icon-btn" onclick="viewLead('${escapeHTML(l.id)}')" title="View / Update" data-testid="view-lead-${escapeHTML(l.id)}"><i class="fas fa-eye"></i></button>
         <button class="icon-btn danger" onclick="deleteLead('${escapeHTML(l.id)}')" title="Delete" data-testid="del-lead-${escapeHTML(l.id)}"><i class="fas fa-trash"></i></button>
@@ -2211,13 +2215,21 @@ function viewLead(id) {
       admin_notes: $('lv-notes').value.trim() || null,
       deal_value: Number($('lv-deal-value').value) || null,
     };
-    const { error } = await supabaseClient.from('leads').update(update).eq('id', l.id);
-    if (error) {
-      if (error.message?.includes('status') || error.message?.includes('admin_notes') || error.message?.includes('deal_value')) {
-        return showToast('Run migration_ALL_IN_ONE.sql to enable lead status tracking.', 'error');
-      }
-      return showToast('Save failed: ' + error.message, 'error');
+    
+    const session = await supabaseClient.auth.getSession();
+    const token = session.data?.session?.access_token;
+    
+    const r = await fetch('/api/admin/leads', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ id: l.id, payload: update })
+    });
+    
+    if (!r.ok) {
+      const e = await r.json();
+      return showToast('Save failed: ' + (e.error || 'Unknown error'), 'error');
     }
+    
     Object.assign(l, update);
     renderLeads();
     showToast(`Enquiry → ${update.status}`);
@@ -2226,10 +2238,51 @@ function viewLead(id) {
 }
 window.viewLead = viewLead;
 
+async function updateLeadInline(id, newStatus) {
+  const l = state.leads.find(x => x.id === id);
+  if (!l) return;
+  const oldStatus = l.status;
+  
+  // Optimistic UI update
+  l.status = newStatus;
+  renderLeads();
+  
+  const session = await supabaseClient.auth.getSession();
+  const token = session.data?.session?.access_token;
+  
+  const r = await fetch('/api/admin/leads', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({ id: id, payload: { status: newStatus } })
+  });
+  
+  if (!r.ok) {
+    const e = await r.json();
+    l.status = oldStatus;
+    renderLeads();
+    return showToast('Save failed: ' + (e.error || 'Unknown error'), 'error');
+  }
+  showToast(`Enquiry → ${newStatus}`);
+}
+window.updateLeadInline = updateLeadInline;
+
 async function deleteLead(id) {
   if (!await confirmDialog('Delete this enquiry permanently?', { confirmLabel:'Delete', danger:true })) return;
-  const { error } = await supabaseClient.from('leads').delete().eq('id', id);
-  if (error) return showToast('Delete failed: ' + error.message, 'error');
+  
+  const session = await supabaseClient.auth.getSession();
+  const token = session.data?.session?.access_token;
+  
+  const r = await fetch('/api/admin/leads', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({ id })
+  });
+  
+  if (!r.ok) {
+    const e = await r.json();
+    return showToast('Delete failed: ' + (e.error || 'Unknown error'), 'error');
+  }
+  
   state.leads = state.leads.filter(x => x.id !== id);
   renderLeads();
   showToast('Enquiry deleted.');
