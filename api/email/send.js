@@ -15,7 +15,10 @@ module.exports = async function handler(req, res) {
   const REPLY_TO        = (process.env.RESEND_REPLY_TO || '').trim();
   const ADMIN_EMAIL     = (process.env.ADMIN_EMAIL || 'enterprisepragna@gmail.com').trim();
   const ADMIN_KEY       = process.env.ADMIN_RECOVERY_KEY;
-  const SUPABASE_URL    = (process.env.SUPABASE_URL || '').trim();
+  let SUPABASE_URL    = (process.env.SUPABASE_URL || '').trim();
+  if (!SUPABASE_URL.startsWith('http') || SUPABASE_URL.startsWith('sb_')) {
+    SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://jyvmmypalshebqmnrdma.supabase.co';
+  }
   const SERVICE_KEY     = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
   if (!RESEND_API_KEY) return res.status(500).json({ error: 'RESEND_API_KEY missing in Vercel env' });
 
