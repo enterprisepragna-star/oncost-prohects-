@@ -1,5 +1,8 @@
 module.exports = async function handler(req, res) {
-  const SUPABASE_URL = (process.env.SUPABASE_URL || '').trim();
+  let SUPABASE_URL = (process.env.SUPABASE_URL || '').trim();
+  if (!SUPABASE_URL.startsWith('http') || SUPABASE_URL.startsWith('sb_')) {
+    SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://jyvmmypalshebqmnrdma.supabase.co';
+  }
   const SERVICE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
   
   if (!SUPABASE_URL || !SERVICE_KEY) {
