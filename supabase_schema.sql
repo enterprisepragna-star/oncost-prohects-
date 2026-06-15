@@ -149,6 +149,23 @@ CREATE POLICY "Anyone can view coupons" ON public.coupons FOR SELECT USING (true
 DROP POLICY IF EXISTS "Admins can manage coupons" ON public.coupons;
 CREATE POLICY "Admins can manage coupons" ON public.coupons FOR ALL USING (auth.email() = 'enterprisepragna@gmail.com');
 
+-- 7. Wishlists Table
+CREATE TABLE IF NOT EXISTS public.wishlists (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid REFERENCES auth.users NOT NULL,
+  product_id text NOT NULL,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+  UNIQUE(user_id, product_id)
+);
+
+ALTER TABLE public.wishlists ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view own wishlist" ON public.wishlists;
+CREATE POLICY "Users can view own wishlist" ON public.wishlists FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can insert own wishlist" ON public.wishlists;
+CREATE POLICY "Users can insert own wishlist" ON public.wishlists FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete own wishlist" ON public.wishlists;
+CREATE POLICY "Users can delete own wishlist" ON public.wishlists FOR DELETE USING (auth.uid() = user_id);
+
 -- 7. Sale Events Table
 CREATE TABLE IF NOT EXISTS public.sale_events (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,

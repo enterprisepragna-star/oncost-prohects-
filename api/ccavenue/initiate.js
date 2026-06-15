@@ -48,10 +48,37 @@ module.exports = async function handler(req, res) {
   const appliedCoup  = body.applied_coupon || '';
   const subtotal     = Number(body.items_subtotal || 0);
   const shippingAmt  = Number(body.shipping_amount || 0);
-  const discountAmt  = Number(body.discount_amount || 0);
+  let discountAmt    = Number(body.discount_amount || 0);
 
   if (Number(amount) <= 0) { res.status(400).json({ error: 'Invalid amount' }); return; }
   if (!ship.email || !ship.name || !ship.phone) { res.status(400).json({ error: 'Missing customer email / name / phone' }); return; }
+
+  // 0️⃣ Validate Coupon & Recalculate Total (Security Check)
+  if (appliedCoup) {
+    try {
+      const { data: coup } = await fetch(`${SUPABASE_URL}/rest/v1/coupons?code=ilike.${encodeURIComponent(appliedCoup)}&limit=1`, {
+        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
+      }).then(r => r.json()).then(arr => ({ data: arr && arr.length ? arr[0] : null }));
+      
+      if (coup) {
+        if (coup.expires_at && new Date(coup.expires_at) < new Date()) throw new Error('Expired coupon');
+        if (coup.usage_limit && coup.used_count >= coup.usage_limit) throw new Error('Coupon usage limit reached');
+        if (coup.min_order_value && subtotal < coup.min_order_value) throw new Error('Minimum order not met for coupon');
+        
+        // Use verified discount amount from DB
+        discountAmt = Number(coup.discount_amount);
+      } else {
+        throw new Error('Invalid coupon');
+      }
+    } catch (e) {
+      console.warn('[ccavenue/initiate] Coupon validation failed:', e.message);
+      // We could reject here, but for safety against edge cases we just remove the invalid discount
+      discountAmt = 0; 
+    }
+  }
+
+  // Recalculate exact total amount
+  const finalTotalAmount = Math.max(0, subtotal - discountAmt + shippingAmt).toFixed(2);
 
   // 1️⃣  Insert pending order in Supabase via service role (bypasses RLS, guaranteed write)
   try {
@@ -67,8 +94,8 @@ module.exports = async function handler(req, res) {
         user_id: userId && /^[0-9a-f-]{36}$/i.test(userId) ? userId : null,
         ccavenue_order_id: orderId,
         items,
-        total_amount: Number(amount),
-        items_subtotal: subtotal || Number(amount),
+        total_amount: Number(finalTotalAmount),
+        items_subtotal: subtotal || Number(finalTotalAmount),
         shipping_amount: shippingAmt,
         discount_amount: discountAmt,
         status: 'Processing',
@@ -77,6 +104,7 @@ module.exports = async function handler(req, res) {
         guest_email: ship.email,
         guest_phone: ship.phone,
         shipping_address: ship,
+        applied_coupon: appliedCoup,
       }),
     });
     if (!insertRes.ok) {
@@ -101,7 +129,7 @@ module.exports = async function handler(req, res) {
   const payload = {
     merchant_id:      MERCHANT_ID,
     order_id:         orderId,
-    amount,
+    amount:           finalTotalAmount,
     currency:         'INR',
     redirect_url:     `${SITE_URL_CLEAN}/api/ccavenue/response`,
     cancel_url:       `${SITE_URL_CLEAN}/api/ccavenue/response`,
@@ -124,6 +152,7 @@ module.exports = async function handler(req, res) {
     merchant_param1:  safeStr(userId || 'guest'),
     merchant_param2:  safeStr(ship.email),
     merchant_param3:  safeStr(appliedCoup),
+    customer_identifier: userId && body.save_card ? safeStr(userId) : '',
   };
 
   const plaintext  = buildMerchantData(payload);

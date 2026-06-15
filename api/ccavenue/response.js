@@ -133,6 +133,35 @@ module.exports = async function handler(req, res) {
     console.error('[ccavenue/response] Skipping DB write — Supabase env or order_id missing.');
   }
 
+  // ============= AUTO-INCREMENT LOYALTY POINTS =============
+  if (dbStatus === 'Paid' && orderRow && orderRow.user_id) {
+    try {
+      // Points = 1 per Rs. 100 spent
+      const earnedPoints = Math.floor(Number(orderRow.total_amount || 0) / 100);
+      if (earnedPoints > 0) {
+        const profRes = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${orderRow.user_id}&select=loyalty_points`, {
+          headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
+        }).then(r => r.json());
+        
+        if (profRes && profRes.length > 0) {
+          const currentPoints = Number(profRes[0].loyalty_points || 0);
+          await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${orderRow.user_id}`, {
+            method: 'PATCH',
+            headers: {
+              apikey: SERVICE_KEY,
+              Authorization: `Bearer ${SERVICE_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ loyalty_points: currentPoints + earnedPoints }),
+          });
+          console.log(`[ccavenue/response] Added ${earnedPoints} loyalty points to user ${orderRow.user_id}`);
+        }
+      }
+    } catch (e) {
+      console.error('[ccavenue/response] Loyalty points increment exception:', e.message);
+    }
+  }
+
   // ============= AUTO-CREATE DELHIVERY AWB ON PAID =============
   if (dbStatus === 'Paid' && orderRow && !orderRow.awb_number && process.env.DELHIVERY_TOKEN) {
     const ADMIN_KEY = process.env.ADMIN_RECOVERY_KEY;

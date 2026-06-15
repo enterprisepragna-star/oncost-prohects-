@@ -329,6 +329,81 @@ function renderDashboard() {
       </tr>`).join('') + '</tbody></table>';
   }
 
+  // --- Analytics Charts ---
+  if (window.Chart) {
+    if (window.adminCharts?.revenue) window.adminCharts.revenue.destroy();
+    if (window.adminCharts?.category) window.adminCharts.category.destroy();
+    window.adminCharts = window.adminCharts || {};
+
+    // 1. Revenue Trend (last 30 days)
+    const last30 = [...Array(30)].map((_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (29 - i));
+      return d.toISOString().split('T')[0];
+    });
+    
+    const revData = last30.map(dateStr => {
+      return state.orders
+        .filter(o => o.created_at.startsWith(dateStr) && o.status !== 'Cancelled')
+        .reduce((s, o) => s + Number(o.total_amount || 0), 0);
+    });
+
+    const revCtx = document.getElementById('revenueChart');
+    if (revCtx) {
+      window.adminCharts.revenue = new Chart(revCtx, {
+        type: 'line',
+        data: {
+          labels: last30.map(d => d.slice(5)), // MM-DD
+          datasets: [{
+            label: 'Revenue (₹)',
+            data: revData,
+            borderColor: '#7A1F35',
+            backgroundColor: 'rgba(122, 31, 53, 0.1)',
+            fill: true,
+            tension: 0.4
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+    }
+
+    // 2. Category Sales
+    const catSales = {};
+    state.orders.forEach(o => {
+      if (o.status === 'Cancelled') return;
+      try {
+        const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
+        items.forEach(item => {
+          const prod = state.products.find(p => p.id === item.product_id);
+          const cat = prod ? prod.category_id : 'Unknown';
+          catSales[cat] = (catSales[cat] || 0) + (Number(item.price || 0) * Number(item.quantity || 1));
+        });
+      } catch(e){}
+    });
+
+    const catLabels = Object.keys(catSales).map(id => {
+      if (id === 'Unknown') return 'Unknown';
+      const c = state.categories.find(cat => cat.id === id);
+      return c ? c.name : 'Unknown';
+    });
+    const catData = Object.values(catSales);
+
+    const catCtx = document.getElementById('categoryChart');
+    if (catCtx && catData.length > 0) {
+      window.adminCharts.category = new Chart(catCtx, {
+        type: 'doughnut',
+        data: {
+          labels: catLabels,
+          datasets: [{
+            data: catData,
+            backgroundColor: ['#7A1F35', '#D4AF37', '#2C3E50', '#E67E22', '#27AE60', '#8E44AD']
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+    }
+  }
+
   // Low stock list
   const lo = $('low-stock-list');
   const lows = state.products.filter(p => (p.stock ?? 0) <= threshold).sort((a,b) => (a.stock||0)-(b.stock||0)).slice(0, 7);
