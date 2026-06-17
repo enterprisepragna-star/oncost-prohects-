@@ -88,6 +88,9 @@ module.exports = async function handler(req, res) {
 
   } catch (err) {
     console.error('Coupon validation error:', err);
-    res.status(500).json({ valid: false, error: 'Server error validating coupon: ' + String(err.message || err) });
+    res.status(500).json({ 
+      valid: false, 
+      error: `Server error validating coupon: ${err.message || err}. Attempted to fetch from URL starting with: "${SUPABASE_URL.substring(0, 30)}..." - Please check if your Vercel SUPABASE_URL is correct (it should NOT be a postgres:// connection string).` 
+    });
   }
 }
