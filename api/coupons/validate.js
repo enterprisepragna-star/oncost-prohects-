@@ -44,9 +44,17 @@ module.exports = async function handler(req, res) {
       }
     });
 
-    const rows = await r.json();
+    const responseText = await r.text();
+    let rows;
+    try {
+      rows = JSON.parse(responseText);
+    } catch(e) {
+      console.error('Invalid JSON from Supabase:', responseText);
+      res.status(500).json({ valid: false, error: 'Database connection error on Live Server. Double check your Vercel Environment Variables.' });
+      return;
+    }
 
-    if (!r.ok || !rows || rows.length === 0) {
+    if (!r.ok || !rows || rows.length === 0 || !Array.isArray(rows)) {
       res.status(404).json({ valid: false, error: 'Invalid coupon code' });
       return;
     }
@@ -80,6 +88,6 @@ module.exports = async function handler(req, res) {
 
   } catch (err) {
     console.error('Coupon validation error:', err);
-    res.status(500).json({ valid: false, error: 'Server error validating coupon' });
+    res.status(500).json({ valid: false, error: 'Server error validating coupon: ' + String(err.message || err) });
   }
 }
