@@ -1,5 +1,3 @@
-const { createClient } = require('@supabase/supabase-js');
-
 module.exports = async function handler(req, res) {
   // Add CORS headers so the storefront can call this
   res.setHeader('Access-Control-Allow-Credentials', true);
@@ -20,14 +18,15 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/$/, '').replace(/^(?!https?:\/\/)/, 'https://');
+  const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  if (!SUPABASE_URL || !SERVICE_KEY) {
     res.status(500).json({ error: 'Server misconfiguration' });
     return;
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-  const { code, cartSubtotal } = req.body;
+  const { code, cartSubtotal } = req.body || {};
 
   if (!code) {
     res.status(400).json({ valid: false, error: 'Coupon code is required' });
@@ -35,16 +34,24 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const { data, error } = await supabase
-      .from('coupons')
-      .select('*')
-      .ilike('code', code)
-      .single();
+    const url = `${SUPABASE_URL}/rest/v1/coupons?code=ilike.${encodeURIComponent(code)}&select=*&limit=1`;
+    const r = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'apikey': SERVICE_KEY,
+        'Authorization': `Bearer ${SERVICE_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    });
 
-    if (error || !data) {
+    const rows = await r.json();
+
+    if (!r.ok || !rows || rows.length === 0) {
       res.status(404).json({ valid: false, error: 'Invalid coupon code' });
       return;
     }
+
+    const data = rows[0];
 
     if (data.expires_at && new Date(data.expires_at) < new Date()) {
       res.status(400).json({ valid: false, error: 'This coupon has expired' });
