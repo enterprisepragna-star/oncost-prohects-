@@ -215,18 +215,24 @@ function renderHomeCollections() {
   }).join('');
 }
 
-// ---------- Hero slideshow: crossfades through latest product images ----------
+// ---------- Hero slideshow: crossfades through admin-defined hero images or latest products ----------
 function renderHeroSlideshow() {
   const slot = $('.hero-visual');
   if (!slot) return;
-  // Pull up to 6 nice product images (de-duped)
-  const pics = [];
-  const seen = new Set();
-  for (const p of state.products) {
-    const url = p.image_url;
-    if (url && !seen.has(url)) { seen.add(url); pics.push({ url, name: p.name }); }
-    if (pics.length >= 6) break;
+  
+  // 1. Try to pull admin-defined hero images
+  let pics = (state.settings?.hero_images || []).map(url => ({ url, name: 'Hero Image' }));
+  
+  // 2. Fallback: Pull up to 6 nice product images (de-duped) if no custom hero images set
+  if (!pics.length) {
+    const seen = new Set();
+    for (const p of state.products) {
+      const url = p.image_url;
+      if (url && !seen.has(url)) { seen.add(url); pics.push({ url, name: p.name }); }
+      if (pics.length >= 6) break;
+    }
   }
+
   if (!pics.length) return; // keep gradient fallback when no images yet
 
   // Build slide DOM (preserve the existing .hero-kpi badge)
@@ -1187,21 +1193,21 @@ function renderRecentlyViewed() {
           ${displayItems.map(p => {
             const offer = p.offer_price && p.offer_price < p.price;
             const inWishlist = state.wishlist.some(w => w.product_id === p.id);
-            const wishBtn = state.user ? \`<button class="wish-btn \${inWishlist?'on':''}" onclick="event.preventDefault();event.stopPropagation();toggleWishlist('\${escapeHTML(p.id)}')"><i class="\${inWishlist?'fas':'far'} fa-heart"></i></button>\` : '';
-            return \`
-            <a href="product.html?id=\${p.id}" class="product-card">
+            const wishBtn = state.user ? `<button class="wish-btn ${inWishlist?'on':''}" onclick="event.preventDefault();event.stopPropagation();toggleWishlist('${escapeHTML(p.id)}')"><i class="${inWishlist?'fas':'far'} fa-heart"></i></button>` : '';
+            return `
+            <a href="product.html?id=${p.id}" class="product-card">
               <div class="product-img">
-                <img src="\${escapeHTML(p.image_url)}" alt="\${escapeHTML(p.name)}" loading="lazy" />
-                \${wishBtn}
-                \${offer ? \`<span class="badge save">Save \${Math.round(((p.price - p.offer_price)/p.price)*100)}%</span>\` : ''}
+                <img src="${escapeHTML(p.image_url)}" alt="${escapeHTML(p.name)}" loading="lazy" />
+                ${wishBtn}
+                ${offer ? `<span class="badge save">Save ${Math.round(((p.price - p.offer_price)/p.price)*100)}%</span>` : ''}
               </div>
               <div class="product-info">
-                <h3>\${escapeHTML(p.name)}</h3>
+                <h3>${escapeHTML(p.name)}</h3>
                 <div class="price">
-                  \${offer ? \`<span>\${fmtINR(p.offer_price)}</span> <del>\${fmtINR(p.price)}</del>\` : \`<span>\${fmtINR(p.price)}</span>\`}
+                  ${offer ? `<span>${fmtINR(p.offer_price)}</span> <del>${fmtINR(p.price)}</del>` : `<span>${fmtINR(p.price)}</span>`}
                 </div>
               </div>
-            </a>\`;
+            </a>`;
           }).join('')}
         </div>
       </section>

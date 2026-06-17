@@ -178,6 +178,7 @@ async function loadSettings() {
     const node = $(`set-${k}`);
     if (node) node.value = state.settings[k] ?? '';
   });
+  renderHeroImagesPreview();
 }
 async function saveSettings() {
   const payload = {};
@@ -187,6 +188,7 @@ async function saveSettings() {
     const node = $(`set-${k}`);
     if (node) payload[k] = k === 'low_stock_threshold' ? (Number(node.value) || 5) : node.value.trim();
   });
+  payload.hero_images = state.settings.hero_images || [];
   let res;
   if (state.settings.id) {
     res = await supabaseClient.from('site_settings').update(payload).eq('id', state.settings.id).select().single();
@@ -203,9 +205,66 @@ async function saveSettings() {
   }
   state.settings = res.data;
   state.imgbbKey = res.data.imgbb_api_key || '';
+  renderHeroImagesPreview();
   showToast('Settings saved.');
 }
 window.saveSettings = saveSettings;
+
+// ------------------------- Hero Images UI -------------------------
+function renderHeroImagesPreview() {
+  const container = $('hero-images-preview');
+  if (!container) return;
+  const images = state.settings.hero_images || [];
+  if (images.length === 0) {
+    container.innerHTML = `<div style="grid-column:1/-1;color:var(--admin-text-mute);font-size:14px;padding:12px;background:#f8f9fa;border-radius:8px;text-align:center;">No hero images uploaded. The gold gradient fallback will be shown.</div>`;
+    return;
+  }
+  container.innerHTML = images.map((url, i) => `
+    <div style="position:relative;border-radius:8px;overflow:hidden;border:1px solid var(--line);aspect-ratio:16/9;">
+      <img src="${escapeHTML(url)}" style="width:100%;height:100%;object-fit:cover;" />
+      <button class="btn btn-icon" style="position:absolute;top:4px;right:4px;background:rgba(255,255,255,0.9);color:var(--admin-danger);min-width:24px;height:24px;padding:0;font-size:12px;" onclick="removeHeroImage(${i})"><i class="fas fa-trash"></i></button>
+    </div>
+  `).join('');
+}
+window.removeHeroImage = async (idx) => {
+  if (!confirm('Remove this hero image?')) return;
+  const images = [...(state.settings.hero_images || [])];
+  images.splice(idx, 1);
+  state.settings.hero_images = images;
+  renderHeroImagesPreview();
+  await saveSettings();
+};
+
+const heroDrop = $('hero-image-drop');
+const heroFile = $('hero-image-file');
+if (heroDrop && heroFile) {
+  heroDrop.addEventListener('click', () => heroFile.click());
+  heroDrop.addEventListener('dragover', e => { e.preventDefault(); heroDrop.style.borderColor = 'var(--admin-primary)'; });
+  heroDrop.addEventListener('dragleave', e => { e.preventDefault(); heroDrop.style.borderColor = 'var(--line)'; });
+  heroDrop.addEventListener('drop', async e => {
+    e.preventDefault(); heroDrop.style.borderColor = 'var(--line)';
+    if (e.dataTransfer.files[0]) handleHeroUpload(e.dataTransfer.files[0]);
+  });
+  heroFile.addEventListener('change', e => {
+    if (e.target.files[0]) handleHeroUpload(e.target.files[0]);
+  });
+}
+async function handleHeroUpload(file) {
+  if (!file.type.startsWith('image/')) return showToast('Images only', 'error');
+  heroDrop.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size:24px;color:var(--admin-primary);"></i><div style="margin-top:8px">Uploading...</div>';
+  try {
+    const url = await uploadImage(file);
+    if (!url) throw new Error('Upload returned null');
+    const images = [...(state.settings.hero_images || [])];
+    images.push(url);
+    state.settings.hero_images = images;
+    renderHeroImagesPreview();
+    await saveSettings();
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+  heroDrop.innerHTML = '<i class="fas fa-cloud-upload-alt" style="font-size:24px;color:var(--admin-primary);margin-bottom:8px;display:block;"></i><div style="font-weight:500;">Click to browse</div><div style="font-size:12px;color:var(--admin-text-mute)">JPG/PNG/WEBP · max 5 MB</div>';
+}
 
 // ------------------------- Business Profile (for invoice) -------------------------
 const BIZ_FIELDS = ['business_name','legal_name','gstin','pan','address_line1','address_line2','city','state','pincode','country','phone','email','invoice_notes'];

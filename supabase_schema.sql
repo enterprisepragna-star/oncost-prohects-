@@ -233,6 +233,7 @@ CREATE TABLE IF NOT EXISTS public.site_settings (
   youtube_url text,
   pinterest_url text,
   twitter_url text,
+  hero_images jsonb DEFAULT '[]'::jsonb,
   created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
