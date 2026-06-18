@@ -36,9 +36,7 @@ module.exports = async function handler(req, res) {
     }
 
     // Find the order with this AWB in Supabase
-    // We assume the AWB is saved in `shipping_tracking_id` or `shipping_awb`
-    // Wait, let's search `shipping_awb` or `shipping_tracking_id`
-    const searchRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?or=(shipping_awb.eq.${encodeURIComponent(awb)},shipping_tracking_id.eq.${encodeURIComponent(awb)})&select=*&limit=1`, {
+    const searchRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?awb_number=eq.${encodeURIComponent(awb)}&select=*&limit=1`, {
       method: 'GET',
       headers: {
         apikey: SERVICE_KEY,
@@ -85,7 +83,7 @@ module.exports = async function handler(req, res) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-internal-key': INTERNAL_KEY },
         body: JSON.stringify({
-          type: 'order_shipped',
+          type: 'shipping_update',
           to: phone,
           params: {
             customer_name: (orderRow.shipping_address && orderRow.shipping_address.name) || 'Customer',

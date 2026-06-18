@@ -384,6 +384,17 @@ async function renderProductDetail() {
             </div>
           </div>` : ''}
         ${p.description ? `<p class="desc">${escapeHTML(p.description)}</p>` : ''}
+        
+        <div class="product-specs-table" style="margin:24px 0;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff;">
+          <div style="background:#f8f9fa;padding:12px 16px;font-weight:600;font-size:14px;border-bottom:1px solid var(--line);">Product Details</div>
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            ${(v ? v.sku : p.sku) ? `<tr><td style="padding:10px 16px;border-bottom:1px solid var(--line);color:var(--muted);width:45%;font-weight:500;">SKU</td><td id="pd-spec-sku" style="padding:10px 16px;border-bottom:1px solid var(--line);font-weight:600;">${escapeHTML(v ? v.sku : p.sku)}</td></tr>` : `<tr id="pd-spec-sku-row" style="display:none"><td style="padding:10px 16px;border-bottom:1px solid var(--line);color:var(--muted);width:45%;font-weight:500;">SKU</td><td id="pd-spec-sku" style="padding:10px 16px;border-bottom:1px solid var(--line);font-weight:600;"></td></tr>`}
+            ${(v ? v.weight_grams : p.weight_grams) ? `<tr><td style="padding:10px 16px;border-bottom:1px solid var(--line);color:var(--muted);font-weight:500;">Item Weight</td><td id="pd-spec-weight" style="padding:10px 16px;border-bottom:1px solid var(--line);font-weight:600;">${v ? v.weight_grams : p.weight_grams} Grams</td></tr>` : `<tr id="pd-spec-weight-row" style="display:none"><td style="padding:10px 16px;border-bottom:1px solid var(--line);color:var(--muted);font-weight:500;">Item Weight</td><td id="pd-spec-weight" style="padding:10px 16px;border-bottom:1px solid var(--line);font-weight:600;"></td></tr>`}
+            ${(p.length_cm || p.breadth_cm || p.height_cm) ? `<tr><td style="padding:10px 16px;border-bottom:1px solid var(--line);color:var(--muted);font-weight:500;">Item Dimensions (L x W x H)</td><td style="padding:10px 16px;border-bottom:1px solid var(--line);font-weight:600;">${p.length_cm||0} x ${p.breadth_cm||0} x ${p.height_cm||0} cm</td></tr>` : ''}
+            ${p.hsn_code ? `<tr><td style="padding:10px 16px;border-bottom:1px solid var(--line);color:var(--muted);font-weight:500;">HSN Code</td><td style="padding:10px 16px;border-bottom:1px solid var(--line);font-weight:600;">${escapeHTML(p.hsn_code)}</td></tr>` : ''}
+            ${p.category ? `<tr><td style="padding:10px 16px;color:var(--muted);font-weight:500;">Category</td><td style="padding:10px 16px;font-weight:600;">${escapeHTML(p.category)}</td></tr>` : ''}
+          </table>
+        </div>
         <div class="qty-row">
           <span style="font-weight:600;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);">Quantity</span>
           <div class="qty-stepper">
@@ -396,9 +407,20 @@ async function renderProductDetail() {
         </div>
         <div class="actions">
           <button class="btn primary" onclick="addToCartFromDetail('${escapeHTML(p.id)}')" ${stock===0?'disabled':''} data-testid="pd-add-cart"><i class="fas fa-cart-plus"></i> Add to Cart</button>
-          <button class="btn outline" onclick="toggleWishlist('${escapeHTML(p.id)}')" data-testid="pd-wishlist"><i class="${inWishlist?'fas':'far'} fa-heart"></i> ${inWishlist?'Saved':'Save'}</button>
+          <button class="btn outline" onclick="toggleWishlist('${escapeHTML(p.id)}')" data-testid="pd-wishlist"><i class="${inWishlist?'fas':'far'} fa-heart"></i> ${inWishlist?'SAVED TO WISHLIST':'ADD TO WISHLIST'}</button>
           <a class="btn secondary" href="bulk.html?product=${encodeURIComponent(p.id)}" data-testid="pd-bulk-enquiry"><i class="fab fa-whatsapp"></i> Bulk Enquiry</a>
         </div>
+        
+        <!-- Pincode Delivery Checker -->
+        <div style="margin:20px 0;padding:16px;border:1px solid var(--line);border-radius:8px;background:#fdfdfd;">
+          <div style="font-weight:600;font-size:14px;margin-bottom:8px;display:flex;align-items:center;gap:6px;"><i class="fas fa-map-marker-alt" style="color:var(--burgundy);"></i> Check Delivery Estimate</div>
+          <div style="display:flex;gap:8px;">
+            <input type="text" id="pd-pincode-input" placeholder="Enter Pincode" style="flex:1;padding:10px 12px;border:1px solid var(--line);border-radius:6px;font-size:14px;outline:none;" maxlength="6" />
+            <button class="btn primary sm" onclick="checkDeliveryPincode('${escapeHTML(p.id)}')" id="pd-pincode-btn" style="padding:0 16px;">Check</button>
+          </div>
+          <div id="pd-pincode-result" style="margin-top:10px;font-size:13px;font-weight:500;display:none;"></div>
+        </div>
+
         <div class="pd-perks">
           <div class="perk"><i class="fas fa-truck"></i><div><b>Pan India delivery</b><br><span style="color:var(--muted)">Free shipping over ₹999</span></div></div>
           <div class="perk"><i class="fas fa-box-open"></i><div><b>Premium packaging</b><br><span style="color:var(--muted)">Gift-ready out of the box</span></div></div>
@@ -458,6 +480,23 @@ async function renderProductDetail() {
         const priceEl = $('[data-pd-price]'); if (priceEl) priceEl.textContent = fmtINR(vv.offer_price && vv.offer_price < vv.price ? vv.offer_price : vv.price);
         const oldEl = $('[data-pd-price-old]'); if (oldEl) oldEl.textContent = vv.offer_price && vv.offer_price < vv.price ? fmtINR(vv.price) : '';
         if (vv.image_url) { const main = $('#pd-main-img'); if (main) main.src = vv.image_url; }
+        
+        // Update product details table for variant
+        const skuNode = $('#pd-spec-sku');
+        const skuRow = $('#pd-spec-sku-row');
+        if (skuNode) {
+          const finalSku = vv.sku || p.sku;
+          skuNode.textContent = finalSku || '';
+          if (skuRow) skuRow.style.display = finalSku ? 'table-row' : 'none';
+        }
+        
+        const wNode = $('#pd-spec-weight');
+        const wRow = $('#pd-spec-weight-row');
+        if (wNode) {
+          const finalW = vv.weight_grams || p.weight_grams;
+          wNode.textContent = finalW ? `${finalW} Grams` : '';
+          if (wRow) wRow.style.display = finalW ? 'table-row' : 'none';
+        }
       });
     });
   }
@@ -486,6 +525,9 @@ async function loadCart() {
   try {
     const { data } = await supabaseClient.from('cart_items').select('*').eq('user_id', state.user.id);
     state.cart = (data || []).map(it => ({ ...it, product: state.products.find(p => p.id === it.product_id) }));
+    if (state.cart.length === 0) {
+      localStorage.removeItem('oncost_cart');
+    }
   } catch { state.cart = []; }
 }
 function saveGuestCart() {
@@ -585,7 +627,7 @@ function cartTotals() {
     else discount = state.appliedCoupon.discount_value;
     discount = Math.min(discount, subtotal);
   }
-  const shipping = subtotal > 999 || subtotal === 0 ? 0 : 79;
+  const shipping = 0; // Live calculated at checkout
   const total = Math.max(0, subtotal - discount + shipping);
   return { subtotal, discount, shipping, total };
 }
@@ -629,7 +671,7 @@ function renderCart() {
         <h3>Order Summary</h3>
         <div class="line"><span>Subtotal</span><span>${fmtINR(subtotal)}</span></div>
         ${discount > 0 ? `<div class="line" style="color:var(--success);"><span>Discount (${escapeHTML(state.appliedCoupon.code)})</span><span>−${fmtINR(discount)}</span></div>` : ''}
-        <div class="line"><span>Shipping</span><span>${shipping === 0 ? 'Free' : fmtINR(shipping)}</span></div>
+        <div class="line"><span>Shipping</span><span style="font-size:12px;color:var(--muted);">${subtotal > 999 ? 'Free' : 'Calculated at checkout'}</span></div>
         <div class="line total"><span>Total</span><span>${fmtINR(total)}</span></div>
 
         <div class="coupon">
@@ -841,9 +883,9 @@ function renderAccountOffers(offers) {
       ${offers.map(c => `
         <div style="border:1px dashed var(--gold);background:var(--champagne);padding:16px;border-radius:8px;display:flex;align-items:center;justify-content:space-between;">
           <div>
-            <div style="font-weight:700;color:var(--burgundy);font-size:18px;margin-bottom:4px;">Save ₹${escapeHTML(c.discount_amount)}</div>
+            <div style="font-weight:700;color:var(--burgundy);font-size:18px;margin-bottom:4px;">Save ${c.discount_type === 'percent' ? escapeHTML(c.discount_value) + '%' : '₹' + escapeHTML(c.discount_value)}</div>
             <div style="font-size:13px;color:var(--text);">
-              ${c.min_order_value ? `On minimum order of ₹${escapeHTML(c.min_order_value)}.` : 'Applicable on all orders.'}
+              ${c.min_order_amount ? `On minimum order of ₹${escapeHTML(c.min_order_amount)}.` : 'Applicable on all orders.'}
               ${c.expires_at ? `Expires: ${new Date(c.expires_at).toLocaleDateString()}` : ''}
             </div>
           </div>
@@ -871,8 +913,21 @@ function renderAccountOrders(orders) {
         <div><b>#${escapeHTML(String(o.id).substring(0,8))}</b> <span style="color:var(--muted);font-size:12px;">· ${new Date(o.created_at).toLocaleDateString()}</span></div>
         <span style="padding:3px 10px;border-radius:4px;background:var(--cream);color:var(--burgundy);font-size:12px;font-weight:600;">${escapeHTML(o.status)}</span>
       </div>
-      <div style="font-size:13px;color:var(--muted);">${(Array.isArray(o.items) ? o.items : []).map(i => escapeHTML(i.name)).join(' · ')}</div>
-      <div style="margin-top:8px;font-weight:700;color:var(--burgundy);">${fmtINR(o.total_amount)}</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;border-top:1px dashed var(--line);padding-top:12px;">
+        ${(Array.isArray(o.items) ? o.items : []).map(i => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;border-bottom:1px solid #f0f0f0;">
+            <div>
+              <div style="font-size:14px;color:var(--text);font-weight:600;">${escapeHTML(i.name)} <span style="font-size:12px;color:var(--muted);font-weight:400;">x${i.qty||i.quantity||1}</span></div>
+              ${i.barcode ? `<div style="font-size:11px;color:var(--muted);margin-top:2px;font-family:monospace;"><i class="fas fa-barcode"></i> ${escapeHTML(i.barcode)}</div>` : ''}
+            </div>
+            <button class="btn outline btn-sm" onclick="openFeedbackModal('${escapeHTML(o.id)}', '${escapeHTML(i.product_id)}', '${escapeHTML(i.name)}')" style="white-space:nowrap;font-size:11px;padding:4px 8px;"><i class="fas fa-star" style="color:var(--gold);"></i> Rate</button>
+          </div>
+        `).join('')}
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
+        <div style="font-weight:700;color:var(--burgundy);font-size:16px;">${fmtINR(o.total_amount)}</div>
+        ${o.shipping_awb ? `<a class="btn primary btn-sm" href="https://www.delhivery.com/track/package/${escapeHTML(o.shipping_awb)}" target="_blank" style="text-decoration:none;"><i class="fas fa-truck"></i> Track Package</a>` : ''}
+      </div>
     </div>
   `).join('')}`;
 }
@@ -1133,7 +1188,7 @@ async function fetchAndRenderOffers() {
           <button onclick="copyCoupon('${escapeHTML(c.code)}')" title="Copy Code" style="background:none;border:none;color:var(--burgundy);cursor:pointer;margin-left:auto;font-size:16px;padding:4px;"><i class="far fa-copy"></i></button>
         </div>
         <div style="font-size:13px;color:var(--text);margin-top:6px;">
-          Save ₹${escapeHTML(c.discount_amount)}${c.min_order_value ? ` on orders above ₹${escapeHTML(c.min_order_value)}` : ''}!
+          Save ${c.discount_type === 'percent' ? escapeHTML(c.discount_value) + '%' : '₹' + escapeHTML(c.discount_value)}${c.min_order_amount ? ` on orders above ₹${escapeHTML(c.min_order_amount)}` : ''}!
         </div>
         ${c.expires_at ? `<div style="font-size:11px;color:var(--muted);margin-top:6px;"><i class="far fa-clock"></i> Expires: ${new Date(c.expires_at).toLocaleDateString()}</div>` : ''}
       </div>
@@ -1146,6 +1201,73 @@ async function fetchAndRenderOffers() {
 window.copyCoupon = function(code) {
   navigator.clipboard.writeText(code);
   toast('Coupon code copied: ' + code, 'ok');
+};
+
+// ---------- Feedback Modal ----------
+window.openFeedbackModal = function(orderId, productId, productName) {
+  const modalHtml = `
+    <div id="feedback-modal" class="modal" style="display:flex;">
+      <div class="modal-content" style="max-width:400px;text-align:center;">
+        <h3>Rate ${escapeHTML(productName)}</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">How was your experience with this product?</p>
+        <div id="star-rating" style="font-size:24px;color:#ccc;cursor:pointer;margin-bottom:16px;display:flex;justify-content:center;gap:8px;">
+          <i class="fas fa-star" data-val="1"></i>
+          <i class="fas fa-star" data-val="2"></i>
+          <i class="fas fa-star" data-val="3"></i>
+          <i class="fas fa-star" data-val="4"></i>
+          <i class="fas fa-star" data-val="5"></i>
+        </div>
+        <textarea id="feedback-text" class="textarea" placeholder="Tell us more about it..." rows="3"></textarea>
+        <div style="display:flex;gap:12px;margin-top:20px;justify-content:center;">
+          <button class="btn outline" onclick="document.getElementById('feedback-modal').remove()">Cancel</button>
+          <button class="btn primary" onclick="submitFeedback('${escapeHTML(orderId)}', '${escapeHTML(productId)}')">Submit Review</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  
+  let currentRating = 0;
+  const stars = document.querySelectorAll('#star-rating .fa-star');
+  stars.forEach(star => {
+    star.addEventListener('click', (e) => {
+      currentRating = parseInt(e.target.dataset.val);
+      stars.forEach(s => {
+        s.style.color = parseInt(s.dataset.val) <= currentRating ? 'var(--gold)' : '#ccc';
+      });
+      document.getElementById('feedback-modal').dataset.rating = currentRating;
+    });
+  });
+};
+
+window.submitFeedback = async function(orderId, productId) {
+  const modal = document.getElementById('feedback-modal');
+  const rating = parseInt(modal.dataset.rating || 0);
+  const text = document.getElementById('feedback-text').value.trim();
+  
+  if (!rating) return toast('Please select a star rating', 'error');
+  if (!text) return toast('Please enter your review', 'error');
+  
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session) return toast('Please login first', 'error');
+
+  const { error } = await supabaseClient.from('testimonials').insert([{
+    user_id: session.user.id,
+    customer_name: session.user.user_metadata?.full_name || 'Customer',
+    rating: rating,
+    review_text: text,
+    product_id: productId,
+    order_id: orderId,
+    status: 'Pending'
+  }]);
+
+  if (error) {
+    console.error(error);
+    return toast('Error submitting feedback. You might have already reviewed this.', 'error');
+  }
+
+  toast('Thank you for your review!', 'ok');
+  modal.remove();
 };
 
 // ---------- Boot ----------

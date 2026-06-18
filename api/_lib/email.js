@@ -1,4 +1,5 @@
 const { Resend } = require('resend');
+const { generateInvoicePDF } = require('../email/_lib/invoice-pdf');
 
 // Requires RESEND_API_KEY in environment
 const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_key');
@@ -14,7 +15,11 @@ function buildInvoiceHtml(order) {
   
   const itemsHtml = items.map(it => `
     <tr>
-      <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: left;">${it.name || it.product_id}</td>
+      <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: left;">
+        <div style="font-weight:bold;">${it.name || it.product_id}</div>
+        ${it.barcode ? `<div style="font-size:11px;color:#666;">Barcode: ${it.barcode}</div>` : ''}
+        ${it.weight_grams ? `<div style="font-size:11px;color:#666;">Weight: ${it.weight_grams}g</div>` : ''}
+      </td>
       <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: center;">${it.qty || it.quantity || 1}</td>
       <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right;">${formatINR(it.price)}</td>
       <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;">${formatINR((it.price || 0) * (it.qty || it.quantity || 1))}</td>
@@ -59,7 +64,7 @@ function buildInvoiceHtml(order) {
             </tr>
             <tr>
               <td colspan="3" style="padding: 12px; text-align: right; border-bottom: 1px solid #eee;">Shipping</td>
-              <td style="padding: 12px; text-align: right; border-bottom: 1px solid #eee;">${formatINR(order.shipping_amount)}</td>
+              <td style="padding: 12px; text-align: right; border-bottom: 1px solid #eee;">${Number(order.shipping_amount) > 0 ? formatINR(order.shipping_amount) : '<span style="color:green;">Free</span>'}</td>
             </tr>
             ${order.discount_amount > 0 ? `
             <tr>
@@ -81,6 +86,11 @@ function buildInvoiceHtml(order) {
             ${ship.city}, ${ship.state} ${ship.zip}<br>
             Phone: ${ship.phone}
           </p>
+        </div>
+        
+        <div style="margin-top: 30px; font-size: 14px; color: #666; text-align: left; background:#f9f9f9; padding: 16px; border-radius:6px; border:1px solid #eaeaea;">
+          <strong>Notes:</strong> Thank you for shopping with us! For returns or queries, contact support within 7 days of delivery.<br><br>
+          <em style="font-size:12px;">This is a computer-generated invoice.</em>
         </div>
         
         <p style="margin-top: 30px; font-size: 14px; color: #666; text-align: center;">
@@ -129,11 +139,23 @@ async function sendOrderConfirmation(order) {
   if (!toEmail) return;
 
   try {
+    let attachments = undefined;
+    try {
+      const pdfBuffer = await generateInvoicePDF({ order });
+      attachments = [{
+        filename: `Invoice_${order.invoice_number || order.id.substring(0, 8)}.pdf`,
+        content: pdfBuffer
+      }];
+    } catch(e) {
+      console.error('[Email] PDF generation failed:', e.message);
+    }
+
     await resend.emails.send({
       from: `ONCOST Orders <${FROM_EMAIL}>`,
       to: [toEmail],
       subject: `Order Confirmation & Invoice #${order.id.substring(0, 8).toUpperCase()}`,
       html: buildInvoiceHtml(order),
+      attachments
     });
     console.log(`[Email] Order confirmation sent to ${toEmail}`);
   } catch (err) {

@@ -160,6 +160,17 @@ module.exports = async function handler(req, res) {
     } catch (e) {
       console.error('[ccavenue/response] Loyalty points increment exception:', e.message);
     }
+
+    // ============= CLEAR CART =============
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/cart_items?user_id=eq.${orderRow.user_id}`, {
+        method: 'DELETE',
+        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
+      });
+      console.log(`[ccavenue/response] Cleared cart for user ${orderRow.user_id}`);
+    } catch(e) {
+      console.error('[ccavenue/response] Cart clear exception:', e.message);
+    }
   }
 
   // ============= AUTO-CREATE DELHIVERY AWB ON PAID =============

@@ -412,10 +412,12 @@
 
     // ----- Live Delhivery shipping calculation when pincode is entered -----
     let liveShipping = null;
+    window.shippingNotServiceable = false;
     async function recalcShipping() {
       const pin = document.getElementById('ck-zip').value.trim();
       if (!/^\d{6}$/.test(pin)) return;
       const hint = document.getElementById('ck-ship-hint');
+      const payBtn = document.getElementById('ck-pay-btn');
       hint.innerHTML = '<i class="fas fa-spinner fa-spin"></i> calculating…';
       try {
         // Sum product weights from cart (fallback 500g per item)
@@ -424,8 +426,15 @@
         const j = await r.json();
         if (!r.ok || j.serviceable === false) {
           hint.innerHTML = '<span style="color:#C0392B;">⚠ Not serviceable</span>';
+          window.shippingNotServiceable = true;
+          liveShipping = null;
+          document.getElementById('ck-ship-amount').textContent = 'N/A';
+          payBtn.disabled = true;
+          document.getElementById('ck-pay-label').textContent = 'Cannot Deliver to Pincode';
           return;
         }
+        window.shippingNotServiceable = false;
+        payBtn.disabled = false;
         liveShipping = Number(j.shipping_amount || 79);
         const t = cartTotals();
         const newTotal = Math.max(0, t.subtotal - t.discount + liveShipping);
@@ -435,6 +444,8 @@
         hint.innerHTML = `<span style="color:#1E5631;font-size:11px;">${j.district || j.state || 'Live rate'} · ${totalWeight}g</span>`;
       } catch (e) {
         hint.innerHTML = '<span style="color:var(--muted);">flat rate</span>';
+        window.shippingNotServiceable = false;
+        payBtn.disabled = false;
       }
     }
     document.getElementById('ck-zip').addEventListener('blur', recalcShipping);
@@ -459,6 +470,12 @@
     document.getElementById('checkout-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = document.getElementById('ck-pay-btn');
+      
+      if (window.shippingNotServiceable) {
+        toast('Cannot deliver to this pincode. Please try another.', 'err');
+        return;
+      }
+      
       btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Preparing payment…';
 
       const t = cartTotals();
@@ -483,6 +500,8 @@
         qty: it.qty,
         price: it.unit_price != null ? Number(it.unit_price)
               : ((it.product?.offer_price && it.product.offer_price < it.product.price) ? it.product.offer_price : it.product?.price),
+        barcode: it.product?.barcode || '',
+        weight_grams: it.product?.weight_grams || 0,
       }));
 
       // Auto-save shipping details to user profile so they don't have to retype them next time

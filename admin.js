@@ -1829,28 +1829,63 @@ function viewOrder(id) {
   // Generate AWB
   const awbBtn = $('ov-gen-awb');
   if (awbBtn) awbBtn.onclick = async () => {
-    const key = localStorage.getItem('oncost_recover_key') || prompt('Enter your ADMIN_RECOVERY_KEY (from Vercel env):');
-    if (!key) return;
-    awbBtn.disabled = true; awbBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Calling Delhivery…';
-    try {
-      const r = await fetch('/api/delhivery/create-shipment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
-        body: JSON.stringify({ order_id: o.id }),
-      });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error || 'AWB creation failed');
-      localStorage.setItem('oncost_recover_key', key);
-      o.awb_number = j.awb;
-      o.tracking_url = j.tracking_url;
-      showToast(`AWB generated: ${j.awb}`);
-      m.close();
-      viewOrder(o.id);
-      loadOrders().then(() => renderOrders());
-    } catch (err) {
-      showToast(err.message, 'error');
-      awbBtn.disabled = false; awbBtn.innerHTML = '<i class="fas fa-truck"></i> Generate Delhivery AWB';
-    }
+    const dimHtml = `
+      <div id="dim-modal" class="modal" style="display:flex;z-index:9999;">
+        <div class="modal-content" style="max-width:400px;background:#fff;border-radius:8px;padding:24px;">
+          <h3 style="margin-top:0;color:var(--burgundy);"><i class="fas fa-box"></i> Package Dimensions</h3>
+          <p style="font-size:13px;color:var(--admin-text-mute);margin-bottom:16px;">Please confirm the final package details.</p>
+          <div class="field" style="margin-bottom:12px;"><label style="font-size:12px;font-weight:600;">Weight (grams)</label><input id="dim-w" type="number" class="input" value="500"></div>
+          <div style="display:flex;gap:10px;margin-bottom:16px;">
+            <div class="field"><label style="font-size:12px;font-weight:600;">Length (cm)</label><input id="dim-l" type="number" class="input" value="10"></div>
+            <div class="field"><label style="font-size:12px;font-weight:600;">Breadth (cm)</label><input id="dim-b" type="number" class="input" value="10"></div>
+            <div class="field"><label style="font-size:12px;font-weight:600;">Height (cm)</label><input id="dim-h" type="number" class="input" value="10"></div>
+          </div>
+          <div style="display:flex;gap:12px;justify-content:flex-end;">
+            <button class="btn btn-secondary" onclick="document.getElementById('dim-modal').remove()">Cancel</button>
+            <button class="btn btn-primary" id="dim-confirm"><i class="fas fa-truck"></i> Confirm & Generate AWB</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', dimHtml);
+
+    $('dim-confirm').onclick = async () => {
+      const weight = parseInt($('dim-w').value) || 500;
+      const length = parseInt($('dim-l').value) || 10;
+      const breadth = parseInt($('dim-b').value) || 10;
+      const height = parseInt($('dim-h').value) || 10;
+      $('dim-modal').remove();
+
+      const key = localStorage.getItem('oncost_recover_key') || prompt('Enter your ADMIN_RECOVERY_KEY (from Vercel env):');
+      if (!key) return;
+
+      awbBtn.disabled = true; awbBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Calling Delhivery…';
+      try {
+        const r = await fetch('/api/delhivery/create-shipment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
+          body: JSON.stringify({ 
+            order_id: o.id,
+            weight_grams: weight,
+            length_cm: length,
+            breadth_cm: breadth,
+            height_cm: height
+          }),
+        });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || 'AWB creation failed');
+        localStorage.setItem('oncost_recover_key', key);
+        o.awb_number = j.awb;
+        o.tracking_url = j.tracking_url;
+        showToast(`AWB generated: ${j.awb}`);
+        m.close();
+        viewOrder(o.id);
+        loadOrders().then(() => renderOrders());
+      } catch (err) {
+        showToast(err.message, 'error');
+        awbBtn.disabled = false; awbBtn.innerHTML = '<i class="fas fa-truck"></i> Generate Delhivery AWB';
+      }
+    };
   };
 
   // Schedule pickup
