@@ -82,7 +82,7 @@ export default function PublicCatalogPage() {
             <article key={p.id} className="group">
               {p.image && (
                 <div className="aspect-[4/3] overflow-hidden bg-white border border-zinc-200">
-                  <img src={imageUrl(p.image)} alt={p.code} className="w-full h-full object-contain p-2 transition-transform duration-500 group-hover:scale-105" />
+                  <img src={imageUrl(p.image) + `?v=${p.image}`} alt={p.code} className="w-full h-full object-contain p-2 transition-transform duration-500 group-hover:scale-105" />
                 </div>
               )}
               <div className="mt-3 flex items-center justify-between">
