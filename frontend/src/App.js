@@ -1,56 +1,48 @@
-import { useEffect } from "react";
+import React from "react";
 import "@/App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
-import { HOME } from "@/constants/testIds";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider } from "@/lib/auth";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import AdminLayout from "@/components/AdminLayout";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+import LoginPage from "@/pages/LoginPage";
+import HomeRedirect from "@/pages/HomeRedirect";
+import PublicCatalogPage from "@/pages/PublicCatalogPage";
+import PublicQuotationPage from "@/pages/PublicQuotationPage";
+import ProductsPage from "@/pages/admin/ProductsPage";
+import PricingRulePage from "@/pages/admin/PricingRulePage";
+import QuotationsListPage from "@/pages/admin/QuotationsListPage";
+import NewQuotationPage from "@/pages/admin/NewQuotationPage";
+import QuotationDetailPage from "@/pages/admin/QuotationDetailPage";
 
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
+const Admin = ({ children }) => (
+  <ProtectedRoute>
+    <AdminLayout>{children}</AdminLayout>
+  </ProtectedRoute>
+);
 
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
-
+export default function App() {
   return (
-    <div>
-      <header className="App-header">
-        <a
-          data-testid={HOME.emergentLink}
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
-  );
-};
-
-function App() {
-  return (
-    <div className="App">
+    <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
+          <Route path="/" element={<HomeRedirect />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/catalog" element={<PublicCatalogPage />} />
+          <Route path="/q/:token" element={<PublicQuotationPage />} />
+
+          <Route path="/admin" element={<Navigate to="/admin/products" replace />} />
+          <Route path="/admin/products" element={<Admin><ProductsPage /></Admin>} />
+          <Route path="/admin/pricing-rule" element={<Admin><PricingRulePage /></Admin>} />
+          <Route path="/admin/quotations" element={<Admin><QuotationsListPage /></Admin>} />
+          <Route path="/admin/quotations/new" element={<Admin><NewQuotationPage /></Admin>} />
+          <Route path="/admin/quotations/:id" element={<Admin><QuotationDetailPage /></Admin>} />
+
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        <Toaster position="bottom-right" richColors />
       </BrowserRouter>
-    </div>
+    </AuthProvider>
   );
 }
-
-export default App;
