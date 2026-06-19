@@ -1,0 +1,113 @@
+{
+  "theme": "light",
+  "archetype": "4 - Swiss & High-Contrast",
+  "brand_name": "ONCOST",
+  "typography": {
+    "fonts": {
+      "heading": "Outfit",
+      "body": "IBM Plex Sans",
+      "mono": "JetBrains Mono"
+    },
+    "scale": {
+      "h1": "text-4xl sm:text-5xl tracking-tight font-light",
+      "h2": "text-2xl sm:text-3xl tracking-tight font-medium",
+      "h3": "text-xl font-medium",
+      "h4": "text-lg font-medium",
+      "body": "text-base leading-relaxed",
+      "small": "text-sm",
+      "overline": "text-xs tracking-[0.2em] uppercase font-bold"
+    },
+    "urls": [
+      "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    ],
+    "rules": "Never center headings by default. Use fluid scales for large headings. Banned fonts: Inter, Roboto, Open Sans."
+  },
+  "colors": {
+    "background": {
+      "default": "#FFFFFF",
+      "muted": "#F4F4F5",
+      "subtle": "#FAFAFA"
+    },
+    "text": {
+      "primary": "#09090B",
+      "secondary": "#52525B",
+      "muted": "#A1A1AA"
+    },
+    "primary": {
+      "DEFAULT": "#002FA7",
+      "foreground": "#FFFFFF",
+      "hover": "#002277"
+    },
+    "accent": {
+      "DEFAULT": "#FF3B30",
+      "foreground": "#FFFFFF"
+    },
+    "border": {
+      "DEFAULT": "#E4E4E7",
+      "strong": "#D4D4D8"
+    },
+    "surface": {
+      "card": "#FFFFFF",
+      "sidebar": "#F4F4F5"
+    },
+    "rules": "No full-screen gradients. Use International Klein Blue (#002FA7) strictly for primary actions. Text contrast must pass APCA."
+  },
+  "spacing_and_layout": {
+    "generous_spacing": true,
+    "dashboard_grid": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6",
+    "catalog_grid": "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12",
+    "card_padding": "p-6",
+    "section_padding": "py-12 md:py-24",
+    "rules": "Mobile-first. Use optical alignment. The Bento Grid Protocol applies for the public catalog view."
+  },
+  "surfaces_and_borders": {
+    "admin_cards": "Flat background, 1px solid border-border, no shadow, square corners (rounded-none). Expose the grid skeleton.",
+    "public_header": "Glassmorphism: bg-white/70 backdrop-blur-xl border-b border-border/40 backdrop-saturate-150.",
+    "images": "Product images must have max-h-[80vh], object-cover, and a subtle 1px inner stroke.",
+    "rules": "Mix soft shadows with sharp inner contrasts only on interactive elements. Avoid muddy gray transparency."
+  },
+  "components": {
+    "buttons": "Sharp corners (rounded-none). High contrast. Primary uses primary-DEFAULT, secondary uses transparent bg with 1px border-strong. Hover state: subtle lift (-translate-y-px) and explicit text color definition.",
+    "tables": "Shadcn Table. border-collapse. No zebra striping, 1px bottom borders for rows. Left-align dense data.",
+    "forms": "Shadcn inputs with square corners, 1px border. Focus state must use ring-2 ring-primary offset-0.",
+    "sidebar": "Fixed left, width 260px, border-r border-border, dense navigation items. Use active state backgrounds.",
+    "rules": "Use Shadcn logic but strip 'Vercel-look'. ALWAYS explicitly set text color on hover."
+  },
+  "animation_and_motion": {
+    "hover": "transition-all duration-200 ease-in-out",
+    "page_transition": "framer-motion fade in and slide up slightly (y: 10, opacity: 0)",
+    "list_stagger": "staggerChildren 0.05s",
+    "rules": "Respect prefers-reduced-motion. Minimalist animations for dashboard, slightly more engaged for public catalog."
+  },
+  "iconography": {
+    "library": "@phosphor-icons/react",
+    "style": "Regular for default, Duotone for active states. Install via `yarn add @phosphor-icons/react`.",
+    "rules": "Dense dashboards and developer tools: use Phosphor Icons."
+  },
+  "media": {
+    "hero_login": "https://images.pexels.com/photos/10257439/pexels-photo-10257439.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "mock_products": [
+      "https://images.pexels.com/photos/37326553/pexels-photo-37326553.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "https://images.pexels.com/photos/10757835/pexels-photo-10757835.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
+    ]
+  },
+  "specific_views": {
+    "admin_dashboard": {
+      "layout": "Control Room grid. Fixed sidebar + Main content area. Grid borders style to expose the skeleton.",
+      "product_list": "Data-dense table with inline edit capabilities or bulk select. Show SG Cost (hidden from public) and computed ONCOST price. Use 1px borders.",
+      "pricing_rules": "Configuration cards for rules (e.g. +50 if < 1000, +100 if >= 1000). Explicit Active/Inactive toggles.",
+      "quotation_creator": "Form heavy. Customer name, Location, MOQ fields. Product picker with search."
+    },
+    "public_quotation": {
+      "layout": "Clean, minimal, Swiss poster aesthetic. Print-friendly. No sidebar. Centered bento/catalog grid for products.",
+      "header": "ONCOST Brand text logo, Customer Name, Quotation ID, Date, Place. Large expressive typography for the Customer Name (e.g., text-5xl).",
+      "product_display": "Generous spacing. Large product image, clear ONCOST pricing, MOQ. Strict rule: No mention of SG.",
+      "print_styles": "Must include @media print queries to hide web-only UI elements (buttons, toggles, nav) and ensure proper pagination."
+    }
+  },
+  "accessibility_and_testing": {
+    "testing_attributes": "CRITICAL: All interactive and key informational elements MUST include a `data-testid` attribute (e.g., data-testid='login-button', data-testid='pricing-rule-toggle', data-testid='product-card').",
+    "contrast": "Text must meet APCA standards. Hover & Focus states must have HIGHER contrast."
+  },
+  "instructions_to_main_agent": "Implement a full-stack app with FastAPI backend and React + Vite frontend using Tailwind CSS and Shadcn UI. Use `.jsx`/`.js` extensions strictly, NO TypeScript (`.tsx`/`.ts`). Apply the Archetype 4 (Swiss & High-Contrast) design: sharp square corners (rounded-none), crisp 1px borders, and a sterile, highly professional aesthetic. Build the admin dashboard for dense data management and the public quotation view as an elegant, print-ready, presentation-focused HTML catalog. Integrate the specified fonts and icons."
+}
