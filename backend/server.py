@@ -256,7 +256,8 @@ async def _list_products(visible_only: bool = False) -> list:
     for it in items:
         it["id"] = str(it.pop("_id"))
         sg = it.get("sg_price", 0)
-        oncost = it.get("override_price") or compute_oncost_price(sg, rule)
+        ov = it.get("override_price")
+        oncost = int(ov) if ov is not None else compute_oncost_price(sg, rule)
         it["oncost_price"] = oncost
     return items
 
@@ -287,7 +288,14 @@ async def create_product(p: ProductIn, _user=Depends(get_current_user)):
 
 @api.put("/products/{pid}")
 async def update_product(pid: str, p: ProductPatch, _user=Depends(get_current_user)):
-    update = {k: v for k, v in p.model_dump().items() if v is not None}
+    # Allow override_price=None explicitly (to clear override). For other fields, skip None.
+    raw = p.model_dump(exclude_unset=True)
+    update = {}
+    for k, v in raw.items():
+        if k == "override_price":
+            update[k] = v  # may be None to clear
+        elif v is not None:
+            update[k] = v
     if not update:
         raise HTTPException(400, "No fields to update")
     res = await db.products.update_one({"_id": ObjectId(pid)}, {"$set": update})
@@ -316,7 +324,8 @@ async def _build_quotation_doc(q: QuotationIn) -> dict:
         if not prod:
             raise HTTPException(400, f"Product {qi.product_id} not found")
         sg = prod.get("sg_price", 0)
-        oncost = prod.get("override_price") or compute_oncost_price(sg, rule)
+        ov = prod.get("override_price")
+        oncost = int(ov) if ov is not None else compute_oncost_price(sg, rule)
         line_total = oncost * qi.quantity
         total += line_total
         items_out.append({
