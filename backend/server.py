@@ -314,6 +314,44 @@ async def delete_product(pid: str, _user=Depends(get_current_user)):
     return {"ok": True}
 
 
+# ---------- Product image upload ----------
+from fastapi import UploadFile, File
+import secrets as _sec
+
+ALLOWED_IMG = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
+
+@api.post("/products/{pid}/image")
+async def upload_product_image(pid: str, file: UploadFile = File(...), _user=Depends(get_current_user)):
+    if file.content_type not in ALLOWED_IMG:
+        raise HTTPException(400, "Only JPG, PNG, WEBP images allowed")
+    prod = await db.products.find_one({"_id": ObjectId(pid)})
+    if not prod:
+        raise HTTPException(404, "Product not found")
+    # Read & process via Pillow (auto-orient, normalize, resize, save as JPG)
+    from PIL import Image, ImageOps
+    import io as _io
+    raw = await file.read()
+    if len(raw) > 8 * 1024 * 1024:
+        raise HTTPException(400, "Image too large (max 8MB)")
+    try:
+        img = Image.open(_io.BytesIO(raw))
+        img = ImageOps.exif_transpose(img).convert("RGB")
+    except Exception:
+        raise HTTPException(400, "Invalid image")
+    # Fit into 800x800 max preserving aspect
+    img.thumbnail((800, 800))
+    # Pad to square on white for consistency
+    side = max(img.size)
+    canvas = Image.new("RGB", (side, side), (255, 255, 255))
+    canvas.paste(img, ((side - img.size[0]) // 2, (side - img.size[1]) // 2))
+    canvas.thumbnail((720, 720))
+    fname = f"{prod['code'].replace(' ', '_')}_{_sec.token_hex(4)}.jpg"
+    out = IMAGES_DIR / fname
+    canvas.save(str(out), "JPEG", quality=88)
+    await db.products.update_one({"_id": ObjectId(pid)}, {"$set": {"image": fname}})
+    return {"image": fname}
+
+
 # ---------- Quotations ----------
 async def _build_quotation_doc(q: QuotationIn) -> dict:
     rule = await db.pricing_rule.find_one({"_id": "default"}) or {}

@@ -94,10 +94,8 @@ class TestProducts:
         r3 = session.get(f"{BASE_URL}/api/products", headers=auth_headers)
         updated = next(p for p in r3.json() if p["id"] == pid)
         assert updated["oncost_price"] == 999, f"Expected override 999, got {updated['oncost_price']}"
-        # Reset by setting override_price to 0 (since None gets filtered out by ProductPatch logic).
-        # Workaround: backend filters out None in update so we update directly via mongo-style? No - we must set to falsy.
-        # Test cleanup: set override back to 0 makes `prod.get("override_price") or compute(...)` return computed.
-        r4 = session.put(f"{BASE_URL}/api/products/{pid}", headers=auth_headers, json={"override_price": 0})
+        # Clear override by setting null (backend explicitly supports None to clear).
+        r4 = session.put(f"{BASE_URL}/api/products/{pid}", headers=auth_headers, json={"override_price": None})
         assert r4.status_code == 200
         r5 = session.get(f"{BASE_URL}/api/products", headers=auth_headers)
         cleaned = next(p for p in r5.json() if p["id"] == pid)

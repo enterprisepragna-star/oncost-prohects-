@@ -1,0 +1,71 @@
+{
+  "summary": "Iteration 3 tested two new features end-to-end: (1) Admin product-image upload endpoint POST /api/products/{pid}/image and (2) price-sort filters on both /admin/products and /catalog. Backend: 4/4 new image-upload tests + 13/13 regression tests passed. Frontend Playwright verified sort buttons (sort-code/sort-price_asc/sort-price_desc + cat-sort-*) produce correctly ordered ONCOST values, upload overlay (product-upload-SG 501) is always-visible and image src refreshes to a new hashed filename after upload. SG 501 image and override_price restored to original state post-test.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "feature_test_results": [
+    {
+      "feature": "POST /api/products/{pid}/image (auth + multipart)",
+      "status": "PASS",
+      "details": "Valid 200x200 JPG upload returns {image: 'SG_501_<8hex>.jpg'} (e.g. SG_501_6af1c64f.jpg), the products document is updated, GET /api/products reflects the new filename, and GET /api/images/<new> returns 200 image/jpeg. PNG upload also works (Pillow normalises to JPG output)."
+    },
+    {
+      "feature": "POST /api/products/{pid}/image without auth",
+      "status": "PASS",
+      "details": "Returns 401 'Not authenticated' when no Bearer token / cookie is sent."
+    },
+    {
+      "feature": "POST /api/products/{pid}/image with non-image",
+      "status": "PASS",
+      "details": "Uploading a text/plain file returns 400 'Only JPG, PNG, WEBP images allowed'."
+    },
+    {
+      "feature": "Admin sort buttons (sort-code, sort-price_asc, sort-price_desc)",
+      "status": "PASS",
+      "details": "All three buttons present and visible. ASC first 10 ONCOST = [300,300,300,315,320,330,365,375,385,395] (ascending). DESC first 10 = [3600,2750,2750,2450,1975,1850,1750,1750,1725,1600] (descending). Code sort returns SG 501..SG 505 first."
+    },
+    {
+      "feature": "Always-visible upload overlay (product-upload-{code})",
+      "status": "PASS",
+      "details": "product-upload-SG 501 is_visible()==True without hover (positioned at -bottom-1 -right-1 of the 64x64 image box with bg-[#002FA7]). Clicking + uploading /tmp/red.jpg triggers /api/products/{id}/image, success toast shows, and after load() the <img src> changes from SG_501.jpg to SG_501_<hash>.jpg."
+    },
+    {
+      "feature": "Public catalog sort buttons (cat-sort-code, cat-sort-price_asc, cat-sort-price_desc)",
+      "status": "PASS",
+      "details": "On /catalog (sticky bar) all three present. ASC first 5 card prices = [300,300,300,315,320], DESC first 5 = [3600,2750,2750,2450,1975]. Sort reverts when cat-sort-code clicked."
+    }
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_image_upload.py",
+    "/app/backend/tests/test_oncost_api.py",
+    "/app/test_reports/pytest/iter3_full.xml",
+    "/app/test_reports/pytest/iter3_image_upload.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is 683 lines and approaching the 700-line split threshold. Recommend extracting routers into modules: auth.py, products.py (incl. image upload), quotations.py, pdf.py.",
+    "The image upload endpoint imports Pillow + secrets inside the function body (lines 318-332). Move imports to module top to avoid per-request import cost. Same for `from fastapi import UploadFile, File` already at top of file but also re-imported below.",
+    "Old uploaded images are never garbage-collected: when a product image is replaced via POST /products/{pid}/image, the previous file remains in /app/backend/data/product_images/. Over time this will accumulate stale files. Consider deleting prod['image'] file before overwriting (with a safety check that the filename isn't the seeded SG_*.jpg default).",
+    "ALLOWED_IMG set lists 'image/jpeg' and 'image/jpg' — the latter is non-standard (browsers always send image/jpeg). Harmless but misleading.",
+    "Frontend ProductsPage.jsx imageUrl(p.image) + `?v=${p.image}` cache-buster is fine, but PublicCatalogPage.jsx doesn't include the cache-buster — a replaced image may appear stale on /catalog until a hard reload.",
+    "In PublicCatalogPage.jsx sticky sort bar uses `top-[57px]` which assumes the upper header is exactly 57px tall. On wider viewports the header padding could shift this; consider using sticky stacking via flex or a CSS variable.",
+    "test_oncost_api.py had stale cleanup code (set override_price:0) — fixed to use null. The previous iteration left SG 501 with override_price=0 in DB which broke the pricing-rule test on this run; I restored it via PUT {override_price:null,image:'SG_501.jpg'} before re-running."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_image_upload.py (new)",
+    "/app/backend/tests/test_oncost_api.py (fix stale override cleanup: 0 -> None)"
+  ],
+  "success_rate": {"backend": "100% (17/17)", "frontend": "100% (6/6 sub-cases)"},
+  "test_credentials": "admin@oncost.shop / oncost@2026 (verified)",
+  "seed_data_creation": "No persistent seed data. Test side-effects (SG 501 override_price=0 from prior iteration, plus uploaded SG_501_<hash>.jpg) were cleaned up: SG 501 reset to override_price=null and image='SG_501.jpg' as required by the agent_to_agent_context_note.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 3 added image upload + sort filters and both are fully working. Backend regression suite is now 17/17 green. Note: old uploaded files (SG_501_75bd2ff9.jpg, SG_501_6af1c64f.jpg, etc.) remain in /app/backend/data/product_images/ — main agent should consider GC logic. SG 501 in DB has image='SG_501.jpg' and override_price=null (clean). Use null (not 0) to clear override_price going forward; backend PUT /products/{id} accepts None and stores it correctly.",
+  "rca of the issue": "N/A — all targeted features pass. The single regression failure observed during initial run was due to leftover bad data (override_price=0 on SG 501) from iteration 2 cleanup logic, not a current bug. Fixed by updating cleanup pattern and resetting DB state."
+}

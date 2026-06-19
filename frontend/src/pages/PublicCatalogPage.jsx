@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useMemo } from "react";
 import api, { imageUrl, formatINR } from "@/lib/api";
 import { PUBLIC } from "@/constants/testIds";
-import { Search } from "lucide-react";
+import { Search, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export default function PublicCatalogPage() {
   const [products, setProducts] = useState([]);
   const [q, setQ] = useState("");
+  const [sort, setSort] = useState("code");
 
   useEffect(() => {
     api.get("/public/products").then(({ data }) => setProducts(data));
@@ -14,28 +15,48 @@ export default function PublicCatalogPage() {
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
-    if (!s) return products;
-    return products.filter(p => p.code.toLowerCase().includes(s) || (p.items || "").toLowerCase().includes(s));
-  }, [products, q]);
+    let arr = products;
+    if (s) {
+      arr = arr.filter(p => p.code.toLowerCase().includes(s) || (p.items || "").toLowerCase().includes(s));
+    }
+    arr = [...arr];
+    if (sort === "price_asc") arr.sort((a, b) => (a.oncost_price || 0) - (b.oncost_price || 0));
+    else if (sort === "price_desc") arr.sort((a, b) => (b.oncost_price || 0) - (a.oncost_price || 0));
+    else arr.sort((a, b) => a.code.localeCompare(b.code));
+    return arr;
+  }, [products, q, sort]);
+
+  const SortBtn = ({ value, label, icon: Icon }) => (
+    <button
+      onClick={() => setSort(value)}
+      data-testid={`cat-sort-${value}`}
+      className={`text-xs px-3 py-1.5 border transition-all flex items-center gap-1.5 ${
+        sort === value ? "border-[#002FA7] text-[#002FA7] bg-[#002FA7]/5" : "border-zinc-300 text-zinc-600 hover:border-zinc-900"
+      }`}
+    >
+      <Icon size={11} />
+      {label}
+    </button>
+  );
 
   return (
     <div data-testid={PUBLIC.catalogContainer} className="min-h-screen bg-white">
-      <div className="sticky top-0 z-30 backdrop-blur-xl bg-white/70 border-b border-zinc-200">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div className="sticky top-0 z-30 backdrop-blur-xl bg-white/80 border-b border-zinc-200">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-baseline gap-2">
             <Link to="/" className="logo-mark text-2xl">ONCOST</Link>
             <span className="overline text-[10px]">catalog 2026</span>
           </div>
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" className="pl-9 pr-3 py-2 border border-zinc-300 text-sm w-64 focus:border-[#002FA7] outline-none" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" className="pl-9 pr-3 py-2 border border-zinc-300 text-sm w-48 sm:w-64 focus:border-[#002FA7] outline-none" />
           </div>
         </div>
       </div>
 
-      <section className="max-w-6xl mx-auto px-6 py-16">
+      <section className="max-w-6xl mx-auto px-6 py-14 lg:py-20">
         <p className="overline">Corporate Gifting · 2026</p>
-        <h1 className="font-display text-5xl md:text-7xl font-light tracking-tight mt-3 max-w-3xl">
+        <h1 className="font-display text-4xl sm:text-5xl lg:text-7xl font-light tracking-tight mt-3 max-w-3xl">
           Thoughtful gift sets <span className="text-[#002FA7]">priced for resale.</span>
         </h1>
         <p className="text-zinc-500 mt-6 max-w-xl">
@@ -43,7 +64,19 @@ export default function PublicCatalogPage() {
         </p>
       </section>
 
-      <section className="max-w-6xl mx-auto px-6 pb-24">
+      <div className="sticky top-[57px] z-20 bg-white/90 backdrop-blur border-t border-b border-zinc-200">
+        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-2 flex-wrap">
+          <p className="text-xs text-zinc-500"><span className="font-mono font-bold text-zinc-900">{filtered.length}</span> result{filtered.length !== 1 ? "s" : ""}</p>
+          <div className="flex items-center gap-2">
+            <span className="overline text-[10px] hidden sm:inline mr-1">Sort by</span>
+            <SortBtn value="code" label="Code" icon={ArrowUpDown} />
+            <SortBtn value="price_asc" label="Price low→high" icon={ArrowUp} />
+            <SortBtn value="price_desc" label="Price high→low" icon={ArrowDown} />
+          </div>
+        </div>
+      </div>
+
+      <section className="max-w-6xl mx-auto px-6 py-10 pb-24">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12">
           {filtered.map(p => (
             <article key={p.id} className="group">
