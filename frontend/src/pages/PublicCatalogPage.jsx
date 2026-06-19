@@ -57,10 +57,10 @@ export default function PublicCatalogPage() {
       <section className="max-w-6xl mx-auto px-6 py-14 lg:py-20">
         <p className="overline">Corporate Gifting · 2026</p>
         <h1 className="font-display text-4xl sm:text-5xl lg:text-7xl font-light tracking-tight mt-3 max-w-3xl">
-          Thoughtful gift sets <span className="text-[#002FA7]">priced for resale.</span>
+          Premium Corporate Gifting <span className="text-[#002FA7]">Made Simple.</span>
         </h1>
-        <p className="text-zinc-500 mt-6 max-w-xl">
-          {products.length} curated gift sets. Send any selection as a polished quotation, instantly.
+        <p className="text-zinc-500 mt-6 max-w-2xl">
+          Discover {products.length} thoughtfully curated gift sets for every business occasion. Compare options, customize selections, and generate professional quotations instantly.
         </p>
       </section>
 

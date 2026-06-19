@@ -2,9 +2,9 @@ import React, { useEffect, useState, useMemo, useRef } from "react";
 import api, { imageUrl, formatINR } from "@/lib/api";
 import { ADMIN } from "@/constants/testIds";
 import { toast } from "sonner";
-import { Search, Eye, EyeOff, Upload, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Pencil, X, Check, Image as ImageIcon } from "lucide-react";
+import { Search, Eye, EyeOff, Upload, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Pencil, X, Check, FileText, Save } from "lucide-react";
 
-/** Product table with prominent Upload Image + Edit Price actions per row. */
+/** Product table with prominent Upload Image + Edit Price + Edit Details actions. */
 export default function ProductsPage() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -14,6 +14,9 @@ export default function ProductsPage() {
   const [editValue, setEditValue] = useState("");
   const [uploadingId, setUploadingId] = useState(null);
   const [dragId, setDragId] = useState(null);
+  const [detailsId, setDetailsId] = useState(null); // product id whose details modal is open
+  const [detailsForm, setDetailsForm] = useState({ code: "", set_type: "", items: "", moq: 50 });
+  const [savingDetails, setSavingDetails] = useState(false);
   const fileRefs = useRef({});
 
   const load = async () => {
@@ -84,6 +87,39 @@ export default function ProductsPage() {
       await api.put(`/products/${p.id}`, { visible: !p.visible });
       setProducts(prev => prev.map(x => x.id === p.id ? { ...x, visible: !p.visible } : x));
     } catch { toast.error("Failed"); }
+  };
+
+  const openDetails = (p) => {
+    setDetailsId(p.id);
+    setDetailsForm({
+      code: p.code || "",
+      set_type: p.set_type || "",
+      items: p.items || "",
+      moq: p.moq ?? 50,
+    });
+  };
+  const closeDetails = () => { setDetailsId(null); setSavingDetails(false); };
+  const saveDetails = async () => {
+    if (!detailsId) return;
+    const body = {
+      code: (detailsForm.code || "").trim(),
+      set_type: (detailsForm.set_type || "").trim(),
+      items: (detailsForm.items || "").trim(),
+      moq: Number(detailsForm.moq) || 0,
+    };
+    if (!body.code) { toast.error("Code is required"); return; }
+    if (body.moq < 1) { toast.error("MOQ must be at least 1"); return; }
+    setSavingDetails(true);
+    try {
+      await api.put(`/products/${detailsId}`, body);
+      toast.success(`Updated ${body.code}`);
+      closeDetails();
+      load();
+    } catch (e) {
+      const msg = e?.response?.data?.detail || "Could not save details";
+      toast.error(typeof msg === "string" ? msg : "Save failed");
+      setSavingDetails(false);
+    }
   };
 
   const onUpload = async (p, file) => {
@@ -235,6 +271,13 @@ export default function ProductsPage() {
                         <Pencil size={12} /> Edit Price
                       </button>
                       <button
+                        data-testid={`edit-details-${p.code}`}
+                        onClick={() => openDetails(p)}
+                        className="text-xs px-3 py-1.5 border border-zinc-300 hover:border-[#002FA7] hover:text-[#002FA7] flex items-center gap-1.5"
+                      >
+                        <FileText size={12} /> Edit Details
+                      </button>
+                      <button
                         data-testid={`product-upload-${p.code}`}
                         onClick={() => fileRefs.current[p.id]?.click()}
                         disabled={isUploading}
@@ -273,11 +316,96 @@ export default function ProductsPage() {
         <p className="overline text-[10px] mb-1">Tips</p>
         <ul className="space-y-1 list-disc list-inside">
           <li><b>Edit Price</b> sets a custom price for this item (overrides the global markup rule).</li>
+          <li><b>Edit Details</b> changes the code, set type, description and MOQ.</li>
           <li>Click <b>reset</b> next to a row to remove the custom price and follow the rule again.</li>
           <li><b>Upload Image</b> replaces the supplier photo. You can also <b>drag and drop</b> an image file onto any row.</li>
           <li>Allowed: JPG, PNG, WEBP — up to 8 MB. Images are auto-resized and centered on a white background.</li>
         </ul>
       </div>
+
+      {/* Edit Details modal */}
+      {detailsId && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={closeDetails}
+          data-testid="details-modal"
+        >
+          <div
+            className="bg-white max-w-xl w-full border border-zinc-200 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-zinc-200 flex items-center justify-between">
+              <div>
+                <p className="overline text-[10px]">Edit Product Details</p>
+                <h3 className="font-display text-xl font-medium mt-1">{detailsForm.code || "—"}</h3>
+              </div>
+              <button onClick={closeDetails} className="p-2 hover:bg-zinc-100" data-testid="details-close"><X size={16} /></button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <label className="overline text-[10px]">Code (SKU)</label>
+                <input
+                  data-testid="details-code"
+                  value={detailsForm.code}
+                  onChange={(e) => setDetailsForm(f => ({ ...f, code: e.target.value }))}
+                  className="mt-2 w-full px-3 py-2 border border-zinc-300 font-mono text-sm focus:border-[#002FA7] outline-none"
+                  placeholder="e.g. SG 501"
+                />
+              </div>
+              <div>
+                <label className="overline text-[10px]">Set type / title</label>
+                <input
+                  data-testid="details-set-type"
+                  value={detailsForm.set_type}
+                  onChange={(e) => setDetailsForm(f => ({ ...f, set_type: e.target.value }))}
+                  className="mt-2 w-full px-3 py-2 border border-zinc-300 text-sm focus:border-[#002FA7] outline-none"
+                  placeholder="e.g. 6in1"
+                />
+              </div>
+              <div>
+                <label className="overline text-[10px]">Description (items list)</label>
+                <textarea
+                  data-testid="details-items"
+                  rows={4}
+                  value={detailsForm.items}
+                  onChange={(e) => setDetailsForm(f => ({ ...f, items: e.target.value }))}
+                  className="mt-2 w-full px-3 py-2 border border-zinc-300 text-sm focus:border-[#002FA7] outline-none resize-y"
+                  placeholder="Note Book, Mug, Pen, Flask, Card Holder, Key Chain"
+                />
+                <p className="text-[11px] text-zinc-500 mt-1">Comma-separated list of contents. Shown to customers on the public catalog and quotations.</p>
+              </div>
+              <div>
+                <label className="overline text-[10px]">Minimum Order Quantity (MOQ)</label>
+                <input
+                  data-testid="details-moq"
+                  type="number"
+                  min={1}
+                  value={detailsForm.moq}
+                  onChange={(e) => setDetailsForm(f => ({ ...f, moq: e.target.value }))}
+                  className="mt-2 w-32 px-3 py-2 border border-zinc-300 font-mono text-sm focus:border-[#002FA7] outline-none"
+                />
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-zinc-200 flex items-center justify-end gap-2 bg-zinc-50">
+              <button
+                onClick={closeDetails}
+                data-testid="details-cancel"
+                className="px-4 py-2 border border-zinc-300 text-sm hover:border-zinc-900"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveDetails}
+                disabled={savingDetails}
+                data-testid="details-save"
+                className="px-4 py-2 bg-[#002FA7] hover:bg-[#002277] text-white text-sm flex items-center gap-2 disabled:opacity-50"
+              >
+                <Save size={14} /> {savingDetails ? "Saving…" : "Save changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
