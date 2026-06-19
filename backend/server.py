@@ -186,10 +186,13 @@ class QuotationItemIn(BaseModel):
 
 class QuotationIn(BaseModel):
     customer_name: str
+    customer_email: str = ""
     place: str = ""
     notes: str = ""
     items: List[QuotationItemIn]
     valid_until: Optional[str] = None
+    shipping_charges: float = 0
+    gst_percent: float = 0
 
 
 # ---------- Auth endpoints ----------
@@ -386,13 +389,23 @@ async def _build_quotation_doc(q: QuotationIn) -> dict:
     seq = seq_doc["seq"] if seq_doc else 1
     qid = f"ONC-{datetime.now().strftime('%Y%m')}-{seq:04d}"
     token = secrets.token_urlsafe(10)
+    subtotal = total
+    shipping = max(0, float(q.shipping_charges or 0))
+    gst_percent = max(0, float(q.gst_percent or 0))
+    gst_amount = round((subtotal + shipping) * gst_percent / 100, 2)
+    grand_total = round(subtotal + shipping + gst_amount, 2)
     doc = {
         "quotation_id": qid,
         "customer_name": q.customer_name,
+        "customer_email": (q.customer_email or "").strip(),
         "place": q.place,
         "notes": q.notes,
         "items": items_out,
-        "total": total,
+        "subtotal": subtotal,
+        "shipping_charges": shipping,
+        "gst_percent": gst_percent,
+        "gst_amount": gst_amount,
+        "total": grand_total,
         "valid_until": q.valid_until,
         "share_token": token,
         "active": True,
@@ -501,10 +514,10 @@ def _build_pdf(q: dict) -> bytes:
     except Exception:
         created_str = created[:10]
     meta = [
-        [Paragraph("CUSTOMER", h_label), Paragraph("PLACE OF ORDER", h_label), Paragraph("DATE", h_label), Paragraph("VALID UNTIL", h_label)],
-        [Paragraph(q.get("customer_name") or "—", h_value), Paragraph(q.get("place") or "—", h_value), Paragraph(created_str, h_value), Paragraph(q.get("valid_until") or "—", h_value)],
+        [Paragraph("CUSTOMER", h_label), Paragraph("EMAIL", h_label), Paragraph("PLACE OF ORDER", h_label), Paragraph("DATE", h_label), Paragraph("VALID UNTIL", h_label)],
+        [Paragraph(q.get("customer_name") or "—", h_value), Paragraph(q.get("customer_email") or "—", h_value), Paragraph(q.get("place") or "—", h_value), Paragraph(created_str, h_value), Paragraph(q.get("valid_until") or "—", h_value)],
     ]
-    mtbl = Table(meta, colWidths=[55*mm, 50*mm, 35*mm, 34*mm])
+    mtbl = Table(meta, colWidths=[40*mm, 50*mm, 35*mm, 25*mm, 24*mm])
     mtbl.setStyle(TableStyle([
         ("BOTTOMPADDING", (0,0), (-1,0), 2),
         ("BOTTOMPADDING", (0,1), (-1,1), 8),
@@ -515,8 +528,9 @@ def _build_pdf(q: dict) -> bytes:
     # Section title
     story.append(Paragraph("LINE ITEMS", h_section))
 
-    # Items table
+    # Items table — now with product image
     rows = [[
+        Paragraph("<b>IMAGE</b>", h_label),
         Paragraph("<b>CODE</b>", h_label),
         Paragraph("<b>PRODUCT</b>", h_label),
         Paragraph("<b>MOQ</b>", h_label),
@@ -528,7 +542,18 @@ def _build_pdf(q: dict) -> bytes:
     item_value_b = ParagraphStyle("ivb", parent=item_value, fontName="Helvetica-Bold")
     for it in q["items"]:
         desc = f"<b>{it.get('set_type','')}</b><br/><font color='#52525B'>{it.get('items','')}</font>"
+        # Embed image
+        img_cell = ""
+        img_name = it.get("image")
+        if img_name:
+            img_path = IMAGES_DIR / img_name
+            if img_path.exists():
+                try:
+                    img_cell = RLImage(str(img_path), width=14*mm, height=14*mm, kind="proportional")
+                except Exception:
+                    img_cell = ""
         rows.append([
+            img_cell,
             Paragraph(it["code"], item_value_b),
             Paragraph(desc, item_value),
             Paragraph(str(it.get("moq", "")), item_value),
@@ -536,22 +561,44 @@ def _build_pdf(q: dict) -> bytes:
             Paragraph(f"{it['unit_price']:,}", item_value),
             Paragraph(f"{it['line_total']:,}", item_value_b),
         ])
-    itbl = Table(rows, colWidths=[20*mm, 80*mm, 14*mm, 14*mm, 20*mm, 26*mm], repeatRows=1)
+    itbl = Table(rows, colWidths=[16*mm, 18*mm, 64*mm, 12*mm, 12*mm, 22*mm, 30*mm], repeatRows=1)
     itbl.setStyle(TableStyle([
         ("LINEBELOW", (0,0), (-1,0), 1, colors.HexColor("#09090B")),
         ("LINEBELOW", (0,1), (-1,-1), 0.5, colors.HexColor("#E4E4E7")),
         ("BOTTOMPADDING", (0,0), (-1,-1), 6),
         ("TOPPADDING", (0,0), (-1,-1), 6),
-        ("VALIGN", (0,0), (-1,-1), "TOP"),
+        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
     ]))
     story.append(itbl)
-    story.append(Spacer(1, 6*mm))
+    story.append(Spacer(1, 4*mm))
 
-    # Total
+    # Totals breakdown
+    subtotal = q.get("subtotal", q.get("total", 0))
+    shipping = q.get("shipping_charges", 0)
+    gst_percent = q.get("gst_percent", 0)
+    gst_amount = q.get("gst_amount", 0)
+    grand = q.get("total", subtotal + shipping + gst_amount)
+
+    h_breakdown_label = ParagraphStyle("bdl", parent=styles["Normal"], fontName="Helvetica", fontSize=9, textColor=colors.HexColor("#52525B"), alignment=TA_RIGHT)
+    h_breakdown_val = ParagraphStyle("bdv", parent=styles["Normal"], fontName="Helvetica", fontSize=10, textColor=colors.HexColor("#09090B"), alignment=TA_RIGHT)
+
+    brk_rows = [
+        [Paragraph("Subtotal", h_breakdown_label), Paragraph(f"₹ {subtotal:,.2f}", h_breakdown_val)],
+        [Paragraph("Shipping", h_breakdown_label), Paragraph(f"₹ {shipping:,.2f}", h_breakdown_val)],
+        [Paragraph(f"GST ({gst_percent:g}%)", h_breakdown_label), Paragraph(f"₹ {gst_amount:,.2f}", h_breakdown_val)],
+    ]
+    brk_tbl = Table(brk_rows, colWidths=[120*mm, 54*mm])
+    brk_tbl.setStyle(TableStyle([
+        ("BOTTOMPADDING", (0,0), (-1,-1), 4),
+        ("TOPPADDING", (0,0), (-1,-1), 2),
+    ]))
+    story.append(brk_tbl)
+
+    # Grand total
     total_tbl = Table([[
         Paragraph(f"<font color='#A1A1AA' size='8'><b>GRAND TOTAL</b></font>", h_meta),
-        Paragraph(f"₹ {q['total']:,}", h_total),
-    ]], colWidths=[100*mm, 74*mm])
+        Paragraph(f"₹ {grand:,.2f}", h_total),
+    ]], colWidths=[120*mm, 54*mm])
     total_tbl.setStyle(TableStyle([
         ("LINEABOVE", (0,0), (-1,-1), 1, colors.HexColor("#09090B")),
         ("TOPPADDING", (0,0), (-1,-1), 8),

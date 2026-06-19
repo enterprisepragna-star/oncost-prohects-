@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import api, { imageUrl, formatINR } from "@/lib/api";
 import { PUBLIC } from "@/constants/testIds";
-import { Printer, FileDown, Calendar, MapPin, User2, Hash } from "lucide-react";
+import { Printer, FileDown, Calendar, MapPin, User2, Hash, Mail } from "lucide-react";
 
 export default function PublicQuotationPage() {
   const { token } = useParams();
@@ -100,12 +100,22 @@ export default function PublicQuotationPage() {
         </div>
 
         {/* Total */}
-        <div className="mt-12 border-t-2 border-zinc-900 pt-6 flex items-end justify-between">
-          <div>
-            <p className="overline">Grand total</p>
-            <p className="text-xs text-zinc-500 mt-1">{q.items.length} line item(s) • prices in INR (₹)</p>
+        <div className="mt-12 border-t-2 border-zinc-900 pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <p className="overline">Summary</p>
+              <p className="text-xs text-zinc-500 mt-1">{q.items.length} line item(s) • prices in INR (₹)</p>
+            </div>
+            <div className="space-y-1.5 text-sm">
+              <div className="flex justify-between"><span className="text-zinc-500">Subtotal</span><span className="font-mono">{formatINR(q.subtotal ?? q.total)}</span></div>
+              <div className="flex justify-between"><span className="text-zinc-500">Shipping</span><span className="font-mono">{formatINR(q.shipping_charges || 0)}</span></div>
+              <div className="flex justify-between"><span className="text-zinc-500">GST ({q.gst_percent || 0}%)</span><span className="font-mono">{formatINR(q.gst_amount || 0)}</span></div>
+              <div className="pt-3 mt-2 border-t border-zinc-900 flex items-baseline justify-between">
+                <span className="overline">Grand total</span>
+                <span className="font-display text-3xl md:text-4xl font-light tracking-tight">{formatINR(q.total)}</span>
+              </div>
+            </div>
           </div>
-          <p className="font-display text-5xl md:text-6xl font-light tracking-tight">{formatINR(q.total)}</p>
         </div>
 
         {q.notes && (

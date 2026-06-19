@@ -35,7 +35,8 @@ export default function QuotationDetailPage() {
     const link = shareLink(q.share_token);
     const subject = `ONCOST Quotation ${q.quotation_id} — ${q.customer_name}`;
     const body = `Hi ${q.customer_name},\n\nPlease find your ONCOST quotation ${q.quotation_id} below.\n\nGrand total: ${formatINR(q.total)}\nValid until: ${q.valid_until || "—"}\n\nView quotation: ${link}\n\nDownload PDF: ${process.env.REACT_APP_BACKEND_URL}/api/share/${q.share_token}/pdf\n\nRegards,\nONCOST`;
-    return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const to = q.customer_email ? encodeURIComponent(q.customer_email) : "";
+    return `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
   return (
@@ -71,7 +72,11 @@ export default function QuotationDetailPage() {
         </div>
       </div>
 
-      <div className="mt-6 border border-zinc-200 p-5 bg-zinc-50 grid grid-cols-1 md:grid-cols-4 gap-px text-sm">
+      <div className="mt-6 border border-zinc-200 p-5 bg-zinc-50 grid grid-cols-2 md:grid-cols-5 gap-px text-sm">
+        <div className="bg-white p-4">
+          <p className="overline text-[10px]">Customer email</p>
+          <p className="font-mono text-xs mt-2 break-all">{q.customer_email || "—"}</p>
+        </div>
         <div className="bg-white p-4">
           <p className="overline text-[10px]">Share link</p>
           <p className="font-mono text-xs mt-2 break-all">{shareLink(q.share_token)}</p>
@@ -117,6 +122,18 @@ export default function QuotationDetailPage() {
             ))}
           </tbody>
           <tfoot>
+            <tr>
+              <td colSpan={6} className="p-3 text-right text-zinc-500">Subtotal</td>
+              <td className="p-3 text-right font-mono">{formatINR(q.subtotal ?? q.total)}</td>
+            </tr>
+            <tr>
+              <td colSpan={6} className="p-3 text-right text-zinc-500">Shipping</td>
+              <td className="p-3 text-right font-mono">{formatINR(q.shipping_charges || 0)}</td>
+            </tr>
+            <tr>
+              <td colSpan={6} className="p-3 text-right text-zinc-500">GST ({q.gst_percent || 0}%)</td>
+              <td className="p-3 text-right font-mono">{formatINR(q.gst_amount || 0)}</td>
+            </tr>
             <tr className="border-t-2 border-zinc-900">
               <td colSpan={6} className="p-3 text-right overline">Grand total</td>
               <td className="p-3 text-right font-display text-xl font-medium">{formatINR(q.total)}</td>
