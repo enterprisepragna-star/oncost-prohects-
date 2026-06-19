@@ -145,7 +145,7 @@ export default function NewQuotationPage() {
               const inCart = !!cart[p.code];
               return (
                 <div key={p.id} className="bg-white p-3 flex gap-3">
-                  {p.image && <img src={imageUrl(p.image)} alt={p.code} className="w-16 h-16 object-cover border border-zinc-200 shrink-0" />}
+                  {p.image && <img src={imageUrl(p.image)} alt={p.code} className="w-16 h-16 object-contain bg-white border border-zinc-200 shrink-0" />}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <p className="font-mono text-xs font-bold">{p.code}</p>

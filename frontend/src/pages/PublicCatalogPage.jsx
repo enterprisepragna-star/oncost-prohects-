@@ -48,8 +48,8 @@ export default function PublicCatalogPage() {
           {filtered.map(p => (
             <article key={p.id} className="group">
               {p.image && (
-                <div className="aspect-square overflow-hidden bg-zinc-50 border border-zinc-200">
-                  <img src={imageUrl(p.image)} alt={p.code} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                <div className="aspect-[4/3] overflow-hidden bg-white border border-zinc-200">
+                  <img src={imageUrl(p.image)} alt={p.code} className="w-full h-full object-contain p-2 transition-transform duration-500 group-hover:scale-105" />
                 </div>
               )}
               <div className="mt-3 flex items-center justify-between">
@@ -57,7 +57,7 @@ export default function PublicCatalogPage() {
                 <p className="overline text-[10px]">MOQ {p.moq}</p>
               </div>
               <p className="font-display text-xl font-medium mt-1">{p.set_type}</p>
-              <p className="text-xs text-zinc-500 mt-1 leading-relaxed">{p.items}</p>
+              <p className="text-xs text-zinc-500 mt-1 leading-relaxed line-clamp-2">{p.items}</p>
               <p className="font-display text-2xl font-medium mt-3">{formatINR(p.oncost_price)}</p>
             </article>
           ))}

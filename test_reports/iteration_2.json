@@ -1,0 +1,45 @@
+{
+  "summary": "Iteration 2 frontend-only Playwright testing of 4 UI improvements: (1) override price flow on /admin/products, (2) WhatsApp/Email share buttons on quotation detail, (3) responsive mobile sidebar with hamburger drawer, (4) public catalog grid visuals. All 4 features verified working end-to-end on the deployed preview URL.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "feature_test_results": [
+    {
+      "feature": "Override price flow on /admin/products (SG 501)",
+      "status": "PASS",
+      "details": "Initial ONCOST ₹1,250 → typed 999 in product-override-SG 501 and clicked product-save-SG 501 → ONCOST cell reloaded to ₹999. Then cleared input (empty string) and clicked Save → ONCOST reverted to rule-computed ₹1,250. Backend PUT /api/products/{id} now correctly accepts override_price: null to clear. SG 501 left in clean state (override_price=null)."
+    },
+    {
+      "feature": "Quotation detail share buttons (Copy/WhatsApp/Email)",
+      "status": "PASS",
+      "details": "On /admin/quotations/<id> (quotation ONC-202606-0004, customer 'Test Acme'): quote-copy-link, quote-share-whatsapp, quote-share-email all present and clickable. WhatsApp href starts with https://wa.me/?text=... and contains 'Test Acme' + 'ONC-202606-0004' + 'ONCOST'. Email href starts with mailto:?subject=...&body=... and includes both subject and body with customer name, quotation_id, total, share link, PDF link."
+    },
+    {
+      "feature": "Responsive mobile sidebar (390x800)",
+      "status": "PASS",
+      "details": "On viewport 390x800: data-testid='admin-mobile-menu' hamburger visible in header. Desktop sidebar (hidden lg:flex) hidden. Clicking hamburger opens overlay drawer with sidebar containing Products, Pricing Rules, New Quotation, Quotations, View Catalog (confirmed via screenshot). Close X button visible in drawer header."
+    },
+    {
+      "feature": "Public catalog (/catalog) image grid",
+      "status": "PASS",
+      "details": "92 product cards rendered with aspect-[4/3] containers (object-contain images), no SG cost / sg_price labels exposed publicly, only ONCOST prices shown (₹1,250 etc.). Layout is a clean responsive grid; no overlapping text or collisions observed. SG-prefixed product codes still appear as SKUs (SG 501, SG 502, …) which is consistent with iteration 1's note."
+    }
+  ],
+  "test_report_links": ["/app/backend/tests/test_oncost_api.py"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "AdminLayout.jsx renders the same `sidebar` JSX inside BOTH the desktop <aside> and the mobile drawer — this duplicates all data-testid values (nav-products, nav-pricing, logout-btn, etc.) in the DOM at the same time on >=lg breakpoints when mobileOpen is true (rare) and on <lg only one is visible. Not a functional bug but it can confuse Playwright .locator() which may match the hidden desktop instance first. Consider keying the testids per-context or rendering only one tree at a time.",
+    "Save button enable-state logic in ProductsPage.jsx works correctly for clearing (empty string !== current override). Confirmed via UI test."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not retested (iter1: 100%)", "frontend": "100%"},
+  "test_credentials": "admin@oncost.shop / oncost@2026 (verified working)",
+  "seed_data_creation": "No new data created. SG 501 override_price was temporarily set to 999 then cleared back to null. No quotations created or modified.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 2 verified 4 UI improvements end-to-end. Override clear via empty-string-as-null works. WhatsApp/Email share buttons functional with proper encoded URLs. Mobile drawer works. Public catalog grid is clean. Note: data-testid lookup for sidebar nav items should use the constants from /app/frontend/src/constants/testIds/oncost.js (e.g., 'nav-products' NOT 'admin-nav-products'). Existing quotations on the system: ONC-202606-0004 (Test Acme) and one other.",
+  "rca of the issue": "N/A — no failures."
+}

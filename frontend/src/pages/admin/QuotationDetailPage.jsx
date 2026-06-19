@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import api, { imageUrl, formatINR, shareLink } from "@/lib/api";
 import { ADMIN } from "@/constants/testIds";
 import { toast } from "sonner";
-import { Copy, FileDown, Power, ExternalLink, ArrowLeft } from "lucide-react";
+import { Copy, FileDown, Power, ExternalLink, ArrowLeft, MessageCircle, Mail } from "lucide-react";
 
 export default function QuotationDetailPage() {
   const { id } = useParams();
@@ -26,6 +26,18 @@ export default function QuotationDetailPage() {
     toast.success("Share link copied");
   };
 
+  const whatsappMessage = () => {
+    const link = shareLink(q.share_token);
+    const text = `Hi ${q.customer_name},\n\nHere's your ONCOST quotation *${q.quotation_id}* — total ${formatINR(q.total)}.\n\nView details: ${link}\n\n— Team ONCOST`;
+    return `https://wa.me/?text=${encodeURIComponent(text)}`;
+  };
+  const emailLink = () => {
+    const link = shareLink(q.share_token);
+    const subject = `ONCOST Quotation ${q.quotation_id} — ${q.customer_name}`;
+    const body = `Hi ${q.customer_name},\n\nPlease find your ONCOST quotation ${q.quotation_id} below.\n\nGrand total: ${formatINR(q.total)}\nValid until: ${q.valid_until || "—"}\n\nView quotation: ${link}\n\nDownload PDF: ${process.env.REACT_APP_BACKEND_URL}/api/share/${q.share_token}/pdf\n\nRegards,\nONCOST`;
+    return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  };
+
   return (
     <div>
       <Link to="/admin/quotations" className="text-xs text-zinc-500 hover:text-zinc-900 flex items-center gap-1"><ArrowLeft size={12} /> Back to quotations</Link>
@@ -36,8 +48,24 @@ export default function QuotationDetailPage() {
           <p className="text-sm text-zinc-500 mt-2">For <span className="font-medium text-zinc-900">{q.customer_name}</span> • {q.place || "—"}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <button onClick={copyLink} className="border border-zinc-300 hover:border-[#002FA7] hover:text-[#002FA7] px-3 py-2 text-sm flex items-center gap-2"><Copy size={14} /> Copy share link</button>
-          <a href={`${process.env.REACT_APP_BACKEND_URL}/api/share/${q.share_token}/pdf`} target="_blank" rel="noreferrer" className="border border-zinc-300 hover:border-[#002FA7] hover:text-[#002FA7] px-3 py-2 text-sm flex items-center gap-2"><FileDown size={14} /> Download PDF</a>
+          <button data-testid="quote-copy-link" onClick={copyLink} className="border border-zinc-300 hover:border-[#002FA7] hover:text-[#002FA7] px-3 py-2 text-sm flex items-center gap-2"><Copy size={14} /> Copy link</button>
+          <a
+            href={whatsappMessage()}
+            target="_blank"
+            rel="noreferrer"
+            data-testid="quote-share-whatsapp"
+            className="border border-[#25D366] text-[#128C7E] hover:bg-[#25D366] hover:text-white px-3 py-2 text-sm flex items-center gap-2 transition-all"
+          >
+            <MessageCircle size={14} /> WhatsApp
+          </a>
+          <a
+            href={emailLink()}
+            data-testid="quote-share-email"
+            className="border border-zinc-300 hover:border-[#002FA7] hover:text-[#002FA7] px-3 py-2 text-sm flex items-center gap-2"
+          >
+            <Mail size={14} /> Email
+          </a>
+          <a href={`${process.env.REACT_APP_BACKEND_URL}/api/share/${q.share_token}/pdf`} target="_blank" rel="noreferrer" className="border border-zinc-300 hover:border-[#002FA7] hover:text-[#002FA7] px-3 py-2 text-sm flex items-center gap-2"><FileDown size={14} /> PDF</a>
           <a href={`/q/${q.share_token}`} target="_blank" rel="noreferrer" className="border border-zinc-300 hover:border-[#002FA7] hover:text-[#002FA7] px-3 py-2 text-sm flex items-center gap-2"><ExternalLink size={14} /> Public view</a>
           <button onClick={toggle} className={`border px-3 py-2 text-sm flex items-center gap-2 ${q.active ? "border-emerald-600 text-emerald-600" : "border-zinc-300 text-zinc-500"}`}><Power size={14} /> {q.active ? "Active" : "Disabled"}</button>
         </div>
@@ -78,7 +106,7 @@ export default function QuotationDetailPage() {
           <tbody>
             {q.items.map((it, i) => (
               <tr key={i} className="border-b border-zinc-200">
-                <td className="p-3 w-20">{it.image && <img src={imageUrl(it.image)} className="w-14 h-14 object-cover border border-zinc-200" />}</td>
+                <td className="p-3 w-20">{it.image && <img src={imageUrl(it.image)} className="w-14 h-14 object-contain bg-white border border-zinc-200" />}</td>
                 <td className="p-3 font-mono font-semibold">{it.code}</td>
                 <td className="p-3"><span className="font-medium">{it.set_type}</span><div className="text-xs text-zinc-500">{it.items}</div></td>
                 <td className="p-3 text-right font-mono">{it.moq}</td>

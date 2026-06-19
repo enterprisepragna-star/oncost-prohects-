@@ -111,7 +111,7 @@ export default function ProductsPage() {
                   <tr key={p.id} data-testid={ADMIN.productRow(p.code)} className="border-b border-zinc-200 hover:bg-zinc-50">
                     <td className="p-3 w-20">
                       {p.image && (
-                        <img src={imageUrl(p.image)} alt={p.code} className="w-14 h-14 object-cover border border-zinc-200" />
+                        <img src={imageUrl(p.image)} alt={p.code} className="w-14 h-14 object-contain bg-white border border-zinc-200" />
                       )}
                     </td>
                     <td className="p-3 font-mono font-semibold text-[13px]">{p.code}</td>

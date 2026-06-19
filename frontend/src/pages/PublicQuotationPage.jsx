@@ -71,20 +71,20 @@ export default function PublicQuotationPage() {
         <p className="overline mb-6">Line items</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-10">
           {q.items.map((it, i) => (
-            <div key={i} className="bg-white border border-zinc-200 print-block">
+            <div key={i} className="bg-white border border-zinc-200 print-block flex flex-col">
               {it.image && (
-                <div className="aspect-square overflow-hidden bg-zinc-50 border-b border-zinc-200">
-                  <img src={imageUrl(it.image)} alt={it.code} className="w-full h-full object-cover" />
+                <div className="aspect-[4/3] overflow-hidden bg-white border-b border-zinc-200">
+                  <img src={imageUrl(it.image)} alt={it.code} className="w-full h-full object-contain p-3" />
                 </div>
               )}
-              <div className="p-4">
+              <div className="p-4 flex-1 flex flex-col">
                 <div className="flex items-center justify-between">
                   <p className="font-mono text-[11px] font-bold tracking-wider">{it.code}</p>
                   <p className="overline text-[10px]">MOQ {it.moq}</p>
                 </div>
                 <p className="font-display text-lg font-medium mt-2">{it.set_type}</p>
-                <p className="text-xs text-zinc-500 mt-1 leading-relaxed">{it.items}</p>
-                <div className="mt-4 pt-3 border-t border-zinc-200 flex items-center justify-between">
+                <p className="text-xs text-zinc-500 mt-1 leading-relaxed line-clamp-3">{it.items}</p>
+                <div className="mt-4 pt-3 border-t border-zinc-200 flex items-center justify-between gap-2">
                   <div>
                     <p className="overline text-[9px]">Unit × Qty</p>
                     <p className="font-mono text-sm">{formatINR(it.unit_price)} × {it.quantity}</p>
