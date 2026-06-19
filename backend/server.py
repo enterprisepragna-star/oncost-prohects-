@@ -36,6 +36,20 @@ from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Image as RLImage, Table, TableStyle, PageBreak,
 )
 from reportlab.lib.enums import TA_LEFT, TA_RIGHT, TA_CENTER
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+
+# Register Unicode fonts (DejaVu supports ₹). Fallback to Helvetica if missing.
+_FONT_REG = "Helvetica"
+_FONT_BOLD = "Helvetica-Bold"
+try:
+    pdfmetrics.registerFont(TTFont("DejaVuSans", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
+    pdfmetrics.registerFont(TTFont("DejaVuSans-Bold", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"))
+    pdfmetrics.registerFontFamily("DejaVuSans", normal="DejaVuSans", bold="DejaVuSans-Bold", italic="DejaVuSans", boldItalic="DejaVuSans-Bold")
+    _FONT_REG = "DejaVuSans"
+    _FONT_BOLD = "DejaVuSans-Bold"
+except Exception:
+    pass
 
 # ---------- Config ----------
 MONGO_URL = os.environ["MONGO_URL"]
@@ -44,6 +58,21 @@ JWT_SECRET = os.environ["JWT_SECRET"]
 JWT_ALGO = "HS256"
 ADMIN_EMAIL = os.environ["ADMIN_EMAIL"].lower()
 ADMIN_PASSWORD = os.environ["ADMIN_PASSWORD"]
+
+# Company letterhead (configurable via env, with sensible defaults for ONCOST)
+COMPANY_LEGAL_NAME = os.environ.get("COMPANY_LEGAL_NAME", "PRAGNA ENTERPRISES")
+COMPANY_TRADE_NAME = os.environ.get("COMPANY_TRADE_NAME", "ONCOST")
+COMPANY_TAGLINE = os.environ.get("COMPANY_TAGLINE", "Premium Corporate & Customized Gifting Solutions")
+COMPANY_ADDRESS = os.environ.get("COMPANY_ADDRESS", "Bengaluru, Karnataka, India")
+COMPANY_PHONE = os.environ.get("COMPANY_PHONE", "+91 - - -")
+COMPANY_EMAIL = os.environ.get("COMPANY_EMAIL", "hello@oncost.shop")
+COMPANY_WEBSITE = os.environ.get("COMPANY_WEBSITE", "www.oncost.shop")
+COMPANY_GSTIN = os.environ.get("COMPANY_GSTIN", "")
+COMPANY_BANK_DETAILS = os.environ.get("COMPANY_BANK_DETAILS", "Available on order confirmation")
+DEFAULT_DELIVERY = os.environ.get("DEFAULT_DELIVERY", "7-10 business days from order confirmation")
+DEFAULT_PAYMENT_TERMS = os.environ.get("DEFAULT_PAYMENT_TERMS", "50% advance on confirmation, 50% before dispatch. Bank Transfer / UPI / Online.")
+DEFAULT_INCLUSIONS = os.environ.get("DEFAULT_INCLUSIONS", "Premium packaging; Logo branding (where applicable); Quality assurance; Secure dispatch")
+COMPANY_AUTHORIZED_SIGNATORY = os.environ.get("COMPANY_AUTHORIZED_SIGNATORY", "Corporate Gifting Division")
 
 DATA_DIR = ROOT_DIR / "data"
 IMAGES_DIR = DATA_DIR / "product_images"
@@ -187,12 +216,18 @@ class QuotationItemIn(BaseModel):
 class QuotationIn(BaseModel):
     customer_name: str
     customer_email: str = ""
+    customer_phone: str = ""
+    customer_company: str = ""
     place: str = ""
     notes: str = ""
     items: List[QuotationItemIn]
     valid_until: Optional[str] = None
     shipping_charges: float = 0
     gst_percent: float = 0
+    subject: str = ""
+    delivery_timeline: str = ""
+    payment_terms: str = ""
+    inclusions: str = ""
 
 
 # ---------- Auth endpoints ----------
@@ -398,8 +433,14 @@ async def _build_quotation_doc(q: QuotationIn) -> dict:
         "quotation_id": qid,
         "customer_name": q.customer_name,
         "customer_email": (q.customer_email or "").strip(),
+        "customer_phone": (q.customer_phone or "").strip(),
+        "customer_company": (q.customer_company or "").strip(),
         "place": q.place,
         "notes": q.notes,
+        "subject": (q.subject or "").strip() or "Quotation for Corporate Gifting Requirements",
+        "delivery_timeline": (q.delivery_timeline or "").strip() or DEFAULT_DELIVERY,
+        "payment_terms": (q.payment_terms or "").strip() or DEFAULT_PAYMENT_TERMS,
+        "inclusions": (q.inclusions or "").strip() or DEFAULT_INCLUSIONS,
         "items": items_out,
         "subtotal": subtotal,
         "shipping_charges": shipping,
@@ -472,87 +513,183 @@ async def public_quotation(token: str):
 
 
 # ---------- PDF generation ----------
+NAVY = colors.HexColor("#0F172A")
+GOLD = colors.HexColor("#B8860B")
+INK = colors.HexColor("#09090B")
+MUTED = colors.HexColor("#52525B")
+LINE = colors.HexColor("#D4D4D8")
+
+
+def format_inr(n) -> str:
+    try:
+        return f"₹ {float(n):,.2f}"
+    except Exception:
+        return f"₹ {n}"
+
+
 def _build_pdf(q: dict) -> bytes:
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
         buf, pagesize=A4,
-        leftMargin=18 * mm, rightMargin=18 * mm,
-        topMargin=18 * mm, bottomMargin=18 * mm,
+        leftMargin=14 * mm, rightMargin=14 * mm,
+        topMargin=12 * mm, bottomMargin=12 * mm,
         title=f"ONCOST Quotation {q['quotation_id']}",
+        author=COMPANY_LEGAL_NAME,
+        subject=q.get("subject") or "Corporate Gifting Quotation",
     )
     styles = getSampleStyleSheet()
-    h_title = ParagraphStyle("h_title", parent=styles["Title"], fontName="Helvetica-Bold", fontSize=24, textColor=colors.HexColor("#002FA7"), alignment=TA_LEFT, leading=28, spaceAfter=4)
-    h_meta = ParagraphStyle("h_meta", parent=styles["Normal"], fontName="Helvetica", fontSize=9, textColor=colors.HexColor("#52525B"))
-    h_label = ParagraphStyle("h_label", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=7, textColor=colors.HexColor("#A1A1AA"), leading=9, spaceAfter=2)
-    h_value = ParagraphStyle("h_value", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=11, textColor=colors.HexColor("#09090B"), leading=14)
-    h_section = ParagraphStyle("h_section", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=8, textColor=colors.HexColor("#A1A1AA"), leading=10, spaceAfter=6)
-    h_total = ParagraphStyle("h_total", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=14, textColor=colors.HexColor("#09090B"), alignment=TA_RIGHT)
-    h_footer = ParagraphStyle("h_footer", parent=styles["Normal"], fontName="Helvetica", fontSize=8, textColor=colors.HexColor("#A1A1AA"), alignment=TA_CENTER)
+    h_corp_line = ParagraphStyle("h_corp_line", parent=styles["Normal"], fontName=_FONT_REG, fontSize=8, textColor=MUTED, alignment=TA_LEFT, leading=11)
+    h_corp_right = ParagraphStyle("h_corp_right", parent=h_corp_line, alignment=TA_RIGHT)
+    h_title_big = ParagraphStyle("h_title_big", parent=styles["Normal"], fontName=_FONT_BOLD, fontSize=14, textColor=NAVY, alignment=TA_CENTER, leading=18, spaceAfter=2)
+    h_meta_label = ParagraphStyle("h_meta_label", parent=styles["Normal"], fontName=_FONT_BOLD, fontSize=7, textColor=MUTED, leading=9, alignment=TA_LEFT)
+    h_meta_val = ParagraphStyle("h_meta_val", parent=styles["Normal"], fontName=_FONT_BOLD, fontSize=9.5, textColor=INK, leading=12, alignment=TA_LEFT)
+    h_section = ParagraphStyle("h_section", parent=styles["Normal"], fontName=_FONT_BOLD, fontSize=9.5, textColor=NAVY, leading=12, spaceBefore=2, spaceAfter=4)
+    h_body = ParagraphStyle("h_body", parent=styles["Normal"], fontName=_FONT_REG, fontSize=9, textColor=INK, leading=12)
+    h_footer = ParagraphStyle("h_footer", parent=styles["Normal"], fontName=_FONT_REG, fontSize=7.5, textColor=MUTED, alignment=TA_CENTER, leading=10)
 
     story = []
 
-    # Header
-    header_data = [[
-        Paragraph("ONCOST", h_title),
-        Paragraph(f"<b>QUOTATION</b><br/>{q['quotation_id']}", ParagraphStyle('hr', parent=styles['Normal'], fontName='Helvetica', fontSize=10, alignment=TA_RIGHT, textColor=colors.HexColor('#09090B'), leading=14)),
-    ]]
-    htbl = Table(header_data, colWidths=[100*mm, 70*mm])
-    htbl.setStyle(TableStyle([("VALIGN", (0,0), (-1,-1), "TOP")]))
-    story.append(htbl)
-    story.append(Spacer(1, 4*mm))
-    # Divider
-    line_tbl = Table([[""]], colWidths=[174*mm], rowHeights=[1])
-    line_tbl.setStyle(TableStyle([("LINEABOVE", (0,0), (-1,-1), 1, colors.HexColor("#E4E4E7"))]))
-    story.append(line_tbl)
-    story.append(Spacer(1, 6*mm))
+    # ===== LETTERHEAD =====
+    left_block = (
+        f"<para>"
+        f"<b><font size=22 color='{NAVY.hexval()}'>ONCOST</font></b><br/>"
+        f"<font size=8 color='{GOLD.hexval()}'><b>{COMPANY_TAGLINE}</b></font>"
+        f"</para>"
+    )
+    right_lines = []
+    right_lines.append(f"<b>{COMPANY_LEGAL_NAME}</b>")
+    if COMPANY_ADDRESS:
+        right_lines.append(COMPANY_ADDRESS)
+    contact_line_bits = []
+    if COMPANY_PHONE:
+        contact_line_bits.append(f"M {COMPANY_PHONE}")
+    if COMPANY_EMAIL:
+        contact_line_bits.append(COMPANY_EMAIL)
+    if contact_line_bits:
+        right_lines.append(" &nbsp;·&nbsp; ".join(contact_line_bits))
+    web_bits = []
+    if COMPANY_WEBSITE:
+        web_bits.append(COMPANY_WEBSITE)
+    if COMPANY_GSTIN:
+        web_bits.append(f"GSTIN {COMPANY_GSTIN}")
+    if web_bits:
+        right_lines.append(" &nbsp;·&nbsp; ".join(web_bits))
+    right_block = "<br/>".join(right_lines)
 
-    # Meta block (customer, place, date, validity)
+    head = Table(
+        [[Paragraph(left_block, h_corp_line), Paragraph(right_block, h_corp_right)]],
+        colWidths=[80 * mm, 98 * mm],
+    )
+    head.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
+    story.append(head)
+    story.append(Spacer(1, 2 * mm))
+    # Gold accent line
+    sep = Table([[""]], colWidths=[182 * mm], rowHeights=[2])
+    sep.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), GOLD),
+    ]))
+    story.append(sep)
+    story.append(Spacer(1, 3 * mm))
+
+    # ===== DOCUMENT TITLE =====
+    story.append(Paragraph("CORPORATE GIFTING QUOTATION", h_title_big))
+    story.append(Spacer(1, 2 * mm))
+
+    # Quotation meta strip
     created = q.get("created_at", "")
     try:
         created_dt = datetime.fromisoformat(created)
         created_str = created_dt.strftime("%d %b %Y")
     except Exception:
         created_str = created[:10]
-    meta = [
-        [Paragraph("CUSTOMER", h_label), Paragraph("EMAIL", h_label), Paragraph("PLACE OF ORDER", h_label), Paragraph("DATE", h_label), Paragraph("VALID UNTIL", h_label)],
-        [Paragraph(q.get("customer_name") or "—", h_value), Paragraph(q.get("customer_email") or "—", h_value), Paragraph(q.get("place") or "—", h_value), Paragraph(created_str, h_value), Paragraph(q.get("valid_until") or "—", h_value)],
-    ]
-    mtbl = Table(meta, colWidths=[40*mm, 50*mm, 35*mm, 25*mm, 24*mm])
-    mtbl.setStyle(TableStyle([
-        ("BOTTOMPADDING", (0,0), (-1,0), 2),
-        ("BOTTOMPADDING", (0,1), (-1,1), 8),
+
+    meta_strip = Table(
+        [
+            [
+                Paragraph("QUOTATION NO.", h_meta_label),
+                Paragraph("DATE", h_meta_label),
+                Paragraph("VALID UNTIL", h_meta_label),
+                Paragraph("PLACE", h_meta_label),
+            ],
+            [
+                Paragraph(q.get("quotation_id", "—"), h_meta_val),
+                Paragraph(created_str, h_meta_val),
+                Paragraph(q.get("valid_until") or "—", h_meta_val),
+                Paragraph(q.get("place") or "—", h_meta_val),
+            ],
+        ],
+        colWidths=[44 * mm, 44 * mm, 44 * mm, 46 * mm],
+    )
+    meta_strip.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F4F4F5")),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 4),
+        ("TOPPADDING", (0, 0), (-1, 0), 4),
+        ("BOTTOMPADDING", (0, 1), (-1, 1), 6),
+        ("TOPPADDING", (0, 1), (-1, 1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("LINEBELOW", (0, 1), (-1, 1), 0.5, LINE),
     ]))
-    story.append(mtbl)
-    story.append(Spacer(1, 4*mm))
+    story.append(meta_strip)
+    story.append(Spacer(1, 3 * mm))
 
-    # Section title
-    story.append(Paragraph("LINE ITEMS", h_section))
+    # ===== TO / Recipient =====
+    to_lines = ["<b>To,</b>"]
+    if q.get("customer_name"):
+        to_lines.append(q["customer_name"])
+    if q.get("customer_company"):
+        to_lines.append(q["customer_company"])
+    contact_bits = []
+    if q.get("customer_phone"):
+        contact_bits.append(q["customer_phone"])
+    if q.get("customer_email"):
+        contact_bits.append(q["customer_email"])
+    if contact_bits:
+        to_lines.append(" &nbsp;·&nbsp; ".join(contact_bits))
+    if q.get("place"):
+        to_lines.append(q["place"])
+    story.append(Paragraph("<br/>".join(to_lines), h_body))
+    story.append(Spacer(1, 3 * mm))
 
-    # Items table — now with product image
+    # Subject line
+    subject = q.get("subject") or "Quotation for Corporate Gifting Requirements"
+    story.append(Paragraph(f"<b>Subject:</b> {subject}", h_body))
+    story.append(Spacer(1, 2 * mm))
+    story.append(Paragraph(
+        "Dear Sir / Madam, &nbsp; Thank you for considering us for your corporate gifting requirements. "
+        "We are pleased to share our proposal as detailed below.",
+        h_body,
+    ))
+    story.append(Spacer(1, 3 * mm))
+
+    # ===== LINE ITEMS =====
+    story.append(Paragraph("PRODUCT DETAILS", h_section))
+
     rows = [[
-        Paragraph("<b>IMAGE</b>", h_label),
-        Paragraph("<b>CODE</b>", h_label),
-        Paragraph("<b>PRODUCT</b>", h_label),
-        Paragraph("<b>MOQ</b>", h_label),
-        Paragraph("<b>QTY</b>", h_label),
-        Paragraph("<b>UNIT (₹)</b>", h_label),
-        Paragraph("<b>TOTAL (₹)</b>", h_label),
+        Paragraph("<b>S.NO</b>", h_meta_label),
+        Paragraph("<b>IMAGE</b>", h_meta_label),
+        Paragraph("<b>CODE</b>", h_meta_label),
+        Paragraph("<b>DESCRIPTION</b>", h_meta_label),
+        Paragraph("<b>MOQ</b>", h_meta_label),
+        Paragraph("<b>QTY</b>", h_meta_label),
+        Paragraph("<b>UNIT (₹)</b>", h_meta_label),
+        Paragraph("<b>AMOUNT (₹)</b>", h_meta_label),
     ]]
-    item_value = ParagraphStyle("iv", parent=styles["Normal"], fontName="Helvetica", fontSize=9, leading=12, textColor=colors.HexColor("#09090B"))
-    item_value_b = ParagraphStyle("ivb", parent=item_value, fontName="Helvetica-Bold")
-    for it in q["items"]:
+    item_value = ParagraphStyle("iv", parent=styles["Normal"], fontName=_FONT_REG, fontSize=8.5, leading=11, textColor=INK)
+    item_value_b = ParagraphStyle("ivb", parent=item_value, fontName=_FONT_BOLD)
+    for idx, it in enumerate(q["items"], start=1):
         desc = f"<b>{it.get('set_type','')}</b><br/><font color='#52525B'>{it.get('items','')}</font>"
-        # Embed image
         img_cell = ""
         img_name = it.get("image")
         if img_name:
             img_path = IMAGES_DIR / img_name
             if img_path.exists():
                 try:
-                    img_cell = RLImage(str(img_path), width=14*mm, height=14*mm, kind="proportional")
+                    img_cell = RLImage(str(img_path), width=13 * mm, height=13 * mm, kind="proportional")
                 except Exception:
                     img_cell = ""
         rows.append([
+            Paragraph(str(idx), item_value),
             img_cell,
             Paragraph(it["code"], item_value_b),
             Paragraph(desc, item_value),
@@ -561,58 +698,130 @@ def _build_pdf(q: dict) -> bytes:
             Paragraph(f"{it['unit_price']:,}", item_value),
             Paragraph(f"{it['line_total']:,}", item_value_b),
         ])
-    itbl = Table(rows, colWidths=[16*mm, 18*mm, 64*mm, 12*mm, 12*mm, 22*mm, 30*mm], repeatRows=1)
+    itbl = Table(
+        rows,
+        colWidths=[10 * mm, 16 * mm, 18 * mm, 60 * mm, 12 * mm, 12 * mm, 22 * mm, 28 * mm],
+        repeatRows=1,
+    )
     itbl.setStyle(TableStyle([
-        ("LINEBELOW", (0,0), (-1,0), 1, colors.HexColor("#09090B")),
-        ("LINEBELOW", (0,1), (-1,-1), 0.5, colors.HexColor("#E4E4E7")),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 6),
-        ("TOPPADDING", (0,0), (-1,-1), 6),
-        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+        ("BACKGROUND", (0, 0), (-1, 0), NAVY),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("LINEBELOW", (0, 0), (-1, 0), 0.6, NAVY),
+        ("LINEBELOW", (0, 1), (-1, -1), 0.4, LINE),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
     ]))
     story.append(itbl)
-    story.append(Spacer(1, 4*mm))
+    story.append(Spacer(1, 3 * mm))
 
-    # Totals breakdown
+    # ===== TOTALS =====
     subtotal = q.get("subtotal", q.get("total", 0))
     shipping = q.get("shipping_charges", 0)
     gst_percent = q.get("gst_percent", 0)
     gst_amount = q.get("gst_amount", 0)
     grand = q.get("total", subtotal + shipping + gst_amount)
 
-    h_breakdown_label = ParagraphStyle("bdl", parent=styles["Normal"], fontName="Helvetica", fontSize=9, textColor=colors.HexColor("#52525B"), alignment=TA_RIGHT)
-    h_breakdown_val = ParagraphStyle("bdv", parent=styles["Normal"], fontName="Helvetica", fontSize=10, textColor=colors.HexColor("#09090B"), alignment=TA_RIGHT)
+    brk_lbl = ParagraphStyle("brk_lbl", parent=styles["Normal"], fontName=_FONT_REG, fontSize=9, textColor=MUTED, alignment=TA_RIGHT)
+    brk_val = ParagraphStyle("brk_val", parent=styles["Normal"], fontName=_FONT_REG, fontSize=10, textColor=INK, alignment=TA_RIGHT)
 
-    brk_rows = [
-        [Paragraph("Subtotal", h_breakdown_label), Paragraph(f"₹ {subtotal:,.2f}", h_breakdown_val)],
-        [Paragraph("Shipping", h_breakdown_label), Paragraph(f"₹ {shipping:,.2f}", h_breakdown_val)],
-        [Paragraph(f"GST ({gst_percent:g}%)", h_breakdown_label), Paragraph(f"₹ {gst_amount:,.2f}", h_breakdown_val)],
-    ]
-    brk_tbl = Table(brk_rows, colWidths=[120*mm, 54*mm])
-    brk_tbl.setStyle(TableStyle([
-        ("BOTTOMPADDING", (0,0), (-1,-1), 4),
-        ("TOPPADDING", (0,0), (-1,-1), 2),
+    totals = Table(
+        [
+            [Paragraph("Subtotal", brk_lbl), Paragraph(format_inr(subtotal), brk_val)],
+            [Paragraph("Shipping", brk_lbl), Paragraph(format_inr(shipping), brk_val)],
+            [Paragraph(f"GST ({gst_percent:g}%)", brk_lbl), Paragraph(format_inr(gst_amount), brk_val)],
+        ],
+        colWidths=[140 * mm, 42 * mm],
+    )
+    totals.setStyle(TableStyle([
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
     ]))
-    story.append(brk_tbl)
+    story.append(totals)
+    grand_tbl = Table(
+        [[Paragraph("<b>GRAND TOTAL</b>", ParagraphStyle("gt_l", parent=styles["Normal"], fontName=_FONT_BOLD, fontSize=10, textColor=colors.white, alignment=TA_RIGHT)),
+          Paragraph(f"<b>{format_inr(grand)}</b>", ParagraphStyle("gt_v", parent=styles["Normal"], fontName=_FONT_BOLD, fontSize=12, textColor=colors.white, alignment=TA_RIGHT))]],
+        colWidths=[140 * mm, 42 * mm],
+    )
+    grand_tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), NAVY),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.append(grand_tbl)
+    story.append(Spacer(1, 3 * mm))
 
-    # Grand total
-    total_tbl = Table([[
-        Paragraph(f"<font color='#A1A1AA' size='8'><b>GRAND TOTAL</b></font>", h_meta),
-        Paragraph(f"₹ {grand:,.2f}", h_total),
-    ]], colWidths=[120*mm, 54*mm])
-    total_tbl.setStyle(TableStyle([
-        ("LINEABOVE", (0,0), (-1,-1), 1, colors.HexColor("#09090B")),
-        ("TOPPADDING", (0,0), (-1,-1), 8),
-        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+    # ===== INCLUSIONS / DELIVERY / PAYMENT =====
+    inclusions_raw = q.get("inclusions") or DEFAULT_INCLUSIONS
+    incl_items = [s.strip() for s in inclusions_raw.replace("\n", ";").split(";") if s.strip()]
+    incl_html = "<br/>".join([f"✓ {x}" for x in incl_items])
+
+    info_tbl = Table(
+        [[
+            Paragraph("<b>INCLUSIONS</b><br/>" + incl_html, h_body),
+            Paragraph("<b>DELIVERY TIMELINE</b><br/>" + (q.get("delivery_timeline") or DEFAULT_DELIVERY), h_body),
+            Paragraph("<b>PAYMENT TERMS</b><br/>" + (q.get("payment_terms") or DEFAULT_PAYMENT_TERMS), h_body),
+        ]],
+        colWidths=[60 * mm, 58 * mm, 60 * mm],
+    )
+    info_tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F8FAFC")),
+        ("BOX", (0, 0), (-1, -1), 0.4, LINE),
+        ("INNERGRID", (0, 0), (-1, -1), 0.4, LINE),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
     ]))
-    story.append(total_tbl)
+    story.append(info_tbl)
 
     if q.get("notes"):
-        story.append(Spacer(1, 8*mm))
-        story.append(Paragraph("NOTES", h_section))
-        story.append(Paragraph(q["notes"], h_meta))
+        story.append(Spacer(1, 3 * mm))
+        story.append(Paragraph("ADDITIONAL NOTES", h_section))
+        story.append(Paragraph(q["notes"].replace("\n", "<br/>"), h_body))
 
-    story.append(Spacer(1, 14*mm))
-    story.append(Paragraph("This is a system-generated quotation by ONCOST. Prices in INR (₹), exclusive of taxes & freight unless mentioned.", h_footer))
+    story.append(Spacer(1, 4 * mm))
+
+    # ===== CLOSING + SIGNATURE =====
+    closing_tbl = Table(
+        [[
+            Paragraph(
+                "Thank you for the opportunity. We look forward to your confirmation and a long-standing business relationship.<br/><br/>"
+                "<b>Warm Regards,</b><br/>"
+                f"<b>{COMPANY_LEGAL_NAME}</b><br/>"
+                f"{COMPANY_AUTHORIZED_SIGNATORY}<br/><br/>"
+                "<i>Authorized Signatory</i>",
+                h_body,
+            ),
+            Paragraph(
+                f"<b>Bank / Payment</b><br/>{COMPANY_BANK_DETAILS}",
+                h_body,
+            ),
+        ]],
+        colWidths=[110 * mm, 68 * mm],
+    )
+    closing_tbl.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
+    story.append(closing_tbl)
+    story.append(Spacer(1, 6 * mm))
+
+    # Gold accent footer line
+    sep2 = Table([[""]], colWidths=[178 * mm], rowHeights=[1.4])
+    sep2.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), GOLD)]))
+    story.append(sep2)
+    story.append(Spacer(1, 2 * mm))
+    footer_bits = []
+    if COMPANY_WEBSITE:
+        footer_bits.append(COMPANY_WEBSITE)
+    if COMPANY_PHONE:
+        footer_bits.append(f"WhatsApp {COMPANY_PHONE}")
+    if COMPANY_GSTIN:
+        footer_bits.append(f"GSTIN {COMPANY_GSTIN}")
+    footer_bits.append(f"Quotation {q.get('quotation_id','')}")
+    story.append(Paragraph("&nbsp;&nbsp;·&nbsp;&nbsp;".join(footer_bits), h_footer))
 
     doc.build(story)
     return buf.getvalue()

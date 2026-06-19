@@ -11,11 +11,18 @@ export default function NewQuotationPage() {
   const [q, setQ] = useState("");
   const [customer, setCustomer] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerCompany, setCustomerCompany] = useState("");
   const [place, setPlace] = useState("");
   const [notes, setNotes] = useState("");
   const [validUntil, setValidUntil] = useState("");
   const [shipping, setShipping] = useState("");
   const [gstPercent, setGstPercent] = useState("");
+  const [subject, setSubject] = useState("");
+  const [deliveryTimeline, setDeliveryTimeline] = useState("");
+  const [paymentTerms, setPaymentTerms] = useState("");
+  const [inclusions, setInclusions] = useState("");
+  const [showAdvanced, setShowAdvanced] = useState(false);
   // Cart stores quantity as STRING so user can type freely (incl. empty)
   const [cart, setCart] = useState({}); // code -> {product, qtyText}
   const [busy, setBusy] = useState(false);
@@ -79,11 +86,17 @@ export default function NewQuotationPage() {
       const { data } = await api.post("/quotations", {
         customer_name: customer.trim(),
         customer_email: customerEmail.trim(),
+        customer_phone: customerPhone.trim(),
+        customer_company: customerCompany.trim(),
         place: place.trim(),
         notes: notes.trim(),
         valid_until: validUntil || null,
         shipping_charges: shippingNum,
         gst_percent: gstNum,
+        subject: subject.trim(),
+        delivery_timeline: deliveryTimeline.trim(),
+        payment_terms: paymentTerms.trim(),
+        inclusions: inclusions.trim(),
         items: linesToSend.map(x => ({ product_id: x.product.id, quantity: x.quantity })),
       });
       toast.success(`Quotation ${data.quotation_id} created`);
@@ -109,7 +122,17 @@ export default function NewQuotationPage() {
             data-testid={ADMIN.newQuoteCustomer}
             value={customer}
             onChange={(e) => setCustomer(e.target.value)}
-            placeholder="e.g. Acme Corp"
+            placeholder="e.g. Mr. Sharma"
+            className="mt-2 w-full border-b border-zinc-300 focus:border-[#002FA7] py-2 font-display text-lg outline-none"
+          />
+        </div>
+        <div className="bg-white p-5">
+          <p className="overline text-[10px]">Customer company</p>
+          <input
+            data-testid="newq-company"
+            value={customerCompany}
+            onChange={(e) => setCustomerCompany(e.target.value)}
+            placeholder="e.g. Acme Corp Pvt Ltd"
             className="mt-2 w-full border-b border-zinc-300 focus:border-[#002FA7] py-2 font-display text-lg outline-none"
           />
         </div>
@@ -121,6 +144,16 @@ export default function NewQuotationPage() {
             value={customerEmail}
             onChange={(e) => setCustomerEmail(e.target.value)}
             placeholder="purchase@acme.com"
+            className="mt-2 w-full border-b border-zinc-300 focus:border-[#002FA7] py-2 font-display text-lg outline-none"
+          />
+        </div>
+        <div className="bg-white p-5">
+          <p className="overline text-[10px]">Customer phone</p>
+          <input
+            data-testid="newq-phone"
+            value={customerPhone}
+            onChange={(e) => setCustomerPhone(e.target.value)}
+            placeholder="+91 ……"
             className="mt-2 w-full border-b border-zinc-300 focus:border-[#002FA7] py-2 font-display text-lg outline-none"
           />
         </div>
@@ -183,6 +216,69 @@ export default function NewQuotationPage() {
           placeholder="Payment terms, delivery, customization etc."
           className="mt-2 w-full border-b border-zinc-200 focus:border-[#002FA7] py-2 text-sm outline-none resize-none"
         />
+      </div>
+
+      {/* Advanced — letterhead overrides */}
+      <div className="mt-2 border border-zinc-200 bg-white">
+        <button
+          type="button"
+          onClick={() => setShowAdvanced(s => !s)}
+          data-testid="newq-toggle-advanced"
+          className="w-full px-5 py-3 flex items-center justify-between hover:bg-zinc-50 text-left"
+        >
+          <div>
+            <p className="overline text-[10px]">Letterhead overrides</p>
+            <p className="text-xs text-zinc-500 mt-0.5">Subject line, inclusions, delivery timeline & payment terms (defaults are used if left blank).</p>
+          </div>
+          <span className="text-zinc-500 text-sm">{showAdvanced ? "Hide ▴" : "Show ▾"}</span>
+        </button>
+        {showAdvanced && (
+          <div className="px-5 pb-5 grid grid-cols-1 lg:grid-cols-2 gap-4 border-t border-zinc-200 pt-4">
+            <div className="lg:col-span-2">
+              <p className="overline text-[10px]">Subject</p>
+              <input
+                data-testid="newq-subject"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="Quotation for Corporate Gifting Requirements"
+                className="mt-2 w-full border-b border-zinc-300 focus:border-[#002FA7] py-2 text-sm outline-none"
+              />
+            </div>
+            <div>
+              <p className="overline text-[10px]">Inclusions (separate with ;)</p>
+              <textarea
+                data-testid="newq-inclusions"
+                rows={3}
+                value={inclusions}
+                onChange={(e) => setInclusions(e.target.value)}
+                placeholder="Premium packaging; Logo branding; Quality assurance; Secure dispatch"
+                className="mt-2 w-full border border-zinc-300 focus:border-[#002FA7] p-2 text-sm outline-none resize-y"
+              />
+            </div>
+            <div>
+              <p className="overline text-[10px]">Delivery timeline</p>
+              <textarea
+                data-testid="newq-delivery"
+                rows={3}
+                value={deliveryTimeline}
+                onChange={(e) => setDeliveryTimeline(e.target.value)}
+                placeholder="7-10 business days from order confirmation"
+                className="mt-2 w-full border border-zinc-300 focus:border-[#002FA7] p-2 text-sm outline-none resize-y"
+              />
+            </div>
+            <div className="lg:col-span-2">
+              <p className="overline text-[10px]">Payment terms</p>
+              <textarea
+                data-testid="newq-payment"
+                rows={2}
+                value={paymentTerms}
+                onChange={(e) => setPaymentTerms(e.target.value)}
+                placeholder="50% advance on confirmation, 50% before dispatch. Bank Transfer / UPI / Online."
+                className="mt-2 w-full border border-zinc-300 focus:border-[#002FA7] p-2 text-sm outline-none resize-y"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mt-8 grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-8">
