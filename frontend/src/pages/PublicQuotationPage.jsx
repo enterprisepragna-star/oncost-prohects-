@@ -71,7 +71,7 @@ export default function PublicQuotationPage() {
         <p className="overline mb-6">Line items</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-10">
           {q.items.map((it, i) => (
-            <div key={i} className="bg-white border border-zinc-200 print-block flex flex-col">
+            <div key={`${it.product_id || it.code}-${i}`} className="bg-white border border-zinc-200 print-block flex flex-col">
               {it.image && (
                 <div className="aspect-[4/3] overflow-hidden bg-white border-b border-zinc-200">
                   <img src={imageUrl(it.image)} alt={it.code} className="w-full h-full object-contain p-3" />

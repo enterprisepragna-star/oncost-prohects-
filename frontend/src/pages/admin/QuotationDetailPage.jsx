@@ -105,7 +105,7 @@ export default function QuotationDetailPage() {
           </thead>
           <tbody>
             {q.items.map((it, i) => (
-              <tr key={i} className="border-b border-zinc-200">
+              <tr key={`${it.product_id || it.code}-${i}`} className="border-b border-zinc-200">
                 <td className="p-3 w-20">{it.image && <img src={imageUrl(it.image)} className="w-14 h-14 object-contain bg-white border border-zinc-200" />}</td>
                 <td className="p-3 font-mono font-semibold">{it.code}</td>
                 <td className="p-3"><span className="font-medium">{it.set_type}</span><div className="text-xs text-zinc-500">{it.items}</div></td>
