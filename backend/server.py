@@ -1,8 +1,4 @@
-"""ONCOST Catalog & Quotation backend.
-
-FastAPI + MongoDB. Implements admin auth, product catalog, pricing rules,
-quotation management with shareable links, PDF generation.
-"""
+"""ONCOST Catalog & Quotation backend."""
 from dotenv import load_dotenv
 from pathlib import Path
 
@@ -13,6 +9,7 @@ import os
 import io
 import json
 import logging
+import re
 import secrets
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
@@ -195,6 +192,8 @@ class ProductIn(BaseModel):
     image: Optional[str] = None
     override_price: Optional[int] = None
     visible: bool = True
+    vendor_id: Optional[str] = None
+    vendor_code: Optional[str] = None
 
 
 class ProductPatch(BaseModel):
@@ -206,6 +205,13 @@ class ProductPatch(BaseModel):
     image: Optional[str] = None
     override_price: Optional[int] = None
     visible: Optional[bool] = None
+    vendor_id: Optional[str] = None
+    vendor_code: Optional[str] = None
+
+
+class VendorIn(BaseModel):
+    name: str
+    code_prefix: str = ""
 
 
 class QuotationItemIn(BaseModel):
@@ -853,6 +859,290 @@ async def admin_quotation_pdf(qid: str, _user=Depends(get_current_user)):
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="ONCOST-{d["quotation_id"]}.pdf"'},
     )
+
+
+# ---------- Vendors ----------
+@api.get("/vendors")
+async def list_vendors(_user=Depends(get_current_user)):
+    cur = db.vendors.find({}).sort("name", 1)
+    out = []
+    for v in await cur.to_list(length=200):
+        v["id"] = str(v.pop("_id"))
+        out.append(v)
+    return out
+
+
+@api.post("/vendors")
+async def create_vendor(payload: VendorIn, _user=Depends(get_current_user)):
+    doc = {"name": payload.name.strip(), "code_prefix": (payload.code_prefix or "").strip(), "created_at": iso(now_utc())}
+    if not doc["name"]:
+        raise HTTPException(400, "Name required")
+    existing = await db.vendors.find_one({"name": doc["name"]})
+    if existing:
+        return {
+            "id": str(existing["_id"]),
+            "name": existing.get("name", ""),
+            "code_prefix": existing.get("code_prefix", ""),
+            "created_at": existing.get("created_at", ""),
+        }
+    res = await db.vendors.insert_one(doc)
+    doc["id"] = str(res.inserted_id)
+    return doc
+
+
+@api.delete("/vendors/{vid}")
+async def delete_vendor(vid: str, _user=Depends(get_current_user)):
+    await db.vendors.delete_one({"_id": ObjectId(vid)})
+    # Unset vendor_id on its products (do not delete the products)
+    await db.products.update_many({"vendor_id": vid}, {"$set": {"vendor_id": None}})
+    return {"ok": True}
+
+
+# ---------- PDF Import ----------
+class PDFImportCommit(BaseModel):
+    vendor_id: str
+    code_prefix: str = ""
+    use_custom_rule: bool = False
+    threshold: int = 1000
+    below_increment: int = 50
+    at_or_above_increment: int = 100
+    products: List[dict]  # each: {code, set_type, items, sg_price, moq, image (optional filename)}
+
+
+@api.post("/import/pdf/extract")
+async def import_pdf_extract(file: UploadFile = File(...), _user=Depends(get_current_user)):
+    """Parse uploaded PDF and return extracted products + extracted images (saved to disk)."""
+    if file.content_type not in ("application/pdf", "application/octet-stream"):
+        # be lenient
+        if not (file.filename or "").lower().endswith(".pdf"):
+            raise HTTPException(400, "Please upload a PDF file")
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(400, "Empty file")
+    if len(raw) > 80 * 1024 * 1024:
+        raise HTTPException(400, "PDF too large (max 80MB)")
+
+    # Save and parse
+    import tempfile
+    tmp = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
+    tmp.write(raw)
+    tmp.close()
+
+    import fitz  # PyMuPDF
+    try:
+        pdoc = fitz.open(tmp.name)
+    except Exception:
+        os.unlink(tmp.name)
+        raise HTTPException(400, "Could not read PDF")
+
+    # Generic parser: find product code patterns (e.g. SG 123, OC-123, V1-456 etc.)
+    code_re = re.compile(r"\b([A-Z]{1,4}[ \-]?\d{2,5})\b")
+    price_re = re.compile(r"(?:Rs[.,]?|₹)\s*([0-9]{2,6})", re.I)
+    moq_re = re.compile(r"MOQ[, :]*([0-9]+)", re.I)
+    setn_re = re.compile(r"(\d+\s*in\s*1)", re.I)
+
+    extracted: list = []
+    image_counter = 0
+
+    for pno in range(pdoc.page_count):
+        page = pdoc.load_page(pno)
+        text = page.get_text("text")
+        # Split by code occurrences in reading order
+        parts = re.split(r"(?=\b[A-Z]{1,4}[ \-]?\d{2,5}\b)", text)
+        # Get embedded image bboxes for this page
+        info = page.get_image_info(xrefs=True)
+        page_rect = page.rect
+        pix = page.get_pixmap(dpi=200)
+        from PIL import Image as PIm
+        page_img = PIm.frombytes("RGB", (pix.width, pix.height), pix.samples)
+        sx = pix.width / page_rect.width
+        sy = pix.height / page_rect.height
+        # filter sizable images, sort top-down left-right
+        boxes = []
+        for im in info:
+            bb = im.get("bbox")
+            if not bb:
+                continue
+            w = bb[2] - bb[0]
+            h = bb[3] - bb[1]
+            if w < 100 or h < 100:
+                continue
+            boxes.append(bb)
+        boxes.sort(key=lambda b: (round(b[1] / 30), b[0]))
+
+        page_products = []
+        for part in parts:
+            m = code_re.match(part)
+            if not m:
+                continue
+            code = m.group(1).strip()
+            # Normalize spacing — e.g., "SG 547" stays, "SG547" becomes "SG 547"
+            ncode = re.sub(r"^([A-Z]+)\s*", r"\1 ", code).strip()
+            pm = price_re.search(part)
+            price = int(pm.group(1)) if pm else 0
+            mm_ = moq_re.search(part)
+            moq = int(mm_.group(1)) if mm_ else 50
+            sn = setn_re.search(part)
+            set_type = sn.group(1).replace(" ", "") if sn else ""
+            # items: take lines until we hit MOQ/price line
+            items_lines = []
+            for ln in [x.strip(" ,") for x in part.splitlines() if x.strip()][1:]:
+                if "Rs" in ln or "₹" in ln or "Price" in ln or "MOQ" in ln:
+                    break
+                if re.match(r"^\d+\s*in\s*1", ln, re.I):
+                    continue
+                items_lines.append(ln.strip(" ,&"))
+            items_txt = re.sub(r"\s+", " ", ", ".join(items_lines)).strip(" ,")
+            page_products.append({
+                "code": ncode, "set_type": set_type, "items": items_txt,
+                "sg_price": price, "moq": moq, "page": pno + 1,
+            })
+
+        # Match images to products in reading order
+        for prod, bbox in zip(page_products, boxes):
+            try:
+                x0 = int(bbox[0] * sx)
+                y0 = int(bbox[1] * sy)
+                x1 = int(bbox[2] * sx)
+                y1 = int(bbox[3] * sy)
+                w = x1 - x0
+                h = y1 - y0
+                # Inset
+                crop = page_img.crop((x0 + int(w*0.03), y0 + int(h*0.02), x1 - int(w*0.03), y1 - int(h*0.14)))
+                cw, ch = crop.size
+                side = max(cw, ch)
+                canvas = PIm.new("RGB", (side, side), (255, 255, 255))
+                canvas.paste(crop, ((side - cw) // 2, (side - ch) // 2))
+                canvas.thumbnail((720, 720))
+                image_counter += 1
+                fname = f"import_{secrets.token_hex(4)}_{image_counter:03d}.jpg"
+                canvas.save(str(IMAGES_DIR / fname), "JPEG", quality=85)
+                prod["image"] = fname
+            except Exception:
+                prod["image"] = None
+            extracted.append(prod)
+
+    pdoc.close()
+    try:
+        os.unlink(tmp.name)
+    except Exception:
+        pass
+
+    return {"count": len(extracted), "products": extracted}
+
+
+@api.post("/import/pdf/commit")
+async def import_pdf_commit(payload: PDFImportCommit, _user=Depends(get_current_user)):
+    """Persist reviewed/edited products to the catalog under the given vendor."""
+    vendor = await db.vendors.find_one({"_id": ObjectId(payload.vendor_id)})
+    if not vendor:
+        raise HTTPException(400, "Invalid vendor")
+    vendor_id = str(vendor["_id"])
+    prefix = (payload.code_prefix or vendor.get("code_prefix") or "").strip()
+    custom_rule = None
+    if payload.use_custom_rule:
+        custom_rule = {
+            "threshold": payload.threshold,
+            "below_increment": payload.below_increment,
+            "at_or_above_increment": payload.at_or_above_increment,
+        }
+
+    inserted = 0
+    skipped = 0
+    docs = []
+    for p in payload.products:
+        code = (p.get("code") or "").strip()
+        if not code:
+            continue
+        # Apply prefix if vendor demands replacement (e.g., "OC " replaces leading letters)
+        if prefix:
+            # Replace any leading letters with the new prefix
+            new_code = re.sub(r"^[A-Z]{1,4}\s*", prefix + " ", code).strip()
+        else:
+            new_code = code
+        # Skip duplicates
+        existing = await db.products.find_one({"code": new_code})
+        if existing:
+            skipped += 1
+            continue
+        sg_price = int(p.get("sg_price") or 0)
+        # Apply custom rule if requested
+        override_price = None
+        if custom_rule and sg_price > 0:
+            override_price = compute_oncost_price(sg_price, custom_rule)
+        docs.append({
+            "code": new_code,
+            "set_type": p.get("set_type", ""),
+            "items": p.get("items", ""),
+            "sg_price": sg_price,
+            "moq": int(p.get("moq") or 50),
+            "image": p.get("image"),
+            "override_price": override_price,
+            "visible": True,
+            "vendor_id": vendor_id,
+            "vendor_code": code,
+            "created_at": iso(now_utc()),
+        })
+    if docs:
+        try:
+            await db.products.insert_many(docs)
+            inserted = len(docs)
+        except Exception as e:
+            raise HTTPException(400, f"Insert failed: {e}")
+    return {"inserted": inserted, "skipped": skipped, "vendor": {"id": vendor_id, "name": vendor["name"]}}
+
+
+# ---------- Quotation Acceptance → Sales ----------
+@api.post("/quotations/{qid}/accept")
+async def admin_accept_quotation(qid: str, _user=Depends(get_current_user)):
+    q = await db.quotations.find_one({"_id": ObjectId(qid)})
+    if not q:
+        raise HTTPException(404, "Not found")
+    if q.get("status") == "accepted":
+        raise HTTPException(400, "Already accepted")
+    sale_doc = {
+        "quotation_id": q.get("quotation_id"),
+        "quotation_ref": str(q["_id"]),
+        "customer_name": q.get("customer_name"),
+        "customer_email": q.get("customer_email"),
+        "customer_company": q.get("customer_company"),
+        "place": q.get("place"),
+        "items": q.get("items", []),
+        "subtotal": q.get("subtotal", 0),
+        "shipping_charges": q.get("shipping_charges", 0),
+        "gst_amount": q.get("gst_amount", 0),
+        "gst_percent": q.get("gst_percent", 0),
+        "total": q.get("total", 0),
+        "accepted_at": iso(now_utc()),
+        "accepted_by": "admin",
+    }
+    sres = await db.sales.insert_one(sale_doc)
+    await db.quotations.update_one(
+        {"_id": ObjectId(qid)},
+        {"$set": {"status": "accepted", "active": False, "accepted_at": iso(now_utc())}},
+    )
+    sale_doc["id"] = str(sres.inserted_id)
+    sale_doc.pop("_id", None)
+    return sale_doc
+
+
+@api.get("/sales")
+async def list_sales(_user=Depends(get_current_user)):
+    cur = db.sales.find({}).sort("accepted_at", -1)
+    out = []
+    for s in await cur.to_list(length=500):
+        s["id"] = str(s.pop("_id"))
+        out.append(s)
+    return out
+
+
+@api.get("/sales/{sid}")
+async def get_sale(sid: str, _user=Depends(get_current_user)):
+    s = await db.sales.find_one({"_id": ObjectId(sid)})
+    if not s:
+        raise HTTPException(404, "Not found")
+    s["id"] = str(s.pop("_id"))
+    return s
 
 
 # ---------- Images (public, static) ----------

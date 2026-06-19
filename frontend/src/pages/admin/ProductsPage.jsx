@@ -2,7 +2,8 @@ import React, { useEffect, useState, useMemo, useRef } from "react";
 import api, { imageUrl, formatINR } from "@/lib/api";
 import { ADMIN } from "@/constants/testIds";
 import { toast } from "sonner";
-import { Search, Eye, EyeOff, Upload, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Pencil, X, Check, FileText, Save } from "lucide-react";
+import { Search, Eye, EyeOff, Upload, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Pencil, X, Check, FileText, Save, FileUp } from "lucide-react";
+import ImportPdfModal from "@/components/ImportPdfModal";
 
 /** Product table with prominent Upload Image + Edit Price + Edit Details actions. */
 export default function ProductsPage() {
@@ -17,6 +18,7 @@ export default function ProductsPage() {
   const [detailsId, setDetailsId] = useState(null); // product id whose details modal is open
   const [detailsForm, setDetailsForm] = useState({ code: "", set_type: "", items: "", moq: 50 });
   const [savingDetails, setSavingDetails] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const fileRefs = useRef({});
 
   const load = async () => {
@@ -175,6 +177,13 @@ export default function ProductsPage() {
           <p className="text-sm text-zinc-500 mt-2">{products.length} items. Click <b className="text-zinc-900">Edit Price</b> to override a price or <b className="text-zinc-900">Upload Image</b> to replace the supplier photo.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setShowImport(true)}
+            data-testid="open-import-pdf"
+            className="text-xs px-3 py-1.5 bg-[#002FA7] hover:bg-[#002277] text-white flex items-center gap-1.5"
+          >
+            <FileUp size={12} /> + Import from PDF
+          </button>
           <SortBtn value="code" label="Code" icon={ArrowUpDown} />
           <SortBtn value="price_asc" label="Price ↑" icon={ArrowUp} />
           <SortBtn value="price_desc" label="Price ↓" icon={ArrowDown} />
@@ -406,6 +415,7 @@ export default function ProductsPage() {
           </div>
         </div>
       )}
+      {showImport && <ImportPdfModal onClose={() => setShowImport(false)} onDone={load} />}
     </div>
   );
 }

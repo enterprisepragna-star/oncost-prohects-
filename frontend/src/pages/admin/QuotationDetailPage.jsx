@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import api, { imageUrl, formatINR, shareLink } from "@/lib/api";
 import { ADMIN } from "@/constants/testIds";
 import { toast } from "sonner";
-import { Copy, FileDown, Power, ExternalLink, ArrowLeft, MessageCircle, Mail } from "lucide-react";
+import { Copy, FileDown, Power, ExternalLink, ArrowLeft, MessageCircle, Mail, CheckCircle2 } from "lucide-react";
 
 export default function QuotationDetailPage() {
   const { id } = useParams();
@@ -20,6 +20,17 @@ export default function QuotationDetailPage() {
   const toggle = async () => {
     const { data } = await api.patch(`/quotations/${q.id}/toggle`);
     setQ({ ...q, active: data.active });
+  };
+  const acceptQuotation = async () => {
+    if (q.status === "accepted") return;
+    if (!confirm(`Mark quotation ${q.quotation_id} as ACCEPTED and convert to a sale? The public link will be closed.`)) return;
+    try {
+      await api.post(`/quotations/${q.id}/accept`);
+      toast.success(`Quotation ${q.quotation_id} accepted → converted to sale`);
+      load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Could not accept");
+    }
   };
   const copyLink = async () => {
     await navigator.clipboard.writeText(shareLink(q.share_token));
@@ -69,6 +80,19 @@ export default function QuotationDetailPage() {
           <a href={`${process.env.REACT_APP_BACKEND_URL}/api/share/${q.share_token}/pdf`} target="_blank" rel="noreferrer" className="border border-zinc-300 hover:border-[#002FA7] hover:text-[#002FA7] px-3 py-2 text-sm flex items-center gap-2"><FileDown size={14} /> PDF</a>
           <a href={`/q/${q.share_token}`} target="_blank" rel="noreferrer" className="border border-zinc-300 hover:border-[#002FA7] hover:text-[#002FA7] px-3 py-2 text-sm flex items-center gap-2"><ExternalLink size={14} /> Public view</a>
           <button onClick={toggle} className={`border px-3 py-2 text-sm flex items-center gap-2 ${q.active ? "border-emerald-600 text-emerald-600" : "border-zinc-300 text-zinc-500"}`}><Power size={14} /> {q.active ? "Active" : "Disabled"}</button>
+          {q.status !== "accepted" ? (
+            <button
+              onClick={acceptQuotation}
+              data-testid="quote-accept"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-sm flex items-center gap-2"
+            >
+              <CheckCircle2 size={14} /> Accept &amp; Convert to Sale
+            </button>
+          ) : (
+            <span className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-3 py-2 text-sm flex items-center gap-2">
+              <CheckCircle2 size={14} /> Accepted — sale recorded
+            </span>
+          )}
         </div>
       </div>
 

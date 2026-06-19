@@ -15,6 +15,7 @@ import PricingRulePage from "@/pages/admin/PricingRulePage";
 import QuotationsListPage from "@/pages/admin/QuotationsListPage";
 import NewQuotationPage from "@/pages/admin/NewQuotationPage";
 import QuotationDetailPage from "@/pages/admin/QuotationDetailPage";
+import SalesPage from "@/pages/admin/SalesPage";
 
 const Admin = ({ children }) => (
   <ProtectedRoute>
@@ -38,6 +39,7 @@ export default function App() {
           <Route path="/admin/quotations" element={<Admin><QuotationsListPage /></Admin>} />
           <Route path="/admin/quotations/new" element={<Admin><NewQuotationPage /></Admin>} />
           <Route path="/admin/quotations/:id" element={<Admin><QuotationDetailPage /></Admin>} />
+          <Route path="/admin/sales" element={<Admin><SalesPage /></Admin>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
