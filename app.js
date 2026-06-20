@@ -298,6 +298,21 @@ async function renderProductDetail() {
   if (state.settings.site_title) document.title = `${p.name} · ${state.settings.site_title}`;
   if (p.seo_description) setMeta('description', p.seo_description);
 
+  // Feed seo.js → emits JSON-LD Product schema for Google rich results
+  window.__SEO_PRODUCT = {
+    id: p.id,
+    name: p.name,
+    description: p.seo_description || p.description || '',
+    image_url: p.image_url,
+    images: [p.image_url, ...(Array.isArray(p.image_urls) ? p.image_urls : [])].filter(Boolean),
+    price: p.price,
+    offer_price: p.offer_price,
+    sku: p.sku || p.barcode || p.id,
+    brand: 'ONCOST',
+    in_stock: Number(p.stock || 0) > 0,
+  };
+  window.dispatchEvent(new Event('seo:product-ready'));
+
   // Load variants if this product has them
   let variants = [];
   let selectedVariant = null;
