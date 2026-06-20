@@ -10,7 +10,7 @@
 //
 // Also accepts trailing path: /api/delhivery/serviceability?... (uses last path segment as action).
 
-const { checkPincode, calculateRate, createShipment, schedulePickup, trackShipment, BASE, PICKUP_PINCODE } = require('./lib/client');
+const { checkPincode, calculateRate, createShipment, schedulePickup, trackShipment, BASE, PICKUP_PINCODE } = require('./_lib/client');
 
 function parseAction(req) {
   // Action from ?action= query OR last segment of URL path
@@ -67,22 +67,28 @@ async function handleCreateShipment(req, res) {
   if (order.awb_number) return res.status(200).json({ ok: true, awb: order.awb_number, message: 'AWB already exists' });
 
   const items = Array.isArray(order.items) ? order.items : [];
-  let totalWeight = 0, maxL = 0, maxB = 0, totalH = 0;
-  for (const it of items) {
-    if (!it.product_id) continue;
-    const pRes = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${encodeURIComponent(it.product_id)}&select=weight_grams,length_cm,breadth_cm,height_cm,hsn_code&limit=1`, {
-      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` },
-    });
-    const ps = await pRes.json();
-    const prod = ps?.[0] || {};
-    const qty = it.qty || it.quantity || 1;
-    totalWeight += Number(prod.weight_grams || 500) * qty;
-    maxL = Math.max(maxL, Number(prod.length_cm || 15));
-    maxB = Math.max(maxB, Number(prod.breadth_cm || 10));
-    totalH += Number(prod.height_cm || 6) * qty;
-    if (prod.hsn_code && !it.hsn_code) it.hsn_code = prod.hsn_code;
+  let totalWeight = Number(req.body.weight_grams) || 0;
+  let maxL = Number(req.body.length_cm) || 0;
+  let maxB = Number(req.body.breadth_cm) || 0;
+  let totalH = Number(req.body.height_cm) || 0;
+
+  if (!totalWeight) {
+    for (const it of items) {
+      if (!it.product_id) continue;
+      const pRes = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${encodeURIComponent(it.product_id)}&select=weight_grams,length_cm,breadth_cm,height_cm,hsn_code&limit=1`, {
+        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` },
+      });
+      const ps = await pRes.json();
+      const prod = ps?.[0] || {};
+      const qty = it.qty || it.quantity || 1;
+      totalWeight += Number(prod.weight_grams || 500) * qty;
+      maxL = Math.max(maxL, Number(prod.length_cm || 15));
+      maxB = Math.max(maxB, Number(prod.breadth_cm || 10));
+      totalH += Number(prod.height_cm || 6) * qty;
+      if (prod.hsn_code && !it.hsn_code) it.hsn_code = prod.hsn_code;
+    }
+    if (!totalWeight) totalWeight = 500;
   }
-  if (!totalWeight) totalWeight = 500;
 
   await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${encodeURIComponent(orderId)}`, {
     method: 'PATCH',

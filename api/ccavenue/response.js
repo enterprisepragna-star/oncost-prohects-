@@ -5,13 +5,14 @@
 // UPSERT logic: PATCH by ccavenue_order_id; if 0 rows matched (i.e. pre-insert failed),
 // INSERT a new row using the decrypted payload as the only source of truth.
 
-const { decrypt, parseResponse } = require('./lib/ccavenue-crypto');
+const { decrypt, parseResponse } = require('./_lib/ccavenue-crypto');
+const { sendOrderConfirmation } = require('../_lib/email');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST' && req.method !== 'GET') { res.status(405).send('Method Not Allowed'); return; }
 
   const WORKING_KEY  = (process.env.CCAVENUE_WORKING_KEY || '').trim();
-  const SUPABASE_URL = (process.env.SUPABASE_URL || '').trim();
+  const SUPABASE_URL = (process.env.SUPABASE_URL?.replace(/\/$/, '').replace(/^(?!https?:\/\/)/, 'https://') || '').trim();
   const SERVICE_KEY  = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
   const SITE_URL     = (process.env.SITE_URL || `https://${req.headers.host}`).trim();
 
@@ -132,6 +133,46 @@ module.exports = async function handler(req, res) {
     console.error('[ccavenue/response] Skipping DB write — Supabase env or order_id missing.');
   }
 
+  // ============= AUTO-INCREMENT LOYALTY POINTS =============
+  if (dbStatus === 'Paid' && orderRow && orderRow.user_id) {
+    try {
+      // Points = 1 per Rs. 100 spent
+      const earnedPoints = Math.floor(Number(orderRow.total_amount || 0) / 100);
+      if (earnedPoints > 0) {
+        const profRes = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${orderRow.user_id}&select=loyalty_points`, {
+          headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
+        }).then(r => r.json());
+        
+        if (profRes && profRes.length > 0) {
+          const currentPoints = Number(profRes[0].loyalty_points || 0);
+          await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${orderRow.user_id}`, {
+            method: 'PATCH',
+            headers: {
+              apikey: SERVICE_KEY,
+              Authorization: `Bearer ${SERVICE_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ loyalty_points: currentPoints + earnedPoints }),
+          });
+          console.log(`[ccavenue/response] Added ${earnedPoints} loyalty points to user ${orderRow.user_id}`);
+        }
+      }
+    } catch (e) {
+      console.error('[ccavenue/response] Loyalty points increment exception:', e.message);
+    }
+
+    // ============= CLEAR CART =============
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/cart_items?user_id=eq.${orderRow.user_id}`, {
+        method: 'DELETE',
+        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
+      });
+      console.log(`[ccavenue/response] Cleared cart for user ${orderRow.user_id}`);
+    } catch(e) {
+      console.error('[ccavenue/response] Cart clear exception:', e.message);
+    }
+  }
+
   // ============= AUTO-CREATE DELHIVERY AWB ON PAID =============
   if (dbStatus === 'Paid' && orderRow && !orderRow.awb_number && process.env.DELHIVERY_TOKEN) {
     const ADMIN_KEY = process.env.ADMIN_RECOVERY_KEY;
@@ -172,6 +213,8 @@ module.exports = async function handler(req, res) {
     const INTERNAL_KEY = process.env.INTERNAL_API_KEY;
     const phone = orderRow.guest_phone || (orderRow.shipping_address && orderRow.shipping_address.phone);
     const name  = (orderRow.shipping_address && orderRow.shipping_address.name) || 'Customer';
+    
+    // 1. Send WhatsApp confirmation
     if (phone) {
       fetch(`${SITE_URL}/api/whatsapp?action=send`, {
         method: 'POST',
@@ -188,6 +231,9 @@ module.exports = async function handler(req, res) {
         }),
       }).catch(err => console.error('[ccavenue/response] WhatsApp confirm failed:', err.message));
     }
+
+    // 2. Send Custom HTML Invoice Email
+    sendOrderConfirmation(orderRow).catch(err => console.error('[ccavenue/response] Email confirm failed:', err.message));
   }
 
   // ============= REDIRECT TO THANK-YOU =============
