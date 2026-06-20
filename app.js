@@ -907,14 +907,17 @@ function renderAccountWishlist() {
 }
 function renderAccountOrders(orders) {
   if (!orders.length) return `<h2>My Orders</h2><div class="empty-state"><i class="fas fa-receipt"></i><h3>No orders yet</h3><p>Your orders will show up here.</p><a class="btn primary" href="products.html">Browse Products</a></div>`;
-  return `<h2>My Orders</h2>${orders.map(o => `
+  return `<h2>My Orders</h2>${orders.map(o => {
+    let itemsArr = [];
+    try { itemsArr = typeof o.items === 'string' ? JSON.parse(o.items) : (Array.isArray(o.items) ? o.items : []); } catch(e){}
+    return `
     <div style="border:1px solid var(--line);border-radius:6px;padding:16px;margin-bottom:12px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
         <div><b>#${escapeHTML(String(o.id).substring(0,8))}</b> <span style="color:var(--muted);font-size:12px;">· ${new Date(o.created_at).toLocaleDateString()}</span></div>
         <span style="padding:3px 10px;border-radius:4px;background:var(--cream);color:var(--burgundy);font-size:12px;font-weight:600;">${escapeHTML(o.status)}</span>
       </div>
       <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;border-top:1px dashed var(--line);padding-top:12px;">
-        ${(Array.isArray(o.items) ? o.items : []).map(i => `
+        ${itemsArr.map(i => `
           <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;border-bottom:1px solid #f0f0f0;">
             <div>
               <div style="font-size:14px;color:var(--text);font-weight:600;">${escapeHTML(i.name)} <span style="font-size:12px;color:var(--muted);font-weight:400;">x${i.qty||i.quantity||1}</span></div>
@@ -929,7 +932,7 @@ function renderAccountOrders(orders) {
         ${o.shipping_awb ? `<a class="btn primary btn-sm" href="https://www.delhivery.com/track/package/${escapeHTML(o.shipping_awb)}" target="_blank" style="text-decoration:none;"><i class="fas fa-truck"></i> Track Package</a>` : ''}
       </div>
     </div>
-  `).join('')}`;
+  `;}).join('')}`;
 }
 function renderAccountLeads(leads) {
   if (!leads.length) return `<h2>My Enquiries</h2><div class="empty-state"><i class="fas fa-envelope-open"></i><h3>No enquiries yet</h3><p>Need bulk pricing or customization? Send us an enquiry.</p><a class="btn primary" href="bulk.html">Submit Bulk Enquiry</a></div>`;

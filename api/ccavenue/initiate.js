@@ -103,8 +103,7 @@ module.exports = async function handler(req, res) {
         payment_method: 'CCAvenue',
         guest_email: ship.email,
         guest_phone: ship.phone,
-        shipping_address: ship,
-        applied_coupon: appliedCoup,
+        shipping_address: ship
       }),
     });
     if (!insertRes.ok) {

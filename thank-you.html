@@ -145,8 +145,10 @@
     }
 
     function renderInvoice(order, biz) {
-      const items = Array.isArray(order.items) ? order.items : [];
-      const ship  = order.shipping_address || {};
+      let items = [];
+      try { items = typeof order.items === 'string' ? JSON.parse(order.items) : (Array.isArray(order.items) ? order.items : []); } catch(e){}
+      let ship = {};
+      try { ship = typeof order.shipping_address === 'string' ? JSON.parse(order.shipping_address) : (order.shipping_address || {}); } catch(e){}
       const subtotal = Number(order.items_subtotal || items.reduce((s, it) => s + Number(it.price || 0) * Number(it.qty || it.quantity || 1), 0));
       const shipping = Number(order.shipping_amount || 0);
       const discount = Number(order.discount_amount || 0);

@@ -1597,7 +1597,8 @@ function renderOrders() {
     return;
   }
   tbody.innerHTML = filtered.map(o => {
-    const items = Array.isArray(o.items) ? o.items : (o.items?.items || []);
+    let items = [];
+    try { items = typeof o.items === 'string' ? JSON.parse(o.items) : (Array.isArray(o.items) ? o.items : (o.items?.items || [])); } catch(e){}
     const qty = items.reduce((s, it) => s + Number(it.qty || it.quantity || 1), 0);
     const ccId = o.ccavenue_order_id || '';
     const invLink = ccId ? `<a href="thank-you.html?status=success&order_id=${encodeURIComponent(ccId)}&tracking_id=${encodeURIComponent(o.payment_tracking_id||'')}&amount=${encodeURIComponent(o.total_amount||'')}" target="_blank" class="icon-btn" title="View / print invoice" data-testid="invoice-btn-${escapeHTML(o.id)}"><i class="fas fa-file-invoice"></i></a>` : '';
@@ -1669,8 +1670,10 @@ window.updateOrderStatus = updateOrderStatus;
 function viewOrder(id) {
   const o = state.orders.find(x => x.id === id);
   if (!o) return;
-  const items = Array.isArray(o.items) ? o.items : (o.items?.items || []);
-  const ship = o.shipping_address || {};
+  let items = [];
+  try { items = typeof o.items === 'string' ? JSON.parse(o.items) : (Array.isArray(o.items) ? o.items : (o.items?.items || [])); } catch(e){}
+  let ship = {};
+  try { ship = typeof o.shipping_address === 'string' ? JSON.parse(o.shipping_address) : (o.shipping_address || {}); } catch(e){}
   const cc = o.ccavenue_order_id || ('#' + String(o.id).substring(0, 8));
   const totalWeight = items.reduce((s, it) => {
     const prod = state.products.find(p => p.id === it.product_id);
