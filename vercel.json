@@ -7,6 +7,7 @@
   "rewrites": [
     { "source": "/api/delhivery/:action", "destination": "/api/delhivery?action=:action" },
     { "source": "/api/whatsapp/:action", "destination": "/api/whatsapp?action=:action" },
+    { "source": "/sitemap.xml", "destination": "/api/sitemap" },
     { "source": "/search", "destination": "/products.html" },
     { "source": "/about-us", "destination": "/about-us.html" },
     { "source": "/contact-us", "destination": "/contact-us.html" },
