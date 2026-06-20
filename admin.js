@@ -1,8 +1,7 @@
-/* =============================================================
+/* 
    ONCOST Admin Console · admin.js
    Vanilla JS · Supabase JS v2 · Single-file SPA
-   ============================================================= */
-/* global supabaseClient, Chart, Papa, XLSX */
+*/
 'use strict';
 
 const ADMIN_EMAILS = ['enterprisepragna@gmail.com'];
@@ -179,6 +178,7 @@ async function loadSettings() {
     const node = $(`set-${k}`);
     if (node) node.value = state.settings[k] ?? '';
   });
+  renderHeroImagesPreview();
 }
 async function saveSettings() {
   const payload = {};
@@ -188,6 +188,7 @@ async function saveSettings() {
     const node = $(`set-${k}`);
     if (node) payload[k] = k === 'low_stock_threshold' ? (Number(node.value) || 5) : node.value.trim();
   });
+  payload.hero_images = state.settings.hero_images || [];
   let res;
   if (state.settings.id) {
     res = await supabaseClient.from('site_settings').update(payload).eq('id', state.settings.id).select().single();
@@ -204,9 +205,66 @@ async function saveSettings() {
   }
   state.settings = res.data;
   state.imgbbKey = res.data.imgbb_api_key || '';
+  renderHeroImagesPreview();
   showToast('Settings saved.');
 }
 window.saveSettings = saveSettings;
+
+// ------------------------- Hero Images UI -------------------------
+function renderHeroImagesPreview() {
+  const container = $('hero-images-preview');
+  if (!container) return;
+  const images = state.settings.hero_images || [];
+  if (images.length === 0) {
+    container.innerHTML = `<div style="grid-column:1/-1;color:var(--admin-text-mute);font-size:14px;padding:12px;background:#f8f9fa;border-radius:8px;text-align:center;">No hero images uploaded. The gold gradient fallback will be shown.</div>`;
+    return;
+  }
+  container.innerHTML = images.map((url, i) => `
+    <div style="position:relative;border-radius:8px;overflow:hidden;border:1px solid var(--line);aspect-ratio:16/9;">
+      <img src="${escapeHTML(url)}" style="width:100%;height:100%;object-fit:cover;" />
+      <button class="btn btn-icon" style="position:absolute;top:4px;right:4px;background:rgba(255,255,255,0.9);color:var(--admin-danger);min-width:24px;height:24px;padding:0;font-size:12px;" onclick="removeHeroImage(${i})"><i class="fas fa-trash"></i></button>
+    </div>
+  `).join('');
+}
+window.removeHeroImage = async (idx) => {
+  if (!confirm('Remove this hero image?')) return;
+  const images = [...(state.settings.hero_images || [])];
+  images.splice(idx, 1);
+  state.settings.hero_images = images;
+  renderHeroImagesPreview();
+  await saveSettings();
+};
+
+const heroDrop = $('hero-image-drop');
+const heroFile = $('hero-image-file');
+if (heroDrop && heroFile) {
+  heroDrop.addEventListener('click', () => heroFile.click());
+  heroDrop.addEventListener('dragover', e => { e.preventDefault(); heroDrop.style.borderColor = 'var(--admin-primary)'; });
+  heroDrop.addEventListener('dragleave', e => { e.preventDefault(); heroDrop.style.borderColor = 'var(--line)'; });
+  heroDrop.addEventListener('drop', async e => {
+    e.preventDefault(); heroDrop.style.borderColor = 'var(--line)';
+    if (e.dataTransfer.files[0]) handleHeroUpload(e.dataTransfer.files[0]);
+  });
+  heroFile.addEventListener('change', e => {
+    if (e.target.files[0]) handleHeroUpload(e.target.files[0]);
+  });
+}
+async function handleHeroUpload(file) {
+  if (!file.type.startsWith('image/')) return showToast('Images only', 'error');
+  heroDrop.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size:24px;color:var(--admin-primary);"></i><div style="margin-top:8px">Uploading...</div>';
+  try {
+    const url = await uploadImage(file);
+    if (!url) throw new Error('Upload returned null');
+    const images = [...(state.settings.hero_images || [])];
+    images.push(url);
+    state.settings.hero_images = images;
+    renderHeroImagesPreview();
+    await saveSettings();
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+  heroDrop.innerHTML = '<i class="fas fa-cloud-upload-alt" style="font-size:24px;color:var(--admin-primary);margin-bottom:8px;display:block;"></i><div style="font-weight:500;">Click to browse</div><div style="font-size:12px;color:var(--admin-text-mute)">JPG/PNG/WEBP · max 5 MB</div>';
+}
 
 // ------------------------- Business Profile (for invoice) -------------------------
 const BIZ_FIELDS = ['business_name','legal_name','gstin','pan','address_line1','address_line2','city','state','pincode','country','phone','email','invoice_notes'];
@@ -328,6 +386,81 @@ function renderDashboard() {
         <td>${statusBadge(o.status)}</td>
         <td style="font-size:11px;color:var(--admin-text-mute)">${new Date(o.created_at).toLocaleDateString()}</td>
       </tr>`).join('') + '</tbody></table>';
+  }
+
+  // --- Analytics Charts ---
+  if (window.Chart) {
+    if (window.adminCharts?.revenue) window.adminCharts.revenue.destroy();
+    if (window.adminCharts?.category) window.adminCharts.category.destroy();
+    window.adminCharts = window.adminCharts || {};
+
+    // 1. Revenue Trend (last 30 days)
+    const last30 = [...Array(30)].map((_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (29 - i));
+      return d.toISOString().split('T')[0];
+    });
+    
+    const revData = last30.map(dateStr => {
+      return state.orders
+        .filter(o => o.created_at.startsWith(dateStr) && o.status !== 'Cancelled')
+        .reduce((s, o) => s + Number(o.total_amount || 0), 0);
+    });
+
+    const revCtx = document.getElementById('revenueChart');
+    if (revCtx) {
+      window.adminCharts.revenue = new Chart(revCtx, {
+        type: 'line',
+        data: {
+          labels: last30.map(d => d.slice(5)), // MM-DD
+          datasets: [{
+            label: 'Revenue (₹)',
+            data: revData,
+            borderColor: '#7A1F35',
+            backgroundColor: 'rgba(122, 31, 53, 0.1)',
+            fill: true,
+            tension: 0.4
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+    }
+
+    // 2. Category Sales
+    const catSales = {};
+    state.orders.forEach(o => {
+      if (o.status === 'Cancelled') return;
+      try {
+        const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
+        items.forEach(item => {
+          const prod = state.products.find(p => p.id === item.product_id);
+          const cat = prod ? prod.category_id : 'Unknown';
+          catSales[cat] = (catSales[cat] || 0) + (Number(item.price || 0) * Number(item.quantity || 1));
+        });
+      } catch(e){}
+    });
+
+    const catLabels = Object.keys(catSales).map(id => {
+      if (id === 'Unknown') return 'Unknown';
+      const c = state.categories.find(cat => cat.id === id);
+      return c ? c.name : 'Unknown';
+    });
+    const catData = Object.values(catSales);
+
+    const catCtx = document.getElementById('categoryChart');
+    if (catCtx && catData.length > 0) {
+      window.adminCharts.category = new Chart(catCtx, {
+        type: 'doughnut',
+        data: {
+          labels: catLabels,
+          datasets: [{
+            data: catData,
+            backgroundColor: ['#7A1F35', '#D4AF37', '#2C3E50', '#E67E22', '#27AE60', '#8E44AD']
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+    }
   }
 
   // Low stock list
@@ -862,7 +995,6 @@ function openProductForm(id) {
   $(`${formId}-barcode`).addEventListener('input', renderBarcodePreview);
   renderBarcodePreview();
 
-  // ============= VARIANTS MANAGEMENT =============
   let variants = [];   // [{ id, variant_type, variant_label, sku, price, stock, weight_grams, image_url, is_default, sort_order }]
   let nextLocalId = 1;
 
@@ -1124,7 +1256,6 @@ function openProductForm(id) {
     }
     if (res.error) return showToast('Save failed: ' + res.error.message, 'error');
 
-    // ============= SAVE VARIANTS =============
     if (payload.has_variants && window.__pf_get_variants) {
       const productId = res.data.id;
       const vList = window.__pf_get_variants();
@@ -1466,7 +1597,8 @@ function renderOrders() {
     return;
   }
   tbody.innerHTML = filtered.map(o => {
-    const items = Array.isArray(o.items) ? o.items : (o.items?.items || []);
+    let items = [];
+    try { items = typeof o.items === 'string' ? JSON.parse(o.items) : (Array.isArray(o.items) ? o.items : (o.items?.items || [])); } catch(e){}
     const qty = items.reduce((s, it) => s + Number(it.qty || it.quantity || 1), 0);
     const ccId = o.ccavenue_order_id || '';
     const invLink = ccId ? `<a href="thank-you.html?status=success&order_id=${encodeURIComponent(ccId)}&tracking_id=${encodeURIComponent(o.payment_tracking_id||'')}&amount=${encodeURIComponent(o.total_amount||'')}" target="_blank" class="icon-btn" title="View / print invoice" data-testid="invoice-btn-${escapeHTML(o.id)}"><i class="fas fa-file-invoice"></i></a>` : '';
@@ -1538,8 +1670,10 @@ window.updateOrderStatus = updateOrderStatus;
 function viewOrder(id) {
   const o = state.orders.find(x => x.id === id);
   if (!o) return;
-  const items = Array.isArray(o.items) ? o.items : (o.items?.items || []);
-  const ship = o.shipping_address || {};
+  let items = [];
+  try { items = typeof o.items === 'string' ? JSON.parse(o.items) : (Array.isArray(o.items) ? o.items : (o.items?.items || [])); } catch(e){}
+  let ship = {};
+  try { ship = typeof o.shipping_address === 'string' ? JSON.parse(o.shipping_address) : (o.shipping_address || {}); } catch(e){}
   const cc = o.ccavenue_order_id || ('#' + String(o.id).substring(0, 8));
   const totalWeight = items.reduce((s, it) => {
     const prod = state.products.find(p => p.id === it.product_id);
@@ -1698,28 +1832,63 @@ function viewOrder(id) {
   // Generate AWB
   const awbBtn = $('ov-gen-awb');
   if (awbBtn) awbBtn.onclick = async () => {
-    const key = localStorage.getItem('oncost_recover_key') || prompt('Enter your ADMIN_RECOVERY_KEY (from Vercel env):');
-    if (!key) return;
-    awbBtn.disabled = true; awbBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Calling Delhivery…';
-    try {
-      const r = await fetch('/api/delhivery/create-shipment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
-        body: JSON.stringify({ order_id: o.id }),
-      });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error || 'AWB creation failed');
-      localStorage.setItem('oncost_recover_key', key);
-      o.awb_number = j.awb;
-      o.tracking_url = j.tracking_url;
-      showToast(`AWB generated: ${j.awb}`);
-      m.close();
-      viewOrder(o.id);
-      loadOrders().then(() => renderOrders());
-    } catch (err) {
-      showToast(err.message, 'error');
-      awbBtn.disabled = false; awbBtn.innerHTML = '<i class="fas fa-truck"></i> Generate Delhivery AWB';
-    }
+    const dimHtml = `
+      <div id="dim-modal" class="modal" style="display:flex;z-index:9999;">
+        <div class="modal-content" style="max-width:400px;background:#fff;border-radius:8px;padding:24px;">
+          <h3 style="margin-top:0;color:var(--burgundy);"><i class="fas fa-box"></i> Package Dimensions</h3>
+          <p style="font-size:13px;color:var(--admin-text-mute);margin-bottom:16px;">Please confirm the final package details.</p>
+          <div class="field" style="margin-bottom:12px;"><label style="font-size:12px;font-weight:600;">Weight (grams)</label><input id="dim-w" type="number" class="input" value="500"></div>
+          <div style="display:flex;gap:10px;margin-bottom:16px;">
+            <div class="field"><label style="font-size:12px;font-weight:600;">Length (cm)</label><input id="dim-l" type="number" class="input" value="10"></div>
+            <div class="field"><label style="font-size:12px;font-weight:600;">Breadth (cm)</label><input id="dim-b" type="number" class="input" value="10"></div>
+            <div class="field"><label style="font-size:12px;font-weight:600;">Height (cm)</label><input id="dim-h" type="number" class="input" value="10"></div>
+          </div>
+          <div style="display:flex;gap:12px;justify-content:flex-end;">
+            <button class="btn btn-secondary" onclick="document.getElementById('dim-modal').remove()">Cancel</button>
+            <button class="btn btn-primary" id="dim-confirm"><i class="fas fa-truck"></i> Confirm & Generate AWB</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', dimHtml);
+
+    $('dim-confirm').onclick = async () => {
+      const weight = parseInt($('dim-w').value) || 500;
+      const length = parseInt($('dim-l').value) || 10;
+      const breadth = parseInt($('dim-b').value) || 10;
+      const height = parseInt($('dim-h').value) || 10;
+      $('dim-modal').remove();
+
+      const key = localStorage.getItem('oncost_recover_key') || prompt('Enter your ADMIN_RECOVERY_KEY (from Vercel env):');
+      if (!key) return;
+
+      awbBtn.disabled = true; awbBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Calling Delhivery…';
+      try {
+        const r = await fetch('/api/delhivery/create-shipment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
+          body: JSON.stringify({ 
+            order_id: o.id,
+            weight_grams: weight,
+            length_cm: length,
+            breadth_cm: breadth,
+            height_cm: height
+          }),
+        });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || 'AWB creation failed');
+        localStorage.setItem('oncost_recover_key', key);
+        o.awb_number = j.awb;
+        o.tracking_url = j.tracking_url;
+        showToast(`AWB generated: ${j.awb}`);
+        m.close();
+        viewOrder(o.id);
+        loadOrders().then(() => renderOrders());
+      } catch (err) {
+        showToast(err.message, 'error');
+        awbBtn.disabled = false; awbBtn.innerHTML = '<i class="fas fa-truck"></i> Generate Delhivery AWB';
+      }
+    };
   };
 
   // Schedule pickup
@@ -1759,6 +1928,57 @@ function viewOrder(id) {
   });
 }
 window.viewOrder = viewOrder;
+
+window.createDelhiveryShipment = async function(id) {
+  const btn = document.getElementById(`btn-delhivery-${id}`);
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Generating...'; }
+  
+  let savedKey = localStorage.getItem('oncost_recover_key') || '';
+  if (!savedKey) {
+    savedKey = prompt('Please enter the Admin Recovery Key (found in Vercel environment variables) to authorize Delhivery shipment creation:');
+    if (!savedKey) {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-truck"></i> Auto-Generate via Delhivery'; }
+      return;
+    }
+    localStorage.setItem('oncost_recover_key', savedKey);
+  }
+
+  try {
+    const r = await fetch('/api/admin/create-delhivery-shipment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': savedKey },
+      body: JSON.stringify({ order_id: id })
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || 'Server error');
+    
+    showToast(`Shipment created! AWB: ${j.awb}`);
+    const o = state.orders.find(x => x.id === id);
+    if (o) {
+      if (!o.shipping_address) o.shipping_address = {};
+      o.shipping_address.tracking_url = j.tracking_url;
+      o.status = 'Packed';
+    }
+    renderOrders();
+    // close modal if open
+    document.getElementById('ov-close')?.click();
+  } catch(err) {
+    showToast(err.message, 'error');
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-truck"></i> Auto-Generate via Delhivery'; }
+  }
+};
+
+window.saveTrackingUrl = async function(id) {
+  const o = state.orders.find(x => x.id === id); if (!o) return;
+  const url = document.getElementById('ov-tracking-url').value.trim();
+  const ship = o.shipping_address || {};
+  ship.tracking_url = url || null;
+  const { error } = await supabaseClient.from('orders').update({ shipping_address: ship }).eq('id', id);
+  if (error) return showToast('Failed to save tracking: ' + error.message, 'error');
+  o.shipping_address = ship;
+  showToast('Tracking URL saved.');
+  renderOrders();
+};
 
 // ------------------------- Order Delete + Bulk Actions -------------------------
 async function deleteOrder(id) {
@@ -2117,7 +2337,11 @@ function renderLeads() {
       <td style="font-size:12px;text-align:right;">${escapeHTML(d.Qty || d.qty || '—')}</td>
       <td style="font-size:12px;text-align:right;">${d.Budget||d.budget ? '₹'+escapeHTML(d.Budget || d.budget) : '—'}</td>
       <td style="max-width:240px;font-size:12px;color:var(--admin-text-soft);">${escapeHTML((d.Message || d.message || '').substring(0,80))}${(d.Message||d.message||'').length>80?'…':''}</td>
-      <td><span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;background:${color}20;color:${color};">${escapeHTML(status)}</span></td>
+      <td>
+        <select class="select" style="font-size:11px; padding:3px 6px; width:110px; background:${color}20; color:${color}; font-weight:600; border:1px solid ${color}40;" onchange="updateLeadInline('${escapeHTML(l.id)}', this.value)">
+          ${['New','Contacted','Discussed','Quoted','Accepted','Converted','Not Converted','Lost'].map(s => `<option value="${s}" ${status===s?'selected':''} style="color:#000;background:#fff;">${s}</option>`).join('')}
+        </select>
+      </td>
       <td><div class="row-actions">
         <button class="icon-btn" onclick="viewLead('${escapeHTML(l.id)}')" title="View / Update" data-testid="view-lead-${escapeHTML(l.id)}"><i class="fas fa-eye"></i></button>
         <button class="icon-btn danger" onclick="deleteLead('${escapeHTML(l.id)}')" title="Delete" data-testid="del-lead-${escapeHTML(l.id)}"><i class="fas fa-trash"></i></button>
@@ -2163,13 +2387,21 @@ function viewLead(id) {
       admin_notes: $('lv-notes').value.trim() || null,
       deal_value: Number($('lv-deal-value').value) || null,
     };
-    const { error } = await supabaseClient.from('leads').update(update).eq('id', l.id);
-    if (error) {
-      if (error.message?.includes('status') || error.message?.includes('admin_notes') || error.message?.includes('deal_value')) {
-        return showToast('Run migration_ALL_IN_ONE.sql to enable lead status tracking.', 'error');
-      }
-      return showToast('Save failed: ' + error.message, 'error');
+    
+    const session = await supabaseClient.auth.getSession();
+    const token = session.data?.session?.access_token;
+    
+    const r = await fetch('/api/admin/leads', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ id: l.id, payload: update })
+    });
+    
+    if (!r.ok) {
+      const e = await r.json();
+      return showToast('Save failed: ' + (e.error || 'Unknown error'), 'error');
     }
+    
     Object.assign(l, update);
     renderLeads();
     showToast(`Enquiry → ${update.status}`);
@@ -2178,10 +2410,51 @@ function viewLead(id) {
 }
 window.viewLead = viewLead;
 
+async function updateLeadInline(id, newStatus) {
+  const l = state.leads.find(x => x.id === id);
+  if (!l) return;
+  const oldStatus = l.status;
+  
+  // Optimistic UI update
+  l.status = newStatus;
+  renderLeads();
+  
+  const session = await supabaseClient.auth.getSession();
+  const token = session.data?.session?.access_token;
+  
+  const r = await fetch('/api/admin/leads', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({ id: id, payload: { status: newStatus } })
+  });
+  
+  if (!r.ok) {
+    const e = await r.json();
+    l.status = oldStatus;
+    renderLeads();
+    return showToast('Save failed: ' + (e.error || 'Unknown error'), 'error');
+  }
+  showToast(`Enquiry → ${newStatus}`);
+}
+window.updateLeadInline = updateLeadInline;
+
 async function deleteLead(id) {
   if (!await confirmDialog('Delete this enquiry permanently?', { confirmLabel:'Delete', danger:true })) return;
-  const { error } = await supabaseClient.from('leads').delete().eq('id', id);
-  if (error) return showToast('Delete failed: ' + error.message, 'error');
+  
+  const session = await supabaseClient.auth.getSession();
+  const token = session.data?.session?.access_token;
+  
+  const r = await fetch('/api/admin/leads', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({ id })
+  });
+  
+  if (!r.ok) {
+    const e = await r.json();
+    return showToast('Delete failed: ' + (e.error || 'Unknown error'), 'error');
+  }
+  
   state.leads = state.leads.filter(x => x.id !== id);
   renderLeads();
   showToast('Enquiry deleted.');
