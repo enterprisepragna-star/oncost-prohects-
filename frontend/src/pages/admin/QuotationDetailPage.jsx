@@ -9,6 +9,11 @@ export default function QuotationDetailPage() {
   const { id } = useParams();
   const [q, setQ] = useState(null);
 
+  const [acceptOpen, setAcceptOpen] = useState(false);
+  const [acceptNote, setAcceptNote] = useState("");
+  const [acceptBudget, setAcceptBudget] = useState("");
+  const [acceptBusy, setAcceptBusy] = useState(false);
+
   const load = async () => {
     const { data } = await api.get(`/quotations/${id}`);
     setQ(data);
@@ -21,15 +26,23 @@ export default function QuotationDetailPage() {
     const { data } = await api.patch(`/quotations/${q.id}/toggle`);
     setQ({ ...q, active: data.active });
   };
-  const acceptQuotation = async () => {
-    if (q.status === "accepted") return;
-    if (!confirm(`Mark quotation ${q.quotation_id} as ACCEPTED and convert to a sale? The public link will be closed.`)) return;
+  const submitAccept = async () => {
+    if (!acceptNote.trim()) { toast.error("Note is required"); return; }
+    setAcceptBusy(true);
     try {
-      await api.post(`/quotations/${q.id}/accept`);
+      await api.post(`/quotations/${q.id}/accept`, {
+        note: acceptNote.trim(),
+        approved_budget: acceptBudget ? Number(acceptBudget) : null,
+      });
       toast.success(`Quotation ${q.quotation_id} accepted → converted to sale`);
+      setAcceptOpen(false);
+      setAcceptNote("");
+      setAcceptBudget("");
       load();
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Could not accept");
+    } finally {
+      setAcceptBusy(false);
     }
   };
   const copyLink = async () => {
@@ -82,7 +95,7 @@ export default function QuotationDetailPage() {
           <button onClick={toggle} className={`border px-3 py-2 text-sm flex items-center gap-2 ${q.active ? "border-emerald-600 text-emerald-600" : "border-zinc-300 text-zinc-500"}`}><Power size={14} /> {q.active ? "Active" : "Disabled"}</button>
           {q.status !== "accepted" ? (
             <button
-              onClick={acceptQuotation}
+              onClick={() => setAcceptOpen(true)}
               data-testid="quote-accept"
               className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-sm flex items-center gap-2"
             >
@@ -170,6 +183,82 @@ export default function QuotationDetailPage() {
         <div className="mt-6 border border-zinc-200 p-4">
           <p className="overline text-[10px]">Notes</p>
           <p className="mt-2 text-sm text-zinc-700">{q.notes}</p>
+        </div>
+      )}
+
+      {q.status === "accepted" && (
+        <div className="mt-6 border-2 border-emerald-400 bg-emerald-50 p-5" data-testid="acceptance-block">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={18} className="text-emerald-700" />
+            <p className="overline text-emerald-700">Accepted as sale</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-3 text-sm">
+            <div>
+              <p className="overline text-[10px] text-emerald-700">Accepted on</p>
+              <p className="mt-1 font-mono">{(q.accepted_at || "").slice(0, 10) || "—"}</p>
+            </div>
+            {q.approved_budget !== undefined && q.approved_budget !== null && (
+              <div>
+                <p className="overline text-[10px] text-emerald-700">Approved budget</p>
+                <p className="mt-1 font-display text-lg">{formatINR(q.approved_budget)}</p>
+              </div>
+            )}
+            <div className="md:col-span-1">
+              <p className="overline text-[10px] text-emerald-700">Note / comments</p>
+              <p className="mt-1 text-zinc-800 whitespace-pre-line">{q.acceptance_note || "—"}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Accept dialog */}
+      {acceptOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setAcceptOpen(false)}>
+          <div className="bg-white border border-zinc-200 shadow-xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-zinc-200">
+              <p className="overline text-[10px]">Accept &amp; convert to sale</p>
+              <h3 className="font-display text-xl font-medium mt-1">{q.quotation_id} — {q.customer_name}</h3>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <label className="overline text-[10px]">Acceptance note / approval comments *</label>
+                <textarea
+                  data-testid="accept-note"
+                  rows={4}
+                  value={acceptNote}
+                  onChange={(e) => setAcceptNote(e.target.value)}
+                  placeholder="e.g. Approved by purchase head Mr. Rao via email on 21 Jun. Budget sanctioned."
+                  className="mt-2 w-full px-3 py-2 border border-zinc-300 text-sm focus:border-emerald-600 outline-none resize-y"
+                />
+              </div>
+              <div>
+                <label className="overline text-[10px]">Approved budget (₹) — optional</label>
+                <input
+                  data-testid="accept-budget"
+                  type="number"
+                  min={0}
+                  value={acceptBudget}
+                  onChange={(e) => setAcceptBudget(e.target.value)}
+                  placeholder={`Quote total: ${formatINR(q.total)}`}
+                  className="mt-2 w-full px-3 py-2 border border-zinc-300 font-mono text-sm focus:border-emerald-600 outline-none"
+                />
+              </div>
+              <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs p-3">
+                Once accepted, the public share link will be <b>closed</b> and the quotation will move to <b>Accepted Sales</b>.
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-zinc-200 flex items-center justify-end gap-2 bg-zinc-50">
+              <button onClick={() => setAcceptOpen(false)} className="px-4 py-2 border border-zinc-300 text-sm hover:border-zinc-900">Cancel</button>
+              <button
+                onClick={submitAccept}
+                disabled={acceptBusy}
+                data-testid="accept-submit"
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm flex items-center gap-2 disabled:opacity-50"
+              >
+                <CheckCircle2 size={14} /> {acceptBusy ? "Accepting…" : "Confirm & convert to sale"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

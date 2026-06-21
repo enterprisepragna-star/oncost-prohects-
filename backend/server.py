@@ -1113,14 +1113,21 @@ async def import_pdf_commit(payload: PDFImportCommit, _user=Depends(get_current_
     return {"inserted": inserted, "skipped": skipped, "vendor": {"id": vendor_id, "name": vendor["name"]}}
 
 
+class AcceptQuotationIn(BaseModel):
+    note: str = ""
+    approved_budget: Optional[float] = None
+
+
 # ---------- Quotation Acceptance → Sales ----------
 @api.post("/quotations/{qid}/accept")
-async def admin_accept_quotation(qid: str, _user=Depends(get_current_user)):
+async def admin_accept_quotation(qid: str, payload: AcceptQuotationIn, _user=Depends(get_current_user)):
     q = await db.quotations.find_one({"_id": ObjectId(qid)})
     if not q:
         raise HTTPException(404, "Not found")
     if q.get("status") == "accepted":
         raise HTTPException(400, "Already accepted")
+    if not (payload.note or "").strip():
+        raise HTTPException(400, "Acceptance note is required")
     sale_doc = {
         "quotation_id": q.get("quotation_id"),
         "quotation_ref": str(q["_id"]),
@@ -1136,11 +1143,19 @@ async def admin_accept_quotation(qid: str, _user=Depends(get_current_user)):
         "total": q.get("total", 0),
         "accepted_at": iso(now_utc()),
         "accepted_by": "admin",
+        "note": payload.note.strip(),
+        "approved_budget": payload.approved_budget,
     }
     sres = await db.sales.insert_one(sale_doc)
     await db.quotations.update_one(
         {"_id": ObjectId(qid)},
-        {"$set": {"status": "accepted", "active": False, "accepted_at": iso(now_utc())}},
+        {"$set": {
+            "status": "accepted",
+            "active": False,
+            "accepted_at": iso(now_utc()),
+            "acceptance_note": payload.note.strip(),
+            "approved_budget": payload.approved_budget,
+        }},
     )
     sale_doc["id"] = str(sres.inserted_id)
     sale_doc.pop("_id", None)
