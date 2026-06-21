@@ -621,7 +621,7 @@ function renderProducts() {
     const checked = state.selectedProducts.has(p.id) ? 'checked' : '';
     return `<tr data-testid="product-row-${escapeHTML(p.id)}" ${state.selectedProducts.has(p.id)?'style="background:#FFF8E7;"':''}>
       <td style="text-align:center;"><input type="checkbox" class="product-row-check" data-id="${escapeHTML(p.id)}" ${checked} data-testid="check-product-${escapeHTML(p.id)}" /></td>
-      <td>${img}</td>
+      <td style="text-align:center; padding: 4px;">${img}</td>
       <td><div style="font-weight:600">${escapeHTML(p.name)}</div><div style="font-size:11px;color:var(--admin-text-mute)">${escapeHTML((p.description||'').substring(0,60))}</div></td>
       <td>
         <code style="font-size:11px;color:var(--admin-text-mute)">${escapeHTML(p.sku || '—')}</code>
