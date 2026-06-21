@@ -1611,7 +1611,10 @@ function renderOrders() {
       <td><div style="font-size:12px;font-weight:600;color:var(--admin-primary);">${escapeHTML(o.invoice_number || '—')}</div></td>
       <td><div style="font-size:12px">${escapeHTML(o.guest_email || o.user_id || '—')}</div><div style="font-size:11px;color:var(--admin-text-mute)">${escapeHTML(o.guest_phone || '')}</div></td>
       <td style="text-align:right;font-weight:600">${fmtINR(o.total_amount)}</td>
-      <td>${qty} item${qty===1?'':'s'}</td>
+      <td>
+        <div style="font-weight:600">${qty} item${qty===1?'':'s'}</div>
+        <div style="font-size:11px;color:var(--admin-text-mute);margin-top:2px;max-width:180px;">${escapeHTML(items.map(i => { const p=state.products.find(x=>x.id===i.product_id); return p ? p.name : (i.name || 'Product'); }).join(', '))}</div>
+      </td>
       <td>
         <select class="select" style="padding:5px 8px;font-size:12px;min-width:130px;" onchange="updateOrderStatus('${escapeHTML(o.id)}', this.value)" data-testid="order-status-${escapeHTML(o.id)}">
           ${['Processing','Paid','Packed','Shipped','Delivered','Cancelled','Failed'].map(s => `<option ${o.status===s?'selected':''}>${s}</option>`).join('')}

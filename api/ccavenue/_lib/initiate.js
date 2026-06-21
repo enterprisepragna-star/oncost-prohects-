@@ -6,7 +6,7 @@
 // This is the SINGLE source of order creation — frontend never touches the orders table directly
 // for new orders. That guarantees no RLS / schema-mismatch failures.
 
-const { encrypt, buildMerchantData } = require('./_lib/ccavenue-crypto');
+const { encrypt, buildMerchantData } = require('./ccavenue-crypto');
 
 const CCAV_URL = {
   test:       'https://test.ccavenue.com/transaction/transaction.do?command=initiateTransaction',

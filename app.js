@@ -304,6 +304,14 @@ async function renderProductDetail() {
   if (state.settings.site_title) document.title = `${p.name} · ${state.settings.site_title}`;
   if (p.seo_description) setMeta('description', p.seo_description);
 
+  // --- Track Recently Viewed ---
+  try {
+    let rv = JSON.parse(localStorage.getItem('recently_viewed') || '[]');
+    rv = rv.filter(pid => pid !== p.id);
+    rv.unshift(p.id);
+    if (rv.length > 10) rv = rv.slice(0, 10);
+    localStorage.setItem('recently_viewed', JSON.stringify(rv));
+  } catch(e) {}
 
   // Load variants if this product has them
   let variants = [];
