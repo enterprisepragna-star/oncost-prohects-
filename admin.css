@@ -354,7 +354,6 @@ table.data tbody tr:hover { background: #FCFAF6; }
   width: 44px; height: 44px;
   border-radius: 6px; object-fit: cover;
   background: var(--admin-muted); border: 1px solid var(--admin-border);
-  display: block; margin: 0 auto;
 }
 
 /* ---------- Badges ---------- */
