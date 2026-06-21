@@ -19,7 +19,6 @@ import jwt
 from bson import ObjectId
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, status
 from fastapi.responses import StreamingResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from starlette.middleware.cors import CORSMiddleware
@@ -35,6 +34,8 @@ from reportlab.platypus import (
 from reportlab.lib.enums import TA_LEFT, TA_RIGHT, TA_CENTER
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+
+from storage import init_storage, put_object, get_object, build_storage_path
 
 # Register Unicode fonts (DejaVu supports ₹). Fallback to Helvetica if missing.
 _FONT_REG = "Helvetica"
@@ -390,8 +391,20 @@ async def upload_product_image(pid: str, file: UploadFile = File(...), _user=Dep
     canvas.paste(img, ((side - img.size[0]) // 2, (side - img.size[1]) // 2))
     canvas.thumbnail((720, 720))
     fname = f"{prod['code'].replace(' ', '_')}_{_sec.token_hex(4)}.jpg"
-    out = IMAGES_DIR / fname
-    canvas.save(str(out), "JPEG", quality=88)
+    # Save bytes to a buffer for upload (and to disk as fallback)
+    jpeg_buf = _io.BytesIO()
+    canvas.save(jpeg_buf, "JPEG", quality=88)
+    jpeg_bytes = jpeg_buf.getvalue()
+    # Try persistent object storage first
+    try:
+        put_object(build_storage_path(fname), jpeg_bytes, "image/jpeg")
+    except Exception:
+        pass
+    # Always also write a local copy (used as fallback if storage call fails)
+    try:
+        (IMAGES_DIR / fname).write_bytes(jpeg_bytes)
+    except Exception:
+        pass
     await db.products.update_one({"_id": ObjectId(pid)}, {"$set": {"image": fname}})
     return {"image": fname}
 
@@ -1016,7 +1029,15 @@ async def import_pdf_extract(file: UploadFile = File(...), _user=Depends(get_cur
                 canvas.thumbnail((720, 720))
                 image_counter += 1
                 fname = f"import_{secrets.token_hex(4)}_{image_counter:03d}.jpg"
-                canvas.save(str(IMAGES_DIR / fname), "JPEG", quality=85)
+                jbuf = io.BytesIO()
+                canvas.save(jbuf, "JPEG", quality=85)
+                jbytes = jbuf.getvalue()
+                # Persist to object storage (with local fallback)
+                try:
+                    put_object(build_storage_path(fname), jbytes, "image/jpeg")
+                except Exception:
+                    pass
+                (IMAGES_DIR / fname).write_bytes(jbytes)
                 prod["image"] = fname
             except Exception:
                 prod["image"] = None
@@ -1145,21 +1166,31 @@ async def get_sale(sid: str, _user=Depends(get_current_user)):
     return s
 
 
-# ---------- Images (public, static) ----------
+# ---------- Images (public) — object storage first, local fallback ----------
 @api.get("/images/{filename}")
 async def get_image(filename: str):
     # basic safety
     if "/" in filename or ".." in filename:
         raise HTTPException(400, "bad name")
+    # 1) Try persistent object storage
+    data, ctype = get_object(build_storage_path(filename))
+    if data:
+        return Response(content=data, media_type=ctype or "image/jpeg",
+                        headers={"Cache-Control": "public, max-age=86400"})
+    # 2) Fallback to local disk (bundled supplier images)
     fp = IMAGES_DIR / filename
     if not fp.exists():
         raise HTTPException(404, "not found")
-    return FileResponse(str(fp), media_type="image/jpeg")
+    return FileResponse(str(fp), media_type="image/jpeg",
+                        headers={"Cache-Control": "public, max-age=86400"})
 
 
 # ---------- Startup: seed admin + products + indexes ----------
 @app.on_event("startup")
 async def startup():
+    # Initialize persistent object storage (Emergent)
+    init_storage()
+
     # Indexes
     await db.users.create_index("email", unique=True)
     await db.quotations.create_index("share_token", unique=True)
@@ -1193,13 +1224,15 @@ async def startup():
             "rounding": 1,
         })
 
-    # Seed products from products.json if collection empty
-    count = await db.products.count_documents({})
-    if count == 0 and PRODUCTS_JSON.exists():
+    # Seed / upsert products from products.json — add new codes without disturbing existing ones
+    if PRODUCTS_JSON.exists():
         items = json.loads(PRODUCTS_JSON.read_text())
-        docs = []
+        new_count = 0
         for it in items:
-            docs.append({
+            existing = await db.products.find_one({"code": it["code"]})
+            if existing:
+                continue
+            await db.products.insert_one({
                 "code": it["code"],
                 "set_type": it.get("set_type", ""),
                 "items": it.get("items", ""),
@@ -1210,9 +1243,9 @@ async def startup():
                 "visible": True,
                 "created_at": iso(now_utc()),
             })
-        if docs:
-            await db.products.insert_many(docs)
-            logger.info(f"Seeded {len(docs)} products")
+            new_count += 1
+        if new_count:
+            logger.info(f"Seeded {new_count} new products from products.json")
 
 
 @app.on_event("shutdown")
