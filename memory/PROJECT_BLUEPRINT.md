@@ -295,6 +295,154 @@ Use any PDF library that supports custom Unicode fonts (ReportLab, WeasyPrint, P
 
 ---
 
+## 7A. Quotation Template — Inclusions, Shipment & Payment (READY-TO-USE COPY)
+
+> Render this block in **both** the public HTML quotation view and the downloadable PDF, exactly as written. All amounts/timelines must remain editable per-quotation by the admin; the text below is the *default template* that pre-fills the form. Defaults are also configurable via env vars (`DEFAULT_DELIVERY`, `DEFAULT_PAYMENT_TERMS`, `DEFAULT_INCLUSIONS`).
+
+### 7A.1 Subject line (default)
+> *Subject:* **Quotation for Corporate Gifting Requirements – {{customer_company or customer_name}}**
+
+### 7A.2 Opening greeting (static)
+> Dear Sir / Madam,
+>
+> Thank you for considering **ONCOST (Pragna Enterprises)** for your corporate gifting requirements. We are pleased to share our proposal as detailed below. All items quoted are tailored for premium corporate gifting, customizable with your logo / branding where applicable, and dispatched after a strict quality check.
+
+### 7A.3 ✅ Inclusions (what the price covers)
+Render as a clean checklist (✓ bullets) inside a bordered box titled **"INCLUSIONS"**.
+
+```
+✓ Premium product packaging suitable for corporate gifting
+✓ Logo branding / customization (single colour print or laser engraving, where applicable)
+✓ Quality assurance on every unit before dispatch
+✓ Inner protective packaging to prevent transit damage
+✓ Master carton / outer packing for bulk shipments
+✓ Standard GST invoice with HSN-wise breakup
+✓ Dedicated point-of-contact till order completion
+```
+
+> **Note for admin:** Anything NOT listed is *excluded* (e.g., multi-colour print, custom moulding, custom box design, individual name tags, gift cards). Excluded items can be quoted separately as add-ons.
+
+### 7A.4 🚚 Shipment & Delivery Guidelines
+Render as a small two-column block titled **"DELIVERY & SHIPMENT"**.
+
+```
+Production Lead Time      :  7–10 business days from confirmed order +
+                             receipt of advance payment + final artwork approval.
+Dispatch Mode             :  Surface courier for orders < 25 kg;
+                             Road transport / part-load for bulk orders.
+Delivery Coverage         :  Pan-India. International on request (quoted separately).
+Shipping Charges          :  As mentioned in the totals section below.
+                             (Free shipping above ₹50,000 ex-Bengaluru, on request.)
+Insurance                 :  Goods insured for full invoice value at customer's request
+                             (cost extra, ~0.3% of invoice value).
+Risk of Loss              :  Transfers to the customer once goods are handed over to courier.
+                             A POD (Proof of Delivery) is shared by email on dispatch.
+Lost / Damaged in Transit :  Reported within 48 hours of delivery with photographic evidence;
+                             replacement subject to courier insurance settlement.
+```
+
+**Variable bits the admin can override per quote:**
+- `delivery_timeline` (free text)
+- `shipping_charges` (₹ amount)
+
+### 7A.5 💳 Payment Terms & Bank Guidelines
+Render as a bordered box titled **"PAYMENT TERMS"**.
+
+```
+Standard Schedule
+  • 50% advance on order confirmation (within 48 hrs of PO).
+  • 50% balance before dispatch (after sharing photos of packed goods).
+
+Accepted Modes
+  • Bank Transfer (NEFT / RTGS / IMPS)
+  • UPI (for amounts < ₹1,00,000)
+  • Corporate Cheque (subject to 3 working-day clearance before dispatch)
+
+Invoicing
+  • Pro-forma invoice issued on confirmation for advance payment.
+  • Tax invoice with GST issued at dispatch.
+  • GSTIN to be provided by the customer for input-credit eligibility.
+
+Bank Details
+  Beneficiary  :  PRAGNA ENTERPRISES
+  Bank         :  {{COMPANY_BANK_NAME}}
+  A/C No.      :  {{COMPANY_BANK_ACCOUNT}}
+  IFSC         :  {{COMPANY_BANK_IFSC}}
+  Branch       :  {{COMPANY_BANK_BRANCH}}
+  GSTIN        :  {{COMPANY_GSTIN}}
+  (Shared on the pro-forma invoice — kept off the public quotation unless requested.)
+
+Late Payment
+  • Balance overdue > 7 days from dispatch attracts 1.5% / month interest.
+  • Dispatch held until advance payment is realized in our account.
+```
+
+> **Sensitive data handling:** Do NOT print full bank account numbers on the *public* HTML share view — show only "Available on order confirmation" by default, and reveal the full block only on the pro-forma / final invoice. The PDF template already follows this pattern via `COMPANY_BANK_DETAILS`.
+
+### 7A.6 📋 Validity, Taxes & Other Terms
+Render as compact bullets under a section titled **"TERMS & CONDITIONS"**.
+
+```
+1.  Quotation Validity     :  15 days from the date mentioned above, unless extended in writing.
+2.  Prices                 :  Quoted in INR, exclusive of GST unless otherwise stated.
+                              GST @ {{gst_percent}}% applicable on (subtotal + shipping).
+3.  Taxes                  :  Any new / revised statutory levy after the quote date will be
+                              charged at actuals.
+4.  Order Confirmation     :  By email + signed PO / advance payment.
+5.  Artwork Approval       :  Customer to share final artwork in vector (AI/PDF/SVG) within
+                              2 working days of confirmation. Production timeline starts post-approval.
+6.  Cancellation           :  After production start, advance is non-refundable.
+                              Before production, ₹500 admin fee + cost of any procured raw material.
+7.  Customization          :  Sample / mock-up shared digitally before bulk production.
+                              Physical sample available at actuals + courier.
+8.  Variance               :  ±2% tolerance on colour / dimension / weight is industry-standard
+                              and not grounds for rejection.
+9.  Jurisdiction           :  All disputes subject to Bengaluru, Karnataka jurisdiction only.
+10. Force Majeure          :  ONCOST not liable for delays due to events beyond reasonable control
+                              (strike, courier disruption, natural calamity, regulatory action).
+```
+
+### 7A.7 ✍️ Closing block (static)
+```
+We look forward to your confirmation and the opportunity of building a long-standing
+business relationship.
+
+For any clarifications, please reach out to:
+  ☎  {{COMPANY_PHONE}}      |   ✉  {{COMPANY_EMAIL}}
+  🌐 {{COMPANY_WEBSITE}}
+
+Warm Regards,
+
+For PRAGNA ENTERPRISES
+ONCOST – Corporate Gifting Division
+(Authorized Signatory)
+```
+
+### 7A.8 Suggested data fields (additions to `quotations` table)
+
+To support the template above as fully editable per-quote, the `quotations` schema should carry:
+
+| Field | Type | Default Source |
+|---|---|---|
+| inclusions | string (`;`-separated bullets) | `DEFAULT_INCLUSIONS` env |
+| delivery_timeline | string | `DEFAULT_DELIVERY` env |
+| payment_terms | string | `DEFAULT_PAYMENT_TERMS` env |
+| terms_and_conditions | string (new) | env `DEFAULT_TERMS` (multi-line) |
+| validity_days | int (new) | env `DEFAULT_VALIDITY_DAYS=15`; used to compute `valid_until = created_at + N days` |
+| bank_details | string (new, admin-only on internal copy) | `COMPANY_BANK_DETAILS` env |
+
+> The reference impl already has `inclusions`, `delivery_timeline`, and `payment_terms`. Add `terms_and_conditions`, `validity_days`, and `bank_details` in the rebuild.
+
+### 7A.9 Visual rendering hints
+
+- Use a **monospace or tabular layout** for the bank-details and lead-time blocks so they look like an "official" invoice.
+- Use **navy section headers** (`#0F172A`, ALL CAPS, letter-spaced) with a thin gold underline.
+- Each block (Inclusions / Delivery / Payment) sits inside a **light gray (`#F8FAFC`) box with a 1px `#D4D4D8` border**, padding `8mm`.
+- Bullets: `✓` (U+2713) for inclusions; `•` (U+2022) for terms; `→` (U+2192) for steps.
+- Maintain a 3-column grid for Inclusions · Delivery · Payment on A4 desktop; collapse to single column on mobile HTML view.
+
+---
+
 ## 8. Frontend Surface (pages & flows)
 
 > Use any UI framework (React/Vue/Svelte/Next/Nuxt). Below is the minimum page list with behavior.
