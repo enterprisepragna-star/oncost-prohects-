@@ -1,0 +1,832 @@
+[
+  {
+    "id": "p_1",
+    "code": "B 125",
+    "name": "A5 NOTEBOOK WITH PHONE STAND,",
+    "desc": "A5 NOTEBOOK WITH PHONE STAND, | CARD POCKET & ELASTIC FASTENER | 4 IN 1 TEXTURED PU NOTEBOOK IN A5 SIZE | COMES WITH SPACIOUS FRONT | POCKET TO HOLD M",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_1.png"
+  },
+  {
+    "id": "p_2",
+    "code": "B 178",
+    "name": "ECO",
+    "desc": "ECO | FRIENDLY | PRODUCT | \u2022 Premium Bamboo notebook with 192 writing sheets | \u2022 Hard bound cover for added protection | \u2022 High quality 80gsm paper | ",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_2.png"
+  },
+  {
+    "id": "p_3",
+    "code": "B 204",
+    "name": "Pen Loop Notebook",
+    "desc": "Pen Loop Notebook | WITH VERTICAL STITCHING DESIGN | Product Code: B 204 | \u2022 A5 size PU notebook with stitching design | \u2022 Separate pen loop to keep y",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_3.png"
+  },
+  {
+    "id": "p_4",
+    "code": "B 203",
+    "name": "Cork Duomag",
+    "desc": "Cork Duomag | A5 CORK NOTEBOOK | WITH MAGNETIC FLAP CLOSURE | SLANT DESIGN FLAP MADE OF COFFEE CORK MATERIAL | Product Code : B 203 | \u2022 Cork Eco frien",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_4.png"
+  },
+  {
+    "id": "p_5",
+    "code": "B 202",
+    "name": "FoldBook Stash",
+    "desc": "FoldBook Stash | A5 NOTEBOOK WITH MAGNETIC FLAP CLOSURE | POCKETS & PEN SLOT ON FLAP | CARD AND | DOCUMENT | POCKETS | PEN | SLOT | Product Code : B 2",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_5.png"
+  },
+  {
+    "id": "p_6",
+    "code": "B 201",
+    "name": "Fold Book Nook",
+    "desc": "Fold Book Nook | A5 NOTEBOOK WITH MAGNETIC FLAP CLOSURE | PATTERN DESIGN ON FLAP | \u2022 A5 Notebook is perfect for organizing | thoughts and ideas | \u2022 Fe",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_6.png"
+  },
+  {
+    "id": "p_7",
+    "code": "B 200",
+    "name": "FoldBook Prime AS NOTEBOOK",
+    "desc": "FoldBook Prime AS NOTEBOOK | WITH MAGNETIC FLAP CLOSURE | & METAL PLATE | Product Code : B 200 | \u2022 3 fold A5 notebook with metal edge | \u2022 Premium Look",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_7.png"
+  },
+  {
+    "id": "p_8",
+    "code": "B 199",
+    "name": "FoldBook A5 NOTEBOOK",
+    "desc": "FoldBook A5 NOTEBOOK | Mail | WITH MAGNETIC FLAP CLOSURE | Product Code : B 199 | \u2022 A5 Notebook is perfect | for organizing thoughts | and ideas | \u2022 F",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_8.png"
+  },
+  {
+    "id": "p_9",
+    "code": "B 191",
+    "name": "Floral",
+    "desc": "Floral | PU NOTEBOOK | WITH BOOKMARK RIBBON | Product Code : B 191 | Available in 3 colors: Red, Brown, Blue | 2 | 80 GSM | MATERIAL | Contains total ",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_9.png"
+  },
+  {
+    "id": "p_10",
+    "code": "B 188",
+    "name": "\u2022 Convenient Bookmark Ribbon",
+    "desc": "\u2022 Convenient Bookmark Ribbon | with Metal clip | \u2022 Contains total 192 pages with | 80 GSM premium quality paper | \u2022 Comes with personal | memorandum, ",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_10.png"
+  },
+  {
+    "id": "p_11",
+    "code": "B 206",
+    "name": "DUAL TONE",
+    "desc": "DUAL TONE | CORK FABRIC NOTEBOOK | WITH 4 REFILL CORK PEN | Product Code : B 206 | Elastic band | to fasten notebook | Lightweight design | with 80gsm",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_11.png"
+  },
+  {
+    "id": "p_12",
+    "code": "B 205",
+    "name": "BUILT-IN HARD",
+    "desc": "BUILT-IN HARD | PEN SLOT | FOR EASY ACCESS | PenDeck Tilt | DUAL TONE A5 NOTEBOOK | WITH HARD PEN SLOT AND CARD SLOTS | Product Code : B 205 | \u2022 Built",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_12.png"
+  },
+  {
+    "id": "p_13",
+    "code": "B 92",
+    "name": "A5 NOTEBOOK",
+    "desc": "A5 NOTEBOOK | WITH MOBILE POCKET | CARD HOLDER POCKET & PEN LOOP | Comes with | personal memorandum, | planner & bookmark | ribbon etc | 9:41 | 12 | m",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_13.png"
+  },
+  {
+    "id": "p_14",
+    "code": "B 108",
+    "name": "BAMBOO A5 SIZE NOTEBOOK",
+    "desc": "BAMBOO A5 SIZE NOTEBOOK | IN NATURAL FINISH | Product Code : B 108 | ECO | FRIENDLY | PRODUCT | \u2022 Notebook made of natural bamboo | \u2022 Eco friendly cho",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_14.png"
+  },
+  {
+    "id": "p_15",
+    "code": "B 176A",
+    "name": "80 GSM",
+    "desc": "80 GSM | MATERIAL | CORK | \u2022 Cork Eco friendly notebook in A5 | SIze | \u2022 Built-in elastic fastener for | organization | \u2022 Contains total 192 pages | \u2022",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_15.png"
+  },
+  {
+    "id": "p_16",
+    "code": "B 197",
+    "name": "Classic",
+    "desc": "Classic | PU NOTEBOOK WITH PEN SLOT | A5 SIZE | WITH MEMORANDUM & BOOKMARK RIBBON | Product Code : B 197 | Exclusive | Classic A5 Notebook | with Pen ",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_16.png"
+  },
+  {
+    "id": "p_17",
+    "code": "B184",
+    "name": "PEN LOOP NOTEBOOK",
+    "desc": "PEN LOOP NOTEBOOK | WITH STITCHING DESIGN | Product Code : B184 | 80 GSM | \u0414\u0423\u041c\u041e \u0421\u041e \u041a\u041e | HARD | MATERIAL | Separate pen loop to keep your pen | Contain",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_17.png"
+  },
+  {
+    "id": "p_18",
+    "code": "B 190",
+    "name": "CITYLIFE PU NOTEBOOK",
+    "desc": "CITYLIFE PU NOTEBOOK | Product Code : B 190 | mimitsee | MATERIAL | 80 GSM | Comes with personal memorandum, calendar and planner | Contains total 192",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_18.png"
+  },
+  {
+    "id": "p_19",
+    "code": "B 189",
+    "name": "CONSTELLA PU NOTEBOOK",
+    "desc": "CONSTELLA PU NOTEBOOK | WITH GOLDEN LEAFING DESIGN | Product Code: B 189 | MATERIAL | 92 | 80 GSM | Contains total 176 writing pages with 80 GSM paper",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_19.png"
+  },
+  {
+    "id": "p_20",
+    "code": "B 186",
+    "name": "KEYBOARD NOTEBOOK",
+    "desc": "KEYBOARD NOTEBOOK | WITH METAL BOOKMARK | Product Code : B 186 | Shift | Cape Lock | Gray | Contains total 192 pages | with 80 GSM premium quality pap",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_20.png"
+  },
+  {
+    "id": "p_21",
+    "code": "B 185",
+    "name": "Currency / Documents",
+    "desc": "Currency / Documents | Pocket \u2022 | PREMIUM ORGANIZER NOTEBOOK | WITH CARD SLOTS | Has a Magnetic Lock With Metal Plate | Product Code : B 185 | Magneti",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_21.png"
+  },
+  {
+    "id": "p_22",
+    "code": "B 150 A",
+    "name": "CORK",
+    "desc": "CORK | ENVELOPE STYLE NOTEBOOK | WITH RECYCLED PAGES | YOUR | LOGO | Product Code : B 150 A | CORK MAGNETIC | ENVELOPE STYLE NOTEBOOK | MAGNETIC ENVEL",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_22.png"
+  },
+  {
+    "id": "p_23",
+    "code": "PAGE_23",
+    "name": "Smily Cork notepad - B97",
+    "desc": "Smily Cork notepad - B97 | with Sticky notepad and strips | \u2022 Smily Cork notepad with sticky | notepad and strips | \u2022 5 colourful sticky note strips t",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_23.png"
+  },
+  {
+    "id": "p_24",
+    "code": "B 181",
+    "name": "Garden A5 Notebook",
+    "desc": "Garden A5 Notebook | with Memorandum and Bookmark Ribbon | 80 GSM | Available in 3 colors | Blue, Brown and Gray | Product Code : B 181 | \u2022 Convenient",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_24.png"
+  },
+  {
+    "id": "p_25",
+    "code": "B 180",
+    "name": "CORK A5 NOTEBOOK",
+    "desc": "CORK A5 NOTEBOOK | WITH HARD PEN SLOT | AND FOLDING COVER PHONE STAND | ECO | FRIENDLY | BUILT-IN HARD | PEN SLOT | FOR EASY ACCESS | FOLDING COVER TH",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_25.png"
+  },
+  {
+    "id": "p_26",
+    "code": "B 179",
+    "name": "80 GSM",
+    "desc": "80 GSM | MATERIAL | SLANT | A5 NOTEBOOK | WITH MEMORANDUM AND BOOKMARK RIBBON | Product Code: B 179 | YOUR LOGO | Soft bound Slant Notebook with Slant",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_26.png"
+  },
+  {
+    "id": "p_27",
+    "code": "B 170",
+    "name": "A5 NOTEBOOK",
+    "desc": "A5 NOTEBOOK | WITH HARD PEN SLOT | AND FOLDING COVER PHONE STAND | Product Code : B 170 | BUILT-IN HARD | PEN SLOT | FOR EASY ACCESS | \u2022 Premium A5 No",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_27.png"
+  },
+  {
+    "id": "p_28",
+    "code": "B 166",
+    "name": "YOUR LOGO",
+    "desc": "YOUR LOGO | SOFT | 80 GSM | LEAF A5 NOTEBOOK | WITH MEMORANDUM | AND BOOKMARK RIBBON | Product Code : B 166 | Convenient Bookmark Ribbon | Contains to",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_28.png"
+  },
+  {
+    "id": "p_29",
+    "code": "B 175",
+    "name": "Note Book",
+    "desc": "Note Book | 80 GSM | \u2022 Timeless | Premium look | notebook in | A5 size | \u2022 Textured | Design on | Cover | \u2022 Has a section | with personal | memorandum",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_29.png"
+  },
+  {
+    "id": "p_30",
+    "code": "B 171",
+    "name": "A5 TWO TONE NOTEBOOK",
+    "desc": "A5 TWO TONE NOTEBOOK | WITH D FLAP BUCKLE | AND DOUBLE BOOKMARK RIBBON | Product Code : B 171 | Double Bookmark | ribbon for easy | bookmarking | Styl",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_30.png"
+  },
+  {
+    "id": "p_31",
+    "code": "B 173",
+    "name": "VICTOR A5 NOTEBOOK",
+    "desc": "VICTOR A5 NOTEBOOK | WITH V STRAP CLOSURE | & DOUBLE BOOKMARK RIBBON | Product Code : B 173 | DUND COVE | Double Bookmark | ribbon for easy | bookmark",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_31.png"
+  },
+  {
+    "id": "p_32",
+    "code": "B 163",
+    "name": "160 WRITIN",
+    "desc": "160 WRITIN | G | PAGE | = | |70 GSM | CORK WIRO A5 NOTEBOOK | WITH DOCUMENT HOLDER, | STICKY PADS AND CORK PEN | Product Code : B 163 | \u2022 Eco Notebook",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_32.png"
+  },
+  {
+    "id": "p_33",
+    "code": "B 168",
+    "name": "ORIGAMI A5 NOTEBOOK",
+    "desc": "ORIGAMI A5 NOTEBOOK | WITH MEMORANDUM AND BOOKMARK RIBBON | HANER PAGEA | 80 GSM | SOFT | Convenient Bookmark Ribbon | Contains total 176 writing page",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_33.png"
+  },
+  {
+    "id": "p_34",
+    "code": "B 167",
+    "name": "SNOWFLAKE A5 NOTEBOOK",
+    "desc": "SNOWFLAKE A5 NOTEBOOK | WITH MEMORANDUM AND BOOKMARK RIBBON | \u2022 Stay organized and inspired with Snowflake A5 Notebook | \u2022 Features Memorandum and Boo",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_34.png"
+  },
+  {
+    "id": "p_35",
+    "code": "B 164",
+    "name": "A5 BUSINESS NOTEBOOK",
+    "desc": "A5 BUSINESS NOTEBOOK | WITH GOLDEN CURSIVE DESIGN | \u2022 Premium A5 Business notebook with stylish | Golden cursive design | \u2022 Features Memorandum and Bo",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_35.png"
+  },
+  {
+    "id": "p_36",
+    "code": "B 169",
+    "name": "MAJESTIC SLANT NOTEBOOK",
+    "desc": "MAJESTIC SLANT NOTEBOOK | WITH HARD BOUND COVER | Hard bound Sober notebook with Slanting lines | Contains total 176 writing pages with 80 GSM paper |",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_36.png"
+  },
+  {
+    "id": "p_37",
+    "code": "B 165",
+    "name": "CLOUD A5 NOTEBOOK",
+    "desc": "CLOUD A5 NOTEBOOK | WITH PEN HOLDER SLOT | AND BOOKMARK RIBBON WITH METAL CLIP | 80 GSM | SOFT | Exclusive Cloud A5 Notebook with Pen holder slot | Pr",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_37.png"
+  },
+  {
+    "id": "p_38",
+    "code": "B 154",
+    "name": "ECO NOTEBOOK",
+    "desc": "ECO NOTEBOOK | WITH PEN AND STICKY PADS BIG SIZE | ECO FRIENDLY SPIRAL NOTEBOOK WITH PEN | ECO- FRIENDLY BALL PEN | STICK ONS AND POST-ITS INCLUDED | ",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_38.png"
+  },
+  {
+    "id": "p_39",
+    "code": "B 162",
+    "name": "STEALTH 3 FOLD",
+    "desc": "STEALTH 3 FOLD | NOTEBOOK | WITH LONG METAL EDGE | Long metal edge | for durability and elegance | Strong magnetic flap | for secure closure | Feature",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_39.png"
+  },
+  {
+    "id": "p_40",
+    "code": "B 161",
+    "name": "PERSONAL ORGANIZER",
+    "desc": "PERSONAL ORGANIZER | WITH CARD & PEN SLOTS | Product Code : B 161 | 80 GSM | MATERIAL | PU | Includes branding | metal plate for | customization | PER",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_40.png"
+  },
+  {
+    "id": "p_41",
+    "code": "B 160",
+    "name": "SHER PAGES",
+    "desc": "SHER PAGES | 1921 | 80 GSM | HA | PYRAMID 3 FLAP NOTEBOOK | WITH MAGNETIC FLAP AND METAL PLATE | Product Code : B 160 | Metal plate | for branding | P",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_41.png"
+  },
+  {
+    "id": "p_42",
+    "code": "B 157",
+    "name": "WOODEN TEXTURE PU NOTEBOOK",
+    "desc": "WOODEN TEXTURE PU NOTEBOOK | WITH BOOKMARK RIBBON, ELASTIC FASTENER, | PEN SLOT AND METAL PLATE | Product Code : B 157 | N | 80 GSM | Pen slot and | m",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_42.png"
+  },
+  {
+    "id": "p_43",
+    "code": "B 158",
+    "name": "CHECKERED",
+    "desc": "CHECKERED | 2 TONE NOTEBOOK | WITH BOOKMARK RIBBON | Product Code : B 158 | 80 GSM | Luxury and functionality combined | \u2022 Includes a handy bookmark r",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_43.png"
+  },
+  {
+    "id": "p_44",
+    "code": "B 124 A",
+    "name": "HARD BOUND CORK A5 NOTEBOOK",
+    "desc": "HARD BOUND CORK A5 NOTEBOOK | WITH 16 GB PEN DRIVE, RIBBON AND ELASTIC FASTENER | CORK ECO FRIENDLY | NOTEBOOK IN A5 SIZE | COMES WITH DEDICATED | PEN",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_44.png"
+  },
+  {
+    "id": "p_45",
+    "code": "B 152",
+    "name": "80 GSM",
+    "desc": "80 GSM | \u2022 Cork PU A5 Notebook | \u2022 Elastic band to fasten notebook | \u2022 Lightweight design with 80gsm | paper | \u2022 Equipped with a pen loop for | conven",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_45.png"
+  },
+  {
+    "id": "p_46",
+    "code": "B 144",
+    "name": "ECO NOTEBOOK",
+    "desc": "ECO NOTEBOOK | WITH ECO PEN, WOODEN RULER, | STICKY NOTES & | CUSTOMIZABLE NOTEPAD | LOGO | Loup | Product Code : B 144 | Eco-Friendly Functional Note",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_46.png"
+  },
+  {
+    "id": "p_47",
+    "code": "B 153",
+    "name": "ECOFELT NOTEBOOK WITH BOOKMARK RIBBON",
+    "desc": "ECOFELT NOTEBOOK WITH BOOKMARK RIBBON | 12-4500 | ECO | FRIENDLY | PRODUCT | Branding Possibility | Gold leaf, Screen Print | All trademarks are prope",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_47.png"
+  },
+  {
+    "id": "p_48",
+    "code": "PAGE_48",
+    "name": "CORK ECO FRIENDLY",
+    "desc": "CORK ECO FRIENDLY | A5 NOTEBOOK | WITH MEMORANDUM & EDGE COLORING | Cork Eco friendly notebook in A5 size | Contains total 192 pages with 176 writing ",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_48.png"
+  },
+  {
+    "id": "p_49",
+    "code": "B 145",
+    "name": "COMPACT STATIONERY KIT",
+    "desc": "COMPACT STATIONERY KIT | WITH WRITING PAD, ECO PEN, | WOODEN RULER, HIGHLIGHTER, | 2 PENCILS, SHARPENER AND ERASER | CUSTOMIZABLE NOTEPAD | Eco-Friend",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_49.png"
+  },
+  {
+    "id": "p_50",
+    "code": "B 143",
+    "name": "FOLDING WRITING PAD",
+    "desc": "FOLDING WRITING PAD | WITH STICKY NOTES AND ECO PEN | MOBILE STAND FUNCTION | Pen loop | with pen | writing pad | ECO | FRIENDLY | Chit pad | Product ",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_50.png"
+  },
+  {
+    "id": "p_51",
+    "code": "B 147",
+    "name": "PRIME SOFT FEEL",
+    "desc": "PRIME SOFT FEEL | PU NOTEBOOK | A5 SIZE WITH MEMORANDUM, | FASTENER & BOOKMARK RIBBON | MATERIAL | 19 | 2 | (80 GSM | Product Code : B 147 | \u2022 Premium",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_51.png"
+  },
+  {
+    "id": "p_52",
+    "code": "B 113",
+    "name": "SOFT GRAY A5 NOTEBOOK",
+    "desc": "SOFT GRAY A5 NOTEBOOK | WITH MOBILE POCKET, | CARD HOLDER POCKET & PEN LOOP | Elastic band to | fasten notebook | Spacious front | pocket to hold your",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_52.png"
+  },
+  {
+    "id": "p_53",
+    "code": "B 142",
+    "name": "CLASSIC",
+    "desc": "CLASSIC | A5 NOTEBOOK | Product Code : B 142 | Premium look notebook in A5 size | Contains total 176 writing pages | with 80 GSM paper | Has a section",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_53.png"
+  },
+  {
+    "id": "p_54",
+    "code": "B 137",
+    "name": "DOUBLE STRIP",
+    "desc": "DOUBLE STRIP | A6 SIZE PU NOTEBOOK | Product Code : B 137 | PREMIUM LOOK DOUBLE STRIP PU | NOTEBOOK IN A6 SIZE | CONTAINS SEPARATE PAGES FOR WRITING, ",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_54.png"
+  },
+  {
+    "id": "p_55",
+    "code": "B 132",
+    "name": "CORK A5 NOTEBOOK",
+    "desc": "CORK A5 NOTEBOOK | WITH MOBILE POCKET,. | CARD HOLDER POCKET & PEN LOOP | ELASTIC | BAND TO | FASTEN | NOTEBOOK | HAS A BOOKMARK | RIBBON | CONTAINS T",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_55.png"
+  },
+  {
+    "id": "p_56",
+    "code": "B 135",
+    "name": "A5 NOTEBOOK WITH GUNMETAL PLATE",
+    "desc": "A5 NOTEBOOK WITH GUNMETAL PLATE | AND MAGNET LOCK | Product Code : B 135 | RALSON | Gigatel | laier | Contains total 176 writing pages | \u2022 Premium loo",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_56.png"
+  },
+  {
+    "id": "p_57",
+    "code": "B 134",
+    "name": "\u2022 Elegant look",
+    "desc": "\u2022 Elegant look | PU notebook | in A5 size | \u2022 Unique | globe | texture | design on | cover sides | \u2022 Contains | total 176 | writing | pages | \u2022 Comes ",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_57.png"
+  },
+  {
+    "id": "p_58",
+    "code": "B 133",
+    "name": "COMPASS A5 NOTEBOOK",
+    "desc": "COMPASS A5 NOTEBOOK | WITH MEMORANDUM, MONTH PLANNER & BOOKMARK RIBBON | UNIQUE COMPASS TEXTURE DESIGN ON COVER SIDES | Product Code : B 133 | \u2022 Premi",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_58.png"
+  },
+  {
+    "id": "p_59",
+    "code": "PAGE_59",
+    "name": "D STYLE BAMBOO NOTEBBOOK",
+    "desc": "D STYLE BAMBOO NOTEBBOOK | WITH PHONE STAND AND ELASTIC FASTENER | \u2022 2 in 1 Multipurpose PU | notebook in A5 size | \u2022 Unique D style branding | area m",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_59.png"
+  },
+  {
+    "id": "p_60",
+    "code": "B 124",
+    "name": "HARD BOUND CORK A5 NOTEBOOK",
+    "desc": "HARD BOUND CORK A5 NOTEBOOK | WITH PEN DRIVE SLOT, RIBBON AND ELASTIC FASTENER | CORK ECO FRIENDLY | NOTEBOOK IN A5 SIZE | COMES WITH DEDICATED | PEND",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_60.png"
+  },
+  {
+    "id": "p_61",
+    "code": "B 131",
+    "name": "OPTIMA TWO TONE A5 NOTEBOOK WITH FASTENER",
+    "desc": "OPTIMA TWO TONE A5 NOTEBOOK WITH FASTENER | WITH MEMORANDUM & BOOKMARK RIBBON | \u2022 Premium look notebook in A5 | size | \u2022 Beautiful ribbon design looks",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_61.png"
+  },
+  {
+    "id": "p_62",
+    "code": "B130",
+    "name": "ALPHA A5 NOTEBOOK WITH PEN SLOT",
+    "desc": "ALPHA A5 NOTEBOOK WITH PEN SLOT | TWO TONE FINISH | WITH MEMORANDUM, FASTENER & BOOKMARK RIBBON | in A5 size | \u2022 Beautiful ribbon design | looks elega",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_62.png"
+  },
+  {
+    "id": "p_63",
+    "code": "PAGE_63",
+    "name": "NOTES",
+    "desc": "NOTES | RIBBON A5 NOTEBOOK | WITH MEMORANDUM & BOOKMARK RIBBON | NOTES | \u2022 Premium look notebook in A5 size | \u2022 Beautiful ribbon design looks | elegan",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_63.png"
+  },
+  {
+    "id": "p_64",
+    "code": "B 129",
+    "name": "DUNE A5 NOTEBOOK",
+    "desc": "DUNE A5 NOTEBOOK | WITH MEMORANDUM & BOOKMARK RIBBON | intel) | Dairtel | Product Code : B 129 | CAN BE CUSTOMIZED | \u2022 Premium look notebook in A5 siz",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_64.png"
+  },
+  {
+    "id": "p_65",
+    "code": "PAGE_65",
+    "name": "Contains total 176 writing pages",
+    "desc": "Contains total 176 writing pages | with 80 GSM paper | Can be laser | engraved or | printed | Au\u1eddi | BLUE | DIAMOND A5 NOTEBOOK | WITH MEMORANDUM & BO",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_65.png"
+  },
+  {
+    "id": "p_66",
+    "code": "B 123",
+    "name": "AMBIENCE A5 NOTEBOOK",
+    "desc": "AMBIENCE A5 NOTEBOOK | WITH MEMORANDUM & BOOKMARK RIBBON | \u2022 Premium look | notebook in A5 size | \u2022 Has a section with | personal | memorandum, | cale",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_66.png"
+  },
+  {
+    "id": "p_67",
+    "code": "B 122",
+    "name": "COLORFUL LASER ENGRAVE NOTEBOOK",
+    "desc": "COLORFUL LASER ENGRAVE NOTEBOOK | WITH MEMORANDUM & HARD BOUND COVER | Product Code: B 122 | YOUR | COLORFUL | LOGO | \u2022 Black cover notebook in A5 siz",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_67.png"
+  },
+  {
+    "id": "p_68",
+    "code": "B 119",
+    "name": "CONFERENCE PAD",
+    "desc": "CONFERENCE PAD | WITH STICKY NOTES & PEN | AVAILABLE 2 SIZES | Conference Pad with | hard Kappa board base | Includes multiple size | and long sticky ",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_68.png"
+  },
+  {
+    "id": "p_69",
+    "code": "B 115",
+    "name": "DOUBLE SIDE FOLDING NOTEBOOK",
+    "desc": "DOUBLE SIDE FOLDING NOTEBOOK | WITH ELASTIC FASTENER | TEAR OFF PAGES | 240 WRITING PAGES | 240 \u00d7 70 GSM | writing sheets | Notebook can be folded | i",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_69.png"
+  },
+  {
+    "id": "p_70",
+    "code": "B 114",
+    "name": "FLEXIBLE POCKET NOTEBOOK",
+    "desc": "FLEXIBLE POCKET NOTEBOOK | WITH RULED CHECKED PAGES | 200 \u00d7 70 GSM | writing sheets | Product Code : B 114 | \u2022 Soft Changer PU cover | for better bran",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_70.png"
+  },
+  {
+    "id": "p_71",
+    "code": "B 106",
+    "name": "CORK ECO FRIENDLY A5 NOTEBOOK",
+    "desc": "CORK ECO FRIENDLY A5 NOTEBOOK | WITH COLORED PEN SLOT | \u2022 Cork Eco friendly notebook in A5 | Size | \u2022 Colored pen slot adds to the | notebook's appeal",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_71.png"
+  },
+  {
+    "id": "p_72",
+    "code": "PAGE_72",
+    "name": "CORK ECO FRIENDLY A5 NOTEBOOK",
+    "desc": "CORK ECO FRIENDLY A5 NOTEBOOK | WITH HARD BOUND COVER AND ELASTIC FASTENER | with Memorandum & Bookmark Ribbon | 80 gsm Sheets 160 Undated Pages - B 1",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_72.png"
+  },
+  {
+    "id": "p_73",
+    "code": "PAGE_73",
+    "name": "3 FOLD ECO NOTEBOOK",
+    "desc": "3 FOLD ECO NOTEBOOK | WITH STATIONARY SET | Customizable notepad - B 110 | Functional 3 fold eco notebook with replaceable writing pad | Eco-friendly ",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_73.png"
+  },
+  {
+    "id": "p_74",
+    "code": "PAGE_74",
+    "name": "ROLEX A5 NOTEBOOK",
+    "desc": "ROLEX A5 NOTEBOOK | with Memorandum & Bookmark Ribbon | 80 gsm Sheets | 160 Undated Pages - B 105 | \u2022 Premium look notebook in A5 size | \u2022 Contains to",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_74.png"
+  },
+  {
+    "id": "p_75",
+    "code": "PAGE_75",
+    "name": "CISCO A5 NOTEBOOK",
+    "desc": "CISCO A5 NOTEBOOK | with Memorandum & Bookmark Ribbon | 80 gsm Sheets | 160 Undated Pages - B 104 | CISCO | CISCO | CISCO | \u2022 Premium look notebook in",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_75.png"
+  },
+  {
+    "id": "p_76",
+    "code": "PAGE_76",
+    "name": "Eco friendly Sticky pad notebook - B100",
+    "desc": "Eco friendly Sticky pad notebook - B100 | with clear cover (with pen) | SBI : | \u0130 ICICI Bar!. | \u2022 Eco-friendly Notebook set with | cardboard Pen | \u2022 S",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_76.png"
+  },
+  {
+    "id": "p_77",
+    "code": "B 60",
+    "name": "WRITING BUDDY",
+    "desc": "WRITING BUDDY | Diary With Pen, Wallet, Sticky Pads And Carrying Handle | Product Code : B 60 | Pen can be used as a stylus | \u2022 Handy diary with vario",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_77.png"
+  },
+  {
+    "id": "p_78",
+    "code": "B58",
+    "name": "Transformer Expandable Cube (Brown) - B 58",
+    "desc": "Transformer Expandable Cube (Brown) - B 58 | Complete desk set | Transformer Expandable Cube (Red & Blue) - B 58 C | Complete desk set | Your Business",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_78.png"
+  },
+  {
+    "id": "p_79",
+    "code": "B58",
+    "name": "Transformer Expandable Cube (Brown) - B 58",
+    "desc": "Transformer Expandable Cube (Brown) - B 58 | Complete desk set | Transformer Expandable Cube (Red & Blue) - B 58 C | Complete desk set | Your Business",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_79.png"
+  },
+  {
+    "id": "p_80",
+    "code": "PAGE_80",
+    "name": "No.10-1m",
+    "desc": "No.10-1m | Eco Stationary set with | memo pads - B 56 | \u2022 Complete stationary set for table with writing pad, | sticky memo pad and memo strips | \u2022 Co",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_80.png"
+  },
+  {
+    "id": "p_81",
+    "code": "PAGE_81",
+    "name": "Eco - Friendly Note Book With Pen - B 50",
+    "desc": "Eco - Friendly Note Book With Pen - B 50 | 108909991990 | \u2022 Eco friendly Spiral note book with pen | - Eco-friendly ball pen | * Stick ons and post-it",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_81.png"
+  },
+  {
+    "id": "p_82",
+    "code": "PAGE_82",
+    "name": "Folding Paper Cube - B 47C",
+    "desc": "Folding Paper Cube - B 47C | (colored) (with Memo pads and tumbler) | \u2022 Very functional design, folds to | save space | \u2022 Excellent branding area on 6",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_82.png"
+  },
+  {
+    "id": "p_83",
+    "code": "PAGE_83",
+    "name": "Folding Paper Cube - B 47",
+    "desc": "Folding Paper Cube - B 47 | (Eco-Brown) (with Memo pads and tumbler) | Excellent Branding Area | \u2022 Very functional design, folds to | save space | \u2022 E",
+    "moq": 50,
+    "cost": 1000,
+    "price": 1280,
+    "image": "assets/catalog/page_83.png"
+  }
+]
