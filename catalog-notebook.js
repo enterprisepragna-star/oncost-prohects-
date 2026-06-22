@@ -32,48 +32,62 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-  function loadCatalog() {
-    fetch('catalog.json')
-      .then(response => response.json())
-      .then(notebooks => {
-        const productList = document.querySelector('.product-list');
-        productList.innerHTML = ''; // Clear existing items
-        
-        notebooks.forEach(nb => {
-          const card = document.createElement('div');
-          card.className = 'product-card';
-          card.innerHTML = `
-            <div class="card-image">
-              <img src="${nb.image}" alt="${nb.code}" />
-            </div>
-            <div class="card-details">
-              <div class="product-code">${nb.code}</div>
-              <div class="product-name">${nb.name}</div>
-              <div class="product-desc">${nb.desc}</div>
-              <div class="product-meta">MOQ ${nb.moq} &bull; SG COST ₹ ${nb.cost}</div>
-            </div>
-            <div class="card-price">
-              <span class="currency">₹</span> <span class="price-val">${nb.price}</span>
-            </div>
-            <div class="card-actions">
-              <button class="btn btn-outline btn-sm"><i class="fas fa-pen"></i> Edit Price</button>
-              <button class="btn btn-outline btn-sm"><i class="fas fa-file-alt"></i> Edit Details</button>
-              <button class="btn btn-outline btn-sm"><i class="fas fa-upload"></i> Upload Image</button>
-              <button class="btn btn-icon"><i class="fas fa-eye"></i></button>
-            </div>
-          `;
-          productList.appendChild(card);
-        });
+  async function loadCatalog() {
+    try {
+      // Fetch from Supabase catalog table
+      const { data: notebooks, error } = await window.supabaseClient
+        .from('catalog')
+        .select('*')
+        .order('id', { ascending: true });
 
-        const descEl = document.querySelector('.page-desc');
-        if (descEl) {
-          const cards = productList.querySelectorAll('.product-card').length;
-          descEl.innerHTML = `${cards} items. Click <strong>Edit Price</strong> to override a price or <strong>Upload Image</strong> to replace the supplier photo.`;
-        }
-      })
-      .catch(error => {
-        console.error('Error loading catalog.json:', error);
+      if (error) throw error;
+
+      const productList = document.querySelector('.product-list');
+      productList.innerHTML = ''; // Clear existing items
+      
+      notebooks.forEach(nb => {
+        const card = document.createElement('div');
+        card.className = 'product-card';
+        // Map Supabase fields to the layout
+        const imageSrc = nb.image_url ? nb.image_url : 'https://via.placeholder.com/150x100?text=' + encodeURIComponent(nb.id);
+        const code = nb.id;
+        const name = nb.name;
+        const desc = nb.description || '';
+        const price = nb.price || 1280;
+
+        card.innerHTML = `
+          <div class="card-image">
+            <img src="${imageSrc}" alt="${code}" />
+          </div>
+          <div class="card-details">
+            <div class="product-code">${code}</div>
+            <div class="product-name">${name}</div>
+            <div class="product-desc">${desc}</div>
+            <div class="product-meta">SG COST ₹ 1000</div>
+          </div>
+          <div class="card-price">
+            <span class="currency">₹</span> <span class="price-val">${price}</span>
+          </div>
+          <div class="card-actions">
+            <button class="btn btn-outline btn-sm"><i class="fas fa-pen"></i> Edit Price</button>
+            <button class="btn btn-outline btn-sm"><i class="fas fa-file-alt"></i> Edit Details</button>
+            <button class="btn btn-outline btn-sm"><i class="fas fa-upload"></i> Upload Image</button>
+            <button class="btn btn-icon"><i class="fas fa-eye"></i></button>
+          </div>
+        `;
+        productList.appendChild(card);
       });
+
+      const descEl = document.querySelector('.page-desc');
+      if (descEl) {
+        const cards = productList.querySelectorAll('.product-card').length;
+        descEl.innerHTML = `${cards} items. Click <strong>Edit Price</strong> to override a price or <strong>Upload Image</strong> to replace the supplier photo.`;
+      }
+    } catch (error) {
+      console.error('Error loading from Supabase:', error);
+      const productList = document.querySelector('.product-list');
+      productList.innerHTML = `<p style="color:red; text-align:center; padding:20px;">Could not load the catalog from Supabase. Make sure you have imported catalog_supabase.csv into the products table!</p>`;
+    }
   }
 
   // Load immediately on page load
