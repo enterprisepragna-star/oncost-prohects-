@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
         e.target.value = '';
       }
     });
+  }
 
   async function loadCatalog() {
     try {
