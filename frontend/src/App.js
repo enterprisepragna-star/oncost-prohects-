@@ -11,6 +11,7 @@ import HomeRedirect from "@/pages/HomeRedirect";
 import PublicCatalogPage from "@/pages/PublicCatalogPage";
 import PublicQuotationPage from "@/pages/PublicQuotationPage";
 import ProductsPage from "@/pages/admin/ProductsPage";
+import CategoriesPage from "@/pages/admin/CategoriesPage";
 import PricingRulePage from "@/pages/admin/PricingRulePage";
 import QuotationsListPage from "@/pages/admin/QuotationsListPage";
 import NewQuotationPage from "@/pages/admin/NewQuotationPage";
@@ -35,6 +36,7 @@ export default function App() {
 
           <Route path="/admin" element={<Navigate to="/admin/products" replace />} />
           <Route path="/admin/products" element={<Admin><ProductsPage /></Admin>} />
+          <Route path="/admin/categories" element={<Admin><CategoriesPage /></Admin>} />
           <Route path="/admin/pricing-rule" element={<Admin><PricingRulePage /></Admin>} />
           <Route path="/admin/quotations" element={<Admin><QuotationsListPage /></Admin>} />
           <Route path="/admin/quotations/new" element={<Admin><NewQuotationPage /></Admin>} />

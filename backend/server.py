@@ -67,9 +67,35 @@ COMPANY_EMAIL = os.environ.get("COMPANY_EMAIL", "hello@oncost.shop")
 COMPANY_WEBSITE = os.environ.get("COMPANY_WEBSITE", "www.oncost.shop")
 COMPANY_GSTIN = os.environ.get("COMPANY_GSTIN", "")
 COMPANY_BANK_DETAILS = os.environ.get("COMPANY_BANK_DETAILS", "Available on order confirmation")
-DEFAULT_DELIVERY = os.environ.get("DEFAULT_DELIVERY", "7-10 business days from order confirmation")
-DEFAULT_PAYMENT_TERMS = os.environ.get("DEFAULT_PAYMENT_TERMS", "50% advance on confirmation, 50% before dispatch. Bank Transfer / UPI / Online.")
-DEFAULT_INCLUSIONS = os.environ.get("DEFAULT_INCLUSIONS", "Premium packaging; Logo branding (where applicable); Quality assurance; Secure dispatch")
+DEFAULT_DELIVERY = os.environ.get(
+    "DEFAULT_DELIVERY",
+    "Order dispatch within 10-15 business days from confirmed PO + advance payment realization + final artwork approval.",
+)
+DEFAULT_PAYMENT_TERMS = os.environ.get(
+    "DEFAULT_PAYMENT_TERMS",
+    "50% advance on order confirmation, 50% balance before dispatch. "
+    "Accepted modes: Bank Transfer (NEFT / RTGS / IMPS) or Account Payee Cheque only. "
+    "CASH and UPI are NOT accepted.",
+)
+DEFAULT_INCLUSIONS = os.environ.get(
+    "DEFAULT_INCLUSIONS",
+    "Premium product packaging; Logo branding / customization (where applicable); "
+    "Quality assurance on every unit; Inner protective + master carton packing; "
+    "GST tax invoice with HSN breakup; Dedicated point-of-contact till delivery",
+)
+DEFAULT_TERMS = os.environ.get(
+    "DEFAULT_TERMS",
+    "1. Quotation valid for 15 days from the date of issue.; "
+    "2. Prices are in INR and exclusive of GST unless stated otherwise.; "
+    "3. Order confirmation requires a signed PO / email approval and 50% advance.; "
+    "4. Production starts only after final artwork approval (vector AI / PDF / SVG).; "
+    "5. Payment accepted via Bank Transfer (NEFT / RTGS / IMPS) or Account Payee Cheque ONLY. CASH and UPI are NOT accepted.; "
+    "6. Cheque payments are subject to 3 working-day clearance before dispatch.; "
+    "7. ±2% tolerance on colour, dimension and weight is industry-standard and not grounds for rejection.; "
+    "8. Transit damage / loss to be reported within 48 hours of delivery with photographic proof.; "
+    "9. Cancellation after production start: advance is non-refundable.; "
+    "10. All disputes subject to Bengaluru, Karnataka jurisdiction only.",
+)
 COMPANY_AUTHORIZED_SIGNATORY = os.environ.get("COMPANY_AUTHORIZED_SIGNATORY", "Corporate Gifting Division")
 
 DATA_DIR = ROOT_DIR / "data"
@@ -195,6 +221,7 @@ class ProductIn(BaseModel):
     visible: bool = True
     vendor_id: Optional[str] = None
     vendor_code: Optional[str] = None
+    category_id: Optional[str] = None
 
 
 class ProductPatch(BaseModel):
@@ -208,6 +235,21 @@ class ProductPatch(BaseModel):
     visible: Optional[bool] = None
     vendor_id: Optional[str] = None
     vendor_code: Optional[str] = None
+    category_id: Optional[str] = None
+
+
+class CategoryIn(BaseModel):
+    name: str
+    description: str = ""
+    image: Optional[str] = None
+    visible: bool = True
+
+
+class CategoryPatch(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    image: Optional[str] = None
+    visible: Optional[bool] = None
 
 
 class VendorIn(BaseModel):
@@ -235,6 +277,7 @@ class QuotationIn(BaseModel):
     delivery_timeline: str = ""
     payment_terms: str = ""
     inclusions: str = ""
+    terms_and_conditions: str = ""
 
 
 # ---------- Auth endpoints ----------
@@ -328,6 +371,7 @@ async def create_product(p: ProductIn, _user=Depends(get_current_user)):
     doc["created_at"] = iso(now_utc())
     res = await db.products.insert_one(doc)
     doc["id"] = str(res.inserted_id)
+    doc.pop("_id", None)
     return doc
 
 
@@ -337,7 +381,7 @@ async def update_product(pid: str, p: ProductPatch, _user=Depends(get_current_us
     raw = p.model_dump(exclude_unset=True)
     update = {}
     for k, v in raw.items():
-        if k == "override_price":
+        if k in ("override_price", "category_id"):
             update[k] = v  # may be None to clear
         elif v is not None:
             update[k] = v
@@ -460,6 +504,7 @@ async def _build_quotation_doc(q: QuotationIn) -> dict:
         "delivery_timeline": (q.delivery_timeline or "").strip() or DEFAULT_DELIVERY,
         "payment_terms": (q.payment_terms or "").strip() or DEFAULT_PAYMENT_TERMS,
         "inclusions": (q.inclusions or "").strip() or DEFAULT_INCLUSIONS,
+        "terms_and_conditions": (q.terms_and_conditions or "").strip() or DEFAULT_TERMS,
         "items": items_out,
         "subtotal": subtotal,
         "shipping_charges": shipping,
@@ -798,6 +843,36 @@ def _build_pdf(q: dict) -> bytes:
     ]))
     story.append(info_tbl)
 
+    # Payment policy callout — emphasizes accepted modes
+    story.append(Spacer(1, 3 * mm))
+    pay_callout = Table(
+        [[Paragraph(
+            "<b>PAYMENT POLICY:</b> 50% advance on confirmation, 50% balance before dispatch. "
+            "Accepted modes: <b>Bank Transfer (NEFT / RTGS / IMPS)</b> or <b>Account Payee Cheque</b> only. "
+            "<font color='#B91C1C'><b>CASH and UPI are NOT accepted.</b></font>",
+            ParagraphStyle("pay_call", parent=h_body, fontSize=8.5, leading=11),
+        )]],
+        colWidths=[178 * mm],
+    )
+    pay_callout.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#FFF7ED")),
+        ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#F59E0B")),
+        ("LEFTPADDING", (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    story.append(pay_callout)
+
+    # ===== TERMS & CONDITIONS =====
+    terms_raw = q.get("terms_and_conditions") or DEFAULT_TERMS
+    terms_items = [s.strip() for s in terms_raw.replace("\n", ";").split(";") if s.strip()]
+    story.append(Spacer(1, 4 * mm))
+    story.append(Paragraph("TERMS &amp; CONDITIONS", h_section))
+    terms_style = ParagraphStyle("terms", parent=h_body, fontSize=8.5, leading=11, leftIndent=8)
+    for t in terms_items:
+        story.append(Paragraph(f"• {t}", terms_style))
+
     if q.get("notes"):
         story.append(Spacer(1, 3 * mm))
         story.append(Paragraph("ADDITIONAL NOTES", h_section))
@@ -872,6 +947,114 @@ async def admin_quotation_pdf(qid: str, _user=Depends(get_current_user)):
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="ONCOST-{d["quotation_id"]}.pdf"'},
     )
+
+
+# ---------- Categories ----------
+@api.get("/categories")
+async def list_categories(_user=Depends(get_current_user)):
+    cur = db.categories.find({}).sort("name", 1)
+    out = []
+    for c in await cur.to_list(length=500):
+        c["id"] = str(c.pop("_id"))
+        out.append(c)
+    return out
+
+
+@api.get("/public/categories")
+async def public_categories():
+    cur = db.categories.find({"visible": {"$ne": False}}).sort("name", 1)
+    out = []
+    for c in await cur.to_list(length=500):
+        c["id"] = str(c.pop("_id"))
+        out.append(c)
+    return out
+
+
+@api.post("/categories")
+async def create_category(payload: CategoryIn, _user=Depends(get_current_user)):
+    name = (payload.name or "").strip()
+    if not name:
+        raise HTTPException(400, "Name required")
+    existing = await db.categories.find_one({"name": name})
+    if existing:
+        raise HTTPException(400, f"Category '{name}' already exists")
+    doc = {
+        "name": name,
+        "description": (payload.description or "").strip(),
+        "image": payload.image,
+        "visible": bool(payload.visible),
+        "created_at": iso(now_utc()),
+    }
+    res = await db.categories.insert_one(doc)
+    doc["id"] = str(res.inserted_id)
+    doc.pop("_id", None)
+    return doc
+
+
+@api.put("/categories/{cid}")
+async def update_category(cid: str, payload: CategoryPatch, _user=Depends(get_current_user)):
+    update = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None or k == "image"}
+    if not update:
+        raise HTTPException(400, "No fields to update")
+    if "name" in update:
+        update["name"] = update["name"].strip()
+        if not update["name"]:
+            raise HTTPException(400, "Name required")
+    res = await db.categories.update_one({"_id": ObjectId(cid)}, {"$set": update})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Category not found")
+    doc = await db.categories.find_one({"_id": ObjectId(cid)})
+    doc["id"] = str(doc.pop("_id"))
+    return doc
+
+
+@api.delete("/categories/{cid}")
+async def delete_category(cid: str, _user=Depends(get_current_user)):
+    res = await db.categories.delete_one({"_id": ObjectId(cid)})
+    if res.deleted_count == 0:
+        raise HTTPException(404, "Category not found")
+    # Unset category_id on its products (do not delete products)
+    await db.products.update_many({"category_id": cid}, {"$set": {"category_id": None}})
+    return {"ok": True}
+
+
+@api.post("/categories/{cid}/image")
+async def upload_category_image(cid: str, file: UploadFile = File(...), _user=Depends(get_current_user)):
+    if file.content_type not in ALLOWED_IMG:
+        raise HTTPException(400, "Only JPG, PNG, WEBP images allowed")
+    cat = await db.categories.find_one({"_id": ObjectId(cid)})
+    if not cat:
+        raise HTTPException(404, "Category not found")
+    from PIL import Image, ImageOps
+    import io as _io
+    raw = await file.read()
+    if len(raw) > 8 * 1024 * 1024:
+        raise HTTPException(400, "Image too large (max 8MB)")
+    try:
+        img = Image.open(_io.BytesIO(raw))
+        img = ImageOps.exif_transpose(img).convert("RGB")
+    except Exception:
+        raise HTTPException(400, "Invalid image")
+    img.thumbnail((800, 800))
+    side = max(img.size)
+    canvas = Image.new("RGB", (side, side), (255, 255, 255))
+    canvas.paste(img, ((side - img.size[0]) // 2, (side - img.size[1]) // 2))
+    canvas.thumbnail((720, 720))
+    safe = re.sub(r"[^A-Za-z0-9_-]+", "_", cat.get("name", "cat")).strip("_") or "cat"
+    fname = f"cat_{safe}_{_sec.token_hex(4)}.jpg"
+    jbuf = _io.BytesIO()
+    canvas.save(jbuf, "JPEG", quality=88)
+    jbytes = jbuf.getvalue()
+    try:
+        put_object(build_storage_path(fname), jbytes, "image/jpeg")
+    except Exception:
+        pass
+    try:
+        (IMAGES_DIR / fname).write_bytes(jbytes)
+    except Exception:
+        pass
+    await db.categories.update_one({"_id": ObjectId(cid)}, {"$set": {"image": fname}})
+    return {"image": fname}
 
 
 # ---------- Vendors ----------
@@ -1210,6 +1393,7 @@ async def startup():
     await db.users.create_index("email", unique=True)
     await db.quotations.create_index("share_token", unique=True)
     await db.products.create_index("code", unique=True)
+    await db.categories.create_index("name", unique=True)
 
     # Seed admin
     existing = await db.users.find_one({"email": ADMIN_EMAIL})

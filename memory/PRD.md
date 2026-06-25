@@ -52,3 +52,15 @@ User clarifications:
 
 ## Auth credentials
 - Admin: admin@oncost.shop / oncost@2026
+
+## 2026-06-25 — Categories + Add Product + Professional Quotation Terms
+- **Categories CRUD**: New `/admin/categories` page with create/edit/delete/visibility/banner-image upload.
+- **Add Product flow**: New "+ Add Product" red button on Products page opens modal with Code, Set type, Description, Supplier price, MOQ, Category dropdown, optional Image upload.
+- **Edit Details enhanced**: Existing Edit Details modal now includes a Category dropdown so existing 92 products can be linked.
+- **Category filter** on Products page header (All categories / per-category).
+- **Quotation PDF**:
+  - Updated default dispatch timeline to **10–15 business days**.
+  - Payment policy enforced: **50% advance, Bank Transfer (NEFT/RTGS/IMPS) or Account Payee Cheque ONLY — NO Cash/UPI**. Highlighted in an amber callout box.
+  - New 10-point **TERMS & CONDITIONS** section (validity, taxes, artwork approval, ±2% tolerance, jurisdiction, force majeure).
+- **Existing 92 products and their images: untouched.** All admin-uploaded images remain intact.
+- **Backend bug fix**: `POST /api/products` previously returned 500 because Motor mutates the inserted dict with `_id` (ObjectId, not JSON-serializable). Fixed by popping `_id` after insert.

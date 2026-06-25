@@ -2,30 +2,39 @@ import React, { useEffect, useState, useMemo, useRef } from "react";
 import api, { imageUrl, formatINR } from "@/lib/api";
 import { ADMIN } from "@/constants/testIds";
 import { toast } from "sonner";
-import { Search, Eye, EyeOff, Upload, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Pencil, X, Check, FileText, Save, FileUp } from "lucide-react";
+import { Search, Eye, EyeOff, Upload, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Pencil, X, Check, FileText, Save, FileUp, Plus } from "lucide-react";
 import ImportPdfModal from "@/components/ImportPdfModal";
 
 /** Product table with prominent Upload Image + Edit Price + Edit Details actions. */
 export default function ProductsPage() {
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [sort, setSort] = useState("code");
+  const [categoryFilter, setCategoryFilter] = useState("");
   const [editingId, setEditingId] = useState(null); // product id being price-edited
   const [editValue, setEditValue] = useState("");
   const [uploadingId, setUploadingId] = useState(null);
   const [dragId, setDragId] = useState(null);
   const [detailsId, setDetailsId] = useState(null); // product id whose details modal is open
-  const [detailsForm, setDetailsForm] = useState({ code: "", set_type: "", items: "", moq: 50 });
+  const [detailsForm, setDetailsForm] = useState({ code: "", set_type: "", items: "", moq: 50, category_id: "" });
   const [savingDetails, setSavingDetails] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
+  const [addForm, setAddForm] = useState({ code: "", set_type: "", items: "", sg_price: "", moq: 50, category_id: "", imageFile: null });
+  const [addingProduct, setAddingProduct] = useState(false);
   const fileRefs = useRef({});
 
   const load = async () => {
     setLoading(true);
     try {
-      const { data } = await api.get("/products");
-      setProducts(data);
+      const [{ data: prods }, { data: cats }] = await Promise.all([
+        api.get("/products"),
+        api.get("/categories"),
+      ]);
+      setProducts(prods);
+      setCategories(cats);
     } catch {
       toast.error("Failed to load products");
     } finally {
@@ -33,6 +42,8 @@ export default function ProductsPage() {
     }
   };
   useEffect(() => { load(); }, []);
+
+  const catName = (id) => categories.find(c => c.id === id)?.name || "";
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -44,12 +55,15 @@ export default function ProductsPage() {
         (p.set_type || "").toLowerCase().includes(s)
       );
     }
+    if (categoryFilter) {
+      arr = arr.filter(p => (p.category_id || "") === categoryFilter);
+    }
     arr = [...arr];
     if (sort === "price_asc") arr.sort((a, b) => (a.oncost_price || 0) - (b.oncost_price || 0));
     else if (sort === "price_desc") arr.sort((a, b) => (b.oncost_price || 0) - (a.oncost_price || 0));
     else arr.sort((a, b) => a.code.localeCompare(b.code));
     return arr;
-  }, [products, q, sort]);
+  }, [products, q, sort, categoryFilter, categories]);
 
   const startEdit = (p) => {
     setEditingId(p.id);
@@ -98,6 +112,7 @@ export default function ProductsPage() {
       set_type: p.set_type || "",
       items: p.items || "",
       moq: p.moq ?? 50,
+      category_id: p.category_id || "",
     });
   };
   const closeDetails = () => { setDetailsId(null); setSavingDetails(false); };
@@ -108,6 +123,7 @@ export default function ProductsPage() {
       set_type: (detailsForm.set_type || "").trim(),
       items: (detailsForm.items || "").trim(),
       moq: Number(detailsForm.moq) || 0,
+      category_id: detailsForm.category_id || null,
     };
     if (!body.code) { toast.error("Code is required"); return; }
     if (body.moq < 1) { toast.error("MOQ must be at least 1"); return; }
@@ -121,6 +137,47 @@ export default function ProductsPage() {
       const msg = e?.response?.data?.detail || "Could not save details";
       toast.error(typeof msg === "string" ? msg : "Save failed");
       setSavingDetails(false);
+    }
+  };
+
+  const openAdd = () => {
+    setAddForm({ code: "", set_type: "", items: "", sg_price: "", moq: 50, category_id: "", imageFile: null });
+    setShowAdd(true);
+  };
+  const closeAdd = () => { setShowAdd(false); setAddingProduct(false); };
+  const submitAdd = async () => {
+    const body = {
+      code: (addForm.code || "").trim(),
+      set_type: (addForm.set_type || "").trim(),
+      items: (addForm.items || "").trim(),
+      sg_price: Number(addForm.sg_price),
+      moq: Number(addForm.moq) || 50,
+      category_id: addForm.category_id || null,
+      visible: true,
+    };
+    if (!body.code) { toast.error("Product code is required"); return; }
+    if (isNaN(body.sg_price) || body.sg_price < 0) { toast.error("Enter a valid supplier price"); return; }
+    if (body.moq < 1) { toast.error("MOQ must be at least 1"); return; }
+    setAddingProduct(true);
+    try {
+      const { data: created } = await api.post("/products", body);
+      // Optional image upload
+      if (addForm.imageFile && created?.id) {
+        const fd = new FormData();
+        fd.append("file", addForm.imageFile);
+        try {
+          await api.post(`/products/${created.id}/image`, fd, { headers: { "Content-Type": "multipart/form-data" } });
+        } catch {
+          toast.warning(`Product ${body.code} created, but image upload failed`);
+        }
+      }
+      toast.success(`Added ${body.code}`);
+      closeAdd();
+      load();
+    } catch (e) {
+      const msg = e?.response?.data?.detail || "Could not create product";
+      toast.error(typeof msg === "string" ? msg : "Create failed");
+      setAddingProduct(false);
     }
   };
 
@@ -178,12 +235,30 @@ export default function ProductsPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
+            onClick={openAdd}
+            data-testid="add-product-btn"
+            className="text-xs px-3 py-1.5 bg-[#FF3B30] hover:bg-[#cc2f26] text-white flex items-center gap-1.5"
+          >
+            <Plus size={12} /> + Add Product
+          </button>
+          <button
             onClick={() => setShowImport(true)}
             data-testid="open-import-pdf"
             className="text-xs px-3 py-1.5 bg-[#002FA7] hover:bg-[#002277] text-white flex items-center gap-1.5"
           >
             <FileUp size={12} /> + Import from PDF
           </button>
+          {categories.length > 0 && (
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              data-testid="category-filter"
+              className="text-xs px-2 py-1.5 border border-zinc-300 bg-white focus:border-[#002FA7] outline-none"
+            >
+              <option value="">All categories</option>
+              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          )}
           <SortBtn value="code" label="Code" icon={ArrowUpDown} />
           <SortBtn value="price_asc" label="Price ↑" icon={ArrowUp} />
           <SortBtn value="price_desc" label="Price ↓" icon={ArrowDown} />
@@ -238,8 +313,11 @@ export default function ProductsPage() {
 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-mono text-[12px] font-bold tracking-wider">{p.code}</p>
+                    {p.category_id && catName(p.category_id) && (
+                      <span className="text-[10px] uppercase tracking-wider bg-zinc-100 text-zinc-700 px-1.5 py-0.5">{catName(p.category_id)}</span>
+                    )}
                     {!p.visible && <span className="text-[10px] uppercase tracking-wider border border-zinc-300 text-zinc-500 px-1.5">hidden</span>}
                     {hasOverride && <span className="text-[10px] uppercase tracking-wider bg-[#002FA7] text-white px-1.5">custom price</span>}
                   </div>
@@ -394,6 +472,19 @@ export default function ProductsPage() {
                   className="mt-2 w-32 px-3 py-2 border border-zinc-300 font-mono text-sm focus:border-[#002FA7] outline-none"
                 />
               </div>
+              <div>
+                <label className="overline text-[10px]">Category</label>
+                <select
+                  data-testid="details-category"
+                  value={detailsForm.category_id || ""}
+                  onChange={(e) => setDetailsForm(f => ({ ...f, category_id: e.target.value }))}
+                  className="mt-2 w-full px-3 py-2 border border-zinc-300 text-sm focus:border-[#002FA7] outline-none bg-white"
+                >
+                  <option value="">— No category —</option>
+                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <p className="text-[11px] text-zinc-500 mt-1">Manage categories on the <b>Categories</b> page in the sidebar.</p>
+              </div>
             </div>
             <div className="px-6 py-4 border-t border-zinc-200 flex items-center justify-end gap-2 bg-zinc-50">
               <button
@@ -410,6 +501,131 @@ export default function ProductsPage() {
                 className="px-4 py-2 bg-[#002FA7] hover:bg-[#002277] text-white text-sm flex items-center gap-2 disabled:opacity-50"
               >
                 <Save size={14} /> {savingDetails ? "Saving…" : "Save changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showAdd && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={closeAdd}
+          data-testid="add-product-modal"
+        >
+          <div
+            className="bg-white max-w-xl w-full border border-zinc-200 shadow-xl max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-zinc-200 flex items-center justify-between">
+              <div>
+                <p className="overline text-[10px]">New Product</p>
+                <h3 className="font-display text-xl font-medium mt-1">{addForm.code || "Untitled"}</h3>
+              </div>
+              <button onClick={closeAdd} className="p-2 hover:bg-zinc-100" data-testid="add-product-close"><X size={16} /></button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="overline text-[10px]">Code (SKU) *</label>
+                  <input
+                    data-testid="add-product-code"
+                    autoFocus
+                    value={addForm.code}
+                    onChange={(e) => setAddForm(f => ({ ...f, code: e.target.value }))}
+                    className="mt-2 w-full px-3 py-2 border border-zinc-300 font-mono text-sm focus:border-[#002FA7] outline-none"
+                    placeholder="e.g. OC 101"
+                  />
+                </div>
+                <div>
+                  <label className="overline text-[10px]">Set type / title</label>
+                  <input
+                    data-testid="add-product-set-type"
+                    value={addForm.set_type}
+                    onChange={(e) => setAddForm(f => ({ ...f, set_type: e.target.value }))}
+                    className="mt-2 w-full px-3 py-2 border border-zinc-300 text-sm focus:border-[#002FA7] outline-none"
+                    placeholder="e.g. 5in1, Single"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="overline text-[10px]">Description (items)</label>
+                <textarea
+                  data-testid="add-product-items"
+                  rows={3}
+                  value={addForm.items}
+                  onChange={(e) => setAddForm(f => ({ ...f, items: e.target.value }))}
+                  className="mt-2 w-full px-3 py-2 border border-zinc-300 text-sm focus:border-[#002FA7] outline-none resize-y"
+                  placeholder="Bottle, Mug, Notebook, Pen, Card Holder"
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="overline text-[10px]">Supplier Price (₹) *</label>
+                  <input
+                    data-testid="add-product-sg-price"
+                    type="number"
+                    min={0}
+                    value={addForm.sg_price}
+                    onChange={(e) => setAddForm(f => ({ ...f, sg_price: e.target.value }))}
+                    className="mt-2 w-full px-3 py-2 border border-zinc-300 font-mono text-sm focus:border-[#002FA7] outline-none"
+                    placeholder="e.g. 850"
+                  />
+                  <p className="text-[10px] text-zinc-500 mt-1">ONCOST price = SG + markup rule</p>
+                </div>
+                <div>
+                  <label className="overline text-[10px]">MOQ</label>
+                  <input
+                    data-testid="add-product-moq"
+                    type="number"
+                    min={1}
+                    value={addForm.moq}
+                    onChange={(e) => setAddForm(f => ({ ...f, moq: e.target.value }))}
+                    className="mt-2 w-full px-3 py-2 border border-zinc-300 font-mono text-sm focus:border-[#002FA7] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="overline text-[10px]">Category</label>
+                  <select
+                    data-testid="add-product-category"
+                    value={addForm.category_id}
+                    onChange={(e) => setAddForm(f => ({ ...f, category_id: e.target.value }))}
+                    className="mt-2 w-full px-3 py-2 border border-zinc-300 text-sm focus:border-[#002FA7] outline-none bg-white"
+                  >
+                    <option value="">— None —</option>
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="overline text-[10px]">Product Image (optional)</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  data-testid="add-product-image"
+                  onChange={(e) => setAddForm(f => ({ ...f, imageFile: e.target.files?.[0] || null }))}
+                  className="mt-2 block w-full text-sm text-zinc-600 file:mr-3 file:px-3 file:py-1.5 file:border file:border-zinc-300 file:bg-white file:text-zinc-700 file:text-xs hover:file:border-[#002FA7]"
+                />
+                {addForm.imageFile && (
+                  <p className="text-[11px] text-zinc-500 mt-1">Selected: {addForm.imageFile.name}</p>
+                )}
+                <p className="text-[10px] text-zinc-400 mt-1">JPG, PNG, WEBP up to 8 MB. Auto-cropped to a clean square.</p>
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-zinc-200 flex items-center justify-end gap-2 bg-zinc-50">
+              <button
+                onClick={closeAdd}
+                data-testid="add-product-cancel"
+                className="px-4 py-2 border border-zinc-300 text-sm hover:border-zinc-900"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitAdd}
+                disabled={addingProduct}
+                data-testid="add-product-submit"
+                className="px-4 py-2 bg-[#FF3B30] hover:bg-[#cc2f26] text-white text-sm flex items-center gap-2 disabled:opacity-50"
+              >
+                <Save size={14} /> {addingProduct ? "Adding…" : "Add Product"}
               </button>
             </div>
           </div>
