@@ -94,7 +94,7 @@ DEFAULT_TERMS = os.environ.get(
     "7. ±2% tolerance on colour, dimension and weight is industry-standard and not grounds for rejection.; "
     "8. Transit damage / loss to be reported within 48 hours of delivery with photographic proof.; "
     "9. Cancellation after production start: advance is non-refundable.; "
-    "10. All disputes subject to Bengaluru, Karnataka jurisdiction only.",
+    "10. All disputes subject to Hyderabad, Telangana jurisdiction only.",
 )
 COMPANY_AUTHORIZED_SIGNATORY = os.environ.get("COMPANY_AUTHORIZED_SIGNATORY", "Corporate Gifting Division")
 
