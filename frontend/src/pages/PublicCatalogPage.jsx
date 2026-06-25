@@ -1,13 +1,15 @@
 import React, { useEffect, useState, useMemo } from "react";
 import api, { imageUrl, formatINR } from "@/lib/api";
 import { PUBLIC } from "@/constants/testIds";
-import { Search, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { Search, ArrowUp, ArrowDown, ArrowUpDown, ZoomIn } from "lucide-react";
 import { Link } from "react-router-dom";
+import ImageLightbox from "@/components/ImageLightbox";
 
 export default function PublicCatalogPage() {
   const [products, setProducts] = useState([]);
   const [q, setQ] = useState("");
   const [sort, setSort] = useState("code");
+  const [zoom, setZoom] = useState(null); // { src, alt, caption } | null
 
   useEffect(() => {
     api.get("/public/products").then(({ data }) => setProducts(data));
@@ -81,9 +83,18 @@ export default function PublicCatalogPage() {
           {filtered.map(p => (
             <article key={p.id} className="group">
               {p.image && (
-                <div className="aspect-[4/3] overflow-hidden bg-white border border-zinc-200">
+                <button
+                  type="button"
+                  onClick={() => setZoom({ src: imageUrl(p.image), alt: p.code, caption: `${p.code} · ${p.set_type || ""}` })}
+                  className="relative block w-full aspect-[4/3] overflow-hidden bg-white border border-zinc-200 cursor-zoom-in group/img"
+                  data-testid={`product-image-${p.code}`}
+                  aria-label={`Enlarge image of ${p.code}`}
+                >
                   <img src={imageUrl(p.image) + `?v=${p.image}`} alt={p.code} className="w-full h-full object-contain p-2 transition-transform duration-500 group-hover:scale-105" />
-                </div>
+                  <span className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] uppercase tracking-wider font-mono px-2 py-1 flex items-center gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity">
+                    <ZoomIn size={11} /> Click to enlarge
+                  </span>
+                </button>
               )}
               <div className="mt-3 flex items-center justify-between">
                 <p className="font-mono text-[11px] font-bold">{p.code}</p>
@@ -103,6 +114,8 @@ export default function PublicCatalogPage() {
           <p>Bengaluru · India</p>
         </div>
       </footer>
+
+      {zoom && <ImageLightbox {...zoom} onClose={() => setZoom(null)} />}
     </div>
   );
 }

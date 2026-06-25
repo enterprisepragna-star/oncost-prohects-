@@ -2,12 +2,14 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import api, { imageUrl, formatINR } from "@/lib/api";
 import { PUBLIC } from "@/constants/testIds";
-import { Printer, FileDown, Calendar, MapPin, User2, Hash, Mail } from "lucide-react";
+import { Printer, FileDown, Calendar, MapPin, User2, Hash, Mail, ZoomIn } from "lucide-react";
+import ImageLightbox from "@/components/ImageLightbox";
 
 export default function PublicQuotationPage() {
   const { token } = useParams();
   const [q, setQ] = useState(null);
   const [err, setErr] = useState("");
+  const [zoom, setZoom] = useState(null);
 
   useEffect(() => {
     api.get(`/share/${token}`).then(({ data }) => setQ(data)).catch((e) => {
@@ -73,9 +75,18 @@ export default function PublicQuotationPage() {
           {q.items.map((it, i) => (
             <div key={`${it.product_id || it.code}-${i}`} className="bg-white border border-zinc-200 print-block flex flex-col">
               {it.image && (
-                <div className="aspect-[4/3] overflow-hidden bg-white border-b border-zinc-200">
+                <button
+                  type="button"
+                  onClick={() => setZoom({ src: imageUrl(it.image), alt: it.code, caption: `${it.code} · ${it.set_type || ""}` })}
+                  className="relative block w-full aspect-[4/3] overflow-hidden bg-white border-b border-zinc-200 cursor-zoom-in group/img print:cursor-default"
+                  data-testid={`quote-item-image-${it.code}`}
+                  aria-label={`Enlarge image of ${it.code}`}
+                >
                   <img src={imageUrl(it.image)} alt={it.code} className="w-full h-full object-contain p-3" />
-                </div>
+                  <span className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] uppercase tracking-wider font-mono px-2 py-1 flex items-center gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity print:hidden">
+                    <ZoomIn size={11} /> Click to enlarge
+                  </span>
+                </button>
               )}
               <div className="p-4 flex-1 flex flex-col">
                 <div className="flex items-center justify-between">
@@ -143,6 +154,7 @@ export default function PublicQuotationPage() {
         </div>
         <p className="text-center text-[11px] text-zinc-400 mt-10 font-mono">© ONCOST {new Date().getFullYear()} — Quotation for {q.customer_name}</p>
       </div>
+      {zoom && <ImageLightbox {...zoom} onClose={() => setZoom(null)} />}
     </div>
   );
 }
