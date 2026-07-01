@@ -909,11 +909,118 @@ class PDFImportCommit(BaseModel):
     products: List[dict]  # each: {code, set_type, items, sg_price, moq, image (optional filename)}
 
 
+def _detect_grid_cols(text_blocks: list) -> int:
+    """Estimate number of columns by clustering X-coordinates of product codes."""
+    if not text_blocks:
+        return 3
+    xs = sorted(set(round(b[0] / 50) * 50 for b in text_blocks))
+    return max(1, min(len(xs), 4))  # clamp 1-4 columns
+
+
+def _extract_cell_image(
+    page_img,
+    cell_x0: int, cell_y0: int, cell_x1: int, cell_y1: int,
+    image_fraction: float = 0.62,
+) -> "PIm.Image | None":
+    """
+    Given a page pixmap and a grid cell bounding box (pixels),
+    crop just the image portion (top ~62% of cell) and return a
+    square-padded PIL Image, or None on failure.
+
+    The bottom portion of each cell contains text (code, price, MOQ),
+    so we only grab the top image_fraction of the cell height.
+    We also apply a small inner margin (1.5%) on each side to avoid borders.
+    """
+    from PIL import Image as PIm
+
+    cell_w = cell_x1 - cell_x0
+    cell_h = cell_y1 - cell_y0
+
+    margin_x = int(cell_w * 0.015)
+    margin_y = int(cell_h * 0.015)
+    img_h = int(cell_h * image_fraction)
+
+    x0 = cell_x0 + margin_x
+    y0 = cell_y0 + margin_y
+    x1 = cell_x1 - margin_x
+    y1 = cell_y0 + img_h - margin_y
+
+    if x1 <= x0 or y1 <= y0:
+        return None
+
+    crop = page_img.crop((x0, y0, x1, y1))
+    cw, ch = crop.size
+    side = max(cw, ch, 1)
+    canvas = PIm.new("RGB", (side, side), (255, 255, 255))
+    canvas.paste(crop, ((side - cw) // 2, (side - ch) // 2))
+    canvas.thumbnail((720, 720), PIm.LANCZOS)
+    return canvas
+
+
+def _parse_product_block(part: str, pno: int) -> dict | None:
+    """Parse one text block into a product dict. Returns None if no code found."""
+    code_re = re.compile(r"\b([A-Z]{1,4}[ \-]?\d{2,5})\b")
+    price_re = re.compile(r"(?:Rs\.?|MRP|Price|₹)\s*[/\-]?\s*([0-9]{2,6})", re.I)
+    moq_re = re.compile(r"MOQ[, :]*([0-9]+)", re.I)
+    setn_re = re.compile(r"(\d+\s*[Ii]n\s*1|\d+\s*[Pp]c[s]?\s+[Ss]et)", re.I)
+
+    m = code_re.search(part)
+    if not m:
+        return None
+    code = m.group(1).strip()
+    ncode = re.sub(r"^([A-Z]+)\s*", r"\1 ", code).strip()
+
+    pm = price_re.search(part)
+    price = int(pm.group(1)) if pm else 0
+
+    mm_ = moq_re.search(part)
+    moq = int(mm_.group(1)) if mm_ else 50
+
+    sn = setn_re.search(part)
+    set_type = re.sub(r"\s+", "", sn.group(1)) if sn else ""
+
+    # Collect description lines (skip code line, stop at price/MOQ)
+    lines = [ln.strip(" ,&") for ln in part.splitlines() if ln.strip()]
+    items_lines = []
+    skip_first = True
+    for ln in lines:
+        if skip_first:
+            skip_first = False
+            continue
+        if re.search(r"Rs\.?|MRP|Price|₹|MOQ|\bpcs?\b|\bset\b|\bpc\b", ln, re.I):
+            break
+        if re.match(r"^\d+\s*[Ii]n\s*1", ln):
+            continue
+        if ln:
+            items_lines.append(ln)
+    items_txt = re.sub(r"\s+", " ", ", ".join(items_lines)).strip(" ,")
+
+    return {
+        "code": ncode,
+        "set_type": set_type,
+        "items": items_txt,
+        "sg_price": price,
+        "moq": moq,
+        "page": pno + 1,
+    }
+
+
 @api.post("/import/pdf/extract")
 async def import_pdf_extract(file: UploadFile = File(...), _user=Depends(get_current_user)):
-    """Parse uploaded PDF and return extracted products + extracted images (saved to disk)."""
+    """
+    Parse uploaded PDF and return extracted products + images.
+
+    Image extraction strategy:
+    - Render each page at 200 DPI to a pixmap.
+    - Parse text to find all product code blocks (reading order).
+    - Use PyMuPDF word/block coordinates to locate where each code appears on the page.
+    - Divide the page into a grid based on detected code positions.
+    - Crop only the top ~62% of each grid cell (the image zone), ignoring text below.
+    - This avoids the misalignment caused by the old approach of relying on embedded
+      PDF image-object bounding boxes, which in Photoshop-composed PDFs often span
+      the entire cell including the text caption area.
+    """
     if file.content_type not in ("application/pdf", "application/octet-stream"):
-        # be lenient
         if not (file.filename or "").lower().endswith(".pdf"):
             raise HTTPException(400, "Please upload a PDF file")
     raw = await file.read()
@@ -922,105 +1029,169 @@ async def import_pdf_extract(file: UploadFile = File(...), _user=Depends(get_cur
     if len(raw) > 80 * 1024 * 1024:
         raise HTTPException(400, "PDF too large (max 80MB)")
 
-    # Save and parse
     import tempfile
+    import fitz  # PyMuPDF
+    from PIL import Image as PIm
+
     tmp = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
     tmp.write(raw)
     tmp.close()
 
-    import fitz  # PyMuPDF
     try:
         pdoc = fitz.open(tmp.name)
     except Exception:
         os.unlink(tmp.name)
         raise HTTPException(400, "Could not read PDF")
 
-    # Generic parser: find product code patterns (e.g. SG 123, OC-123, V1-456 etc.)
-    code_re = re.compile(r"\b([A-Z]{1,4}[ \-]?\d{2,5})\b")
-    price_re = re.compile(r"(?:Rs[.,]?|₹)\s*([0-9]{2,6})", re.I)
-    moq_re = re.compile(r"MOQ[, :]*([0-9]+)", re.I)
-    setn_re = re.compile(r"(\d+\s*in\s*1)", re.I)
-
     extracted: list = []
     image_counter = 0
+    DPI = 200
 
     for pno in range(pdoc.page_count):
         page = pdoc.load_page(pno)
-        text = page.get_text("text")
-        # Split by code occurrences in reading order
-        parts = re.split(r"(?=\b[A-Z]{1,4}[ \-]?\d{2,5}\b)", text)
-        # Get embedded image bboxes for this page
-        info = page.get_image_info(xrefs=True)
-        page_rect = page.rect
-        pix = page.get_pixmap(dpi=200)
-        from PIL import Image as PIm
+        page_rect = page.rect  # in PDF points (bottom-left origin)
+
+        # ── Render page to PIL image ──────────────────────────────────────────
+        pix = page.get_pixmap(dpi=DPI)
         page_img = PIm.frombytes("RGB", (pix.width, pix.height), pix.samples)
+        # Scale factor: PDF points → pixels
         sx = pix.width / page_rect.width
         sy = pix.height / page_rect.height
-        # filter sizable images, sort top-down left-right
-        boxes = []
-        for im in info:
-            bb = im.get("bbox")
-            if not bb:
-                continue
-            w = bb[2] - bb[0]
-            h = bb[3] - bb[1]
-            if w < 100 or h < 100:
-                continue
-            boxes.append(bb)
-        boxes.sort(key=lambda b: (round(b[1] / 30), b[0]))
+
+        # ── Extract text with word-level bounding boxes ───────────────────────
+        # words: (x0, y0, x1, y1, word, block_no, line_no, word_no)
+        # PDF coordinate system: y=0 at bottom; fitz converts to top-left for get_text("words")
+        words = page.get_text("words")
+
+        # ── Find product codes and their page positions ───────────────────────
+        code_re = re.compile(r"^([A-Z]{1,4}[ \-]?\d{2,5})$")
+        # Collect (pdf_x, pdf_y, code_text) for each detected code word
+        code_positions = []
+        for w in words:
+            wx0, wy0, wx1, wy1, wtext = w[0], w[1], w[2], w[3], w[4]
+            m = code_re.match(wtext.strip())
+            if m:
+                code_positions.append((wx0, wy0, wtext.strip()))
+
+        # ── Also handle "SG" + "547" split across two word tokens ─────────────
+        for i in range(len(words) - 1):
+            wt1 = words[i][4].strip()
+            wt2 = words[i + 1][4].strip()
+            combined = f"{wt1} {wt2}"
+            if re.match(r"^[A-Z]{1,4} \d{2,5}$", combined):
+                # Only add if not already captured
+                already = any(abs(cp[0] - words[i][0]) < 5 for cp in code_positions)
+                if not already:
+                    code_positions.append((words[i][0], words[i][1], combined))
+
+        if not code_positions:
+            # Fallback: try plain text parse without image extraction
+            text = page.get_text("text")
+            parts = re.split(r"(?=\b[A-Z]{1,4}[ \-]?\d{2,5}\b)", text)
+            for part in parts:
+                prod = _parse_product_block(part, pno)
+                if prod:
+                    prod["image"] = None
+                    extracted.append(prod)
+            continue
+
+        # ── Sort codes top→bottom, left→right ────────────────────────────────
+        code_positions.sort(key=lambda c: (round(c[1] / 40), c[0]))
+
+        # ── Detect grid layout ────────────────────────────────────────────────
+        # Cluster Y positions to determine rows
+        y_values = [c[1] for c in code_positions]
+        row_groups = []
+        current_group = [code_positions[0]]
+        for cp in code_positions[1:]:
+            if abs(cp[1] - current_group[0][1]) < 40:  # within 40 pt = same row
+                current_group.append(cp)
+            else:
+                row_groups.append(current_group)
+                current_group = [cp]
+        row_groups.append(current_group)
+
+        ncols = max(len(g) for g in row_groups) if row_groups else 3
+        nrows = len(row_groups)
+
+        # ── Build per-code cell rectangles ───────────────────────────────────
+        # Cell boundaries derived from code positions plus page margins
+        page_w = page_rect.width
+        page_h = page_rect.height
+        margin_top = row_groups[0][0][1]  # approx top content start
+        margin_bot = page_h - 20  # leave 20pt bottom margin
+
+        row_ys = [min(g, key=lambda c: c[1])[1] for g in row_groups]
+
+        def cell_bounds_for(row_idx: int, col_idx: int, col_x: float):
+            """Return (x0, y0, x1, y1) in PDF points for a grid cell."""
+            cell_w = page_w / ncols
+            cx0 = col_idx * cell_w
+            cx1 = (col_idx + 1) * cell_w
+
+            cy0 = row_ys[row_idx] - 10  # a bit above the code text
+            # Top of cell = bottom of text label row above, or page top
+            if row_idx > 0:
+                cy0 = (row_ys[row_idx - 1] + row_ys[row_idx]) / 2
+            else:
+                cy0 = 0
+
+            if row_idx < len(row_ys) - 1:
+                cy1 = (row_ys[row_idx] + row_ys[row_idx + 1]) / 2
+            else:
+                cy1 = page_h
+
+            return cx0, cy0, cx1, cy1
+
+        # ── Parse text and pair with cell images ─────────────────────────────
+        text = page.get_text("text")
+        parts = re.split(r"(?=\b[A-Z]{1,4}[ \-]?\d{2,5}\b)", text)
 
         page_products = []
         for part in parts:
-            m = code_re.match(part)
-            if not m:
-                continue
-            code = m.group(1).strip()
-            # Normalize spacing — e.g., "SG 547" stays, "SG547" becomes "SG 547"
-            ncode = re.sub(r"^([A-Z]+)\s*", r"\1 ", code).strip()
-            pm = price_re.search(part)
-            price = int(pm.group(1)) if pm else 0
-            mm_ = moq_re.search(part)
-            moq = int(mm_.group(1)) if mm_ else 50
-            sn = setn_re.search(part)
-            set_type = sn.group(1).replace(" ", "") if sn else ""
-            # items: take lines until we hit MOQ/price line
-            items_lines = []
-            for ln in [x.strip(" ,") for x in part.splitlines() if x.strip()][1:]:
-                if "Rs" in ln or "₹" in ln or "Price" in ln or "MOQ" in ln:
-                    break
-                if re.match(r"^\d+\s*in\s*1", ln, re.I):
-                    continue
-                items_lines.append(ln.strip(" ,&"))
-            items_txt = re.sub(r"\s+", " ", ", ".join(items_lines)).strip(" ,")
-            page_products.append({
-                "code": ncode, "set_type": set_type, "items": items_txt,
-                "sg_price": price, "moq": moq, "page": pno + 1,
-            })
+            prod = _parse_product_block(part, pno)
+            if prod:
+                page_products.append(prod)
 
-        # Match images to products in reading order
-        for prod, bbox in zip(page_products, boxes):
-            try:
-                x0 = int(bbox[0] * sx)
-                y0 = int(bbox[1] * sy)
-                x1 = int(bbox[2] * sx)
-                y1 = int(bbox[3] * sy)
-                w = x1 - x0
-                h = y1 - y0
-                # Inset
-                crop = page_img.crop((x0 + int(w*0.03), y0 + int(h*0.02), x1 - int(w*0.03), y1 - int(h*0.14)))
-                cw, ch = crop.size
-                side = max(cw, ch)
-                canvas = PIm.new("RGB", (side, side), (255, 255, 255))
-                canvas.paste(crop, ((side - cw) // 2, (side - ch) // 2))
-                canvas.thumbnail((720, 720))
-                image_counter += 1
-                fname = f"import_{secrets.token_hex(4)}_{image_counter:03d}.jpg"
-                canvas.save(str(IMAGES_DIR / fname), "JPEG", quality=85)
-                prod["image"] = fname
-            except Exception:
-                prod["image"] = None
-            extracted.append(prod)
+        # Match products to grid positions
+        for row_idx, group in enumerate(row_groups):
+            for col_idx, (cpx, cpy, cp_code) in enumerate(
+                sorted(group, key=lambda c: c[0])
+            ):
+                # Find matching parsed product by code
+                matched = None
+                for prod in page_products:
+                    if prod["code"].replace(" ", "").upper() == cp_code.replace(" ", "").upper():
+                        matched = prod
+                        break
+                if matched is None:
+                    matched = {
+                        "code": cp_code,
+                        "set_type": "",
+                        "items": "",
+                        "sg_price": 0,
+                        "moq": 50,
+                        "page": pno + 1,
+                    }
+
+                # Cell bounding box (PDF points) → pixel coords
+                cx0_pt, cy0_pt, cx1_pt, cy1_pt = cell_bounds_for(row_idx, col_idx, cpx)
+                px0 = int(cx0_pt * sx)
+                py0 = int(cy0_pt * sy)
+                px1 = int(cx1_pt * sx)
+                py1 = int(cy1_pt * sy)
+
+                # Crop image zone (top portion of cell)
+                img = _extract_cell_image(page_img, px0, py0, px1, py1, image_fraction=0.62)
+                if img is not None:
+                    image_counter += 1
+                    fname = f"import_{secrets.token_hex(4)}_{image_counter:03d}.jpg"
+                    img.save(str(IMAGES_DIR / fname), "JPEG", quality=88)
+                    matched["image"] = fname
+                else:
+                    matched["image"] = None
+
+                extracted.append(matched)
 
     pdoc.close()
     try:
