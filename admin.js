@@ -870,15 +870,16 @@ function openProductForm(id) {
         </div>
 
         <div style="margin-top:24px;padding-top:18px;border-top:1px solid var(--admin-border);">
-          <label class="label" style="display:block;margin-bottom:10px;">Additional Gallery Images</label>
+          <label class="label" style="display:block;margin-bottom:6px;">Product Images &nbsp;<span id="${formId}-gallery-count" style="font-size:11px;color:var(--admin-text-mute);font-weight:400;"></span></label>
+          <div style="font-size:12px;color:var(--admin-text-mute);margin-bottom:10px;">Up to 5 images per product. First image is shown as the main photo.</div>
           <div id="${formId}-gallery" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;"></div>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <input class="input" id="${formId}-gallery_url" placeholder="Paste another image URL" />
-            <button type="button" class="btn btn-secondary btn-sm" id="${formId}-gallery_add_url"><i class="fas fa-plus"></i> Add URL</button>
-            <button type="button" class="btn btn-secondary btn-sm" id="${formId}-gallery_upload_btn"><i class="fas fa-upload"></i> Upload</button>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input class="input" id="${formId}-gallery_url" placeholder="Paste image URL…" style="flex:1;min-width:180px;" />
+            <button type="button" class="btn btn-secondary btn-sm" id="${formId}-gallery_add_url"><i class="fas fa-link"></i> Add URL</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="${formId}-gallery_upload_btn"><i class="fas fa-upload"></i> Upload file(s)</button>
             <input type="file" id="${formId}-gallery_file" accept="image/jpeg,image/png,image/webp" hidden multiple />
           </div>
-          <div class="hint" style="margin-top:6px;">Gallery shows on the product detail page. Up to 8 images.</div>
+          <div class="hint" style="margin-top:6px;">JPG / PNG / WEBP · max 5 MB each · max 5 images total.</div>
         </div>
       </div>
 
@@ -1095,7 +1096,12 @@ function openProductForm(id) {
     $(`${formId}-drop-sub`).innerHTML = '<span class="spin"></span> Uploading…';
     try {
       const url = await uploadProductImage(f);
-      $(`${formId}-image_url`).value = url;
+      // Add to gallery (respects max 5 limit)
+      if (gallery.length < MAX_IMAGES) {
+        gallery.push(url);
+        renderGallery();
+      }
+      $(`${formId}-image_url`).value = gallery[0] || url;
       $(`${formId}-img-block`).innerHTML = `<div style="margin-bottom:12px;"><img src="${escapeHTML(url)}" alt="" style="max-width:240px;border-radius:6px;border:1px solid var(--admin-border);" /></div>`;
       $(`${formId}-drop-sub`).textContent = 'Uploaded · ready to save';
       showToast('Image uploaded.');
@@ -1108,32 +1114,57 @@ function openProductForm(id) {
   // Save
   $(`${formId}-cancel`).onclick = () => m.close();
 
-  // ---------- Gallery management ----------
+  // ---------- Gallery management (max 5 images) ----------
+  // Seed gallery from image_urls; also include image_url as first if not already present
   let gallery = Array.isArray(p?.image_urls) ? [...p.image_urls] : [];
+  if (p?.image_url && !gallery.includes(p.image_url)) gallery.unshift(p.image_url);
+
+  const MAX_IMAGES = 5;
+
   function renderGallery() {
     const slot = $(`${formId}-gallery`);
+    const countEl = $(`${formId}-gallery-count`);
     if (!slot) return;
-    if (!gallery.length) { slot.innerHTML = `<div style="color:var(--admin-text-mute);font-size:12px;">No additional images yet.</div>`; return; }
+    if (countEl) countEl.textContent = `(${gallery.length} / ${MAX_IMAGES})`;
+    if (!gallery.length) {
+      slot.innerHTML = `<div style="color:var(--admin-text-mute);font-size:12px;">No images yet. Upload or paste a URL below.</div>`;
+      return;
+    }
     slot.innerHTML = gallery.map((url, i) => `
-      <div style="position:relative;width:84px;height:84px;border-radius:6px;overflow:hidden;border:1px solid var(--admin-border);background:var(--admin-muted);">
+      <div style="position:relative;width:90px;height:90px;border-radius:6px;overflow:hidden;border:2px solid ${i===0?'var(--admin-primary)':'var(--admin-border)'};background:var(--admin-muted);" title="${i===0?'Main image':'Image '+(i+1)}">
         <img src="${escapeHTML(url)}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'" />
-        <button type="button" data-gi="${i}" style="position:absolute;top:-2px;right:-2px;width:22px;height:22px;border-radius:50%;background:#fff;border:1px solid var(--admin-border);color:var(--admin-error);font-size:11px;cursor:pointer;" title="Remove">✕</button>
+        ${i===0?'<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,47,167,0.75);color:#fff;font-size:9px;text-align:center;padding:2px;font-weight:600;letter-spacing:0.5px;">MAIN</div>':''}
+        <button type="button" data-gi="${i}" style="position:absolute;top:1px;right:1px;width:20px;height:20px;border-radius:50%;background:#fff;border:1px solid var(--admin-border);color:var(--admin-error);font-size:11px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;" title="Remove">✕</button>
       </div>`).join('');
-    slot.querySelectorAll('[data-gi]').forEach(btn => btn.onclick = () => { gallery.splice(parseInt(btn.dataset.gi,10), 1); renderGallery(); });
+    slot.querySelectorAll('[data-gi]').forEach(btn => btn.onclick = () => {
+      gallery.splice(parseInt(btn.dataset.gi, 10), 1);
+      // sync primary image_url field to first gallery image
+      if ($(`${formId}-image_url`)) $(`${formId}-image_url`).value = gallery[0] || '';
+      renderGallery();
+    });
   }
+
   renderGallery();
+
   $(`${formId}-gallery_add_url`).onclick = () => {
     const u = $(`${formId}-gallery_url`).value.trim();
     if (!u) return;
-    if (gallery.length >= 8) return showToast('Max 8 gallery images.', 'error');
-    gallery.push(u); $(`${formId}-gallery_url`).value = ''; renderGallery();
+    if (gallery.length >= MAX_IMAGES) return showToast(`Max ${MAX_IMAGES} images per product.`, 'error');
+    gallery.push(u);
+    $(`${formId}-gallery_url`).value = '';
+    if (gallery.length === 1 && $(`${formId}-image_url`)) $(`${formId}-image_url`).value = u;
+    renderGallery();
   };
   $(`${formId}-gallery_upload_btn`).onclick = () => $(`${formId}-gallery_file`).click();
   $(`${formId}-gallery_file`).onchange = async (e) => {
     for (const f of Array.from(e.target.files || [])) {
-      if (gallery.length >= 8) break;
-      try { const url = await uploadProductImage(f); gallery.push(url); renderGallery(); }
-      catch (err) { showToast(err.message, 'error'); }
+      if (gallery.length >= MAX_IMAGES) { showToast(`Max ${MAX_IMAGES} images reached.`, 'error'); break; }
+      try {
+        const url = await uploadProductImage(f);
+        gallery.push(url);
+        if (gallery.length === 1 && $(`${formId}-image_url`)) $(`${formId}-image_url`).value = url;
+        renderGallery();
+      } catch (err) { showToast(err.message, 'error'); }
     }
     e.target.value = '';
   };
@@ -1224,7 +1255,13 @@ function openProductForm(id) {
   $(`${formId}-save`).onclick = async () => {
     const name = $(`${formId}-name`).value.trim();
     if (!name) return showToast('Name is required.', 'error');
-    const newId = isEdit ? p.id : slugify(name);
+    const newId = isEdit ? p.id : (slugify($(`${formId}-sku`).value.trim() || name));
+    const primaryImage = $(`${formId}-image_url`).value.trim();
+    const finalImages = [];
+    [primaryImage, ...gallery].forEach(url => {
+      const clean = (url || '').trim();
+      if (clean && !finalImages.includes(clean) && finalImages.length < MAX_IMAGES) finalImages.push(clean);
+    });
     const payload = {
       id: newId, name,
       sku: $(`${formId}-sku`).value.trim() || null,
@@ -1242,8 +1279,8 @@ function openProductForm(id) {
       price: Number($(`${formId}-price`).value) || 0,
       offer_price: $(`${formId}-offer_price`).value ? Number($(`${formId}-offer_price`).value) : null,
       description: $(`${formId}-description`).value.trim() || null,
-      image_url: $(`${formId}-image_url`).value.trim() || null,
-      image_urls: gallery.length ? gallery : null,
+      image_url: finalImages[0] || null,
+      image_urls: finalImages.length ? finalImages : null,
       stock: Number($(`${formId}-stock`).value) || 0,
       seo_title: $(`${formId}-seo_title`).value.trim() || null,
       seo_description: $(`${formId}-seo_description`).value.trim() || null,
