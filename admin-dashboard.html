@@ -168,17 +168,20 @@
               <button class="btn btn-ghost btn-sm" onclick="clearProductSelection()" style="margin-left:auto" data-testid="bulk-clear-products">Clear</button>
             </div>
 
-            <table class="data" data-testid="products-table">
+            <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+            <table class="data" data-testid="products-table" style="min-width:800px;">
               <thead><tr>
                 <th style="width:36px;text-align:center;"><input type="checkbox" id="products-check-all" data-testid="products-check-all" title="Select all on this page" /></th>
                 <th style="width:60px"></th>
                 <th>Name</th><th>SKU / Barcode</th><th>Category</th>
                 <th style="text-align:right">Price</th>
                 <th style="text-align:right">Stock</th>
-                <th>Status</th><th style="width:110px"></th>
+                <th>Status</th>
+                <th style="width:110px;position:sticky;right:0;background:#fff;z-index:1;">Actions</th>
               </tr></thead>
               <tbody id="products-tbody"></tbody>
             </table>
+            </div>
             <div class="pagination" id="products-pagination" style="display:none">
               <div id="products-count"></div>
               <div style="display:flex;gap:6px;">
@@ -776,6 +779,6 @@
   <!-- Toast -->
   <div class="toast" id="toast"></div>
 
-  <script src="admin.js?v=ac2d0a5"></script>
+  <script src="admin.js?v=fix-scroll"></script>
 </body>
 </html>

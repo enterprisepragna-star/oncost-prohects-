@@ -631,7 +631,7 @@ function renderProducts() {
       <td style="text-align:right"><div style="font-weight:600">${fmtINR(p.price)}</div>${offer ? `<div style="font-size:11px;color:var(--admin-primary)">Sale ${fmtINR(p.offer_price)}</div>` : ''}</td>
       <td style="text-align:right"><span class="badge ${stockBadge}">${stock}</span></td>
       <td>${statusBadge(p.status || 'Active')}</td>
-      <td>
+      <td style="position:sticky;right:0;background:#fff;z-index:1;">
         <div class="row-actions">
           ${p.barcode ? `<button class="icon-btn product-barcode-btn" data-pid="${escapeHTML(p.id)}" title="Print barcode label" data-testid="print-barcode-${escapeHTML(p.id)}"><i class="fas fa-print"></i></button>` : ''}
           <button class="icon-btn product-edit-btn" data-pid="${escapeHTML(p.id)}" data-testid="edit-product-${escapeHTML(p.id)}" title="Edit"><i class="fas fa-pen"></i></button>
