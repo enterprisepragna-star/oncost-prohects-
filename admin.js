@@ -633,13 +633,24 @@ function renderProducts() {
       <td>${statusBadge(p.status || 'Active')}</td>
       <td>
         <div class="row-actions">
-          ${p.barcode ? `<button class="icon-btn" onclick="printBarcodeLabel('${escapeHTML(p.id)}')" title="Print barcode label" data-testid="print-barcode-${escapeHTML(p.id)}"><i class="fas fa-print"></i></button>` : ''}
-          <button class="icon-btn" onclick="openProductForm('${escapeHTML(p.id)}')" data-testid="edit-product-${escapeHTML(p.id)}" title="Edit"><i class="fas fa-pen"></i></button>
-          <button class="icon-btn danger" onclick="deleteProduct('${escapeHTML(p.id)}')" data-testid="delete-product-${escapeHTML(p.id)}" title="Delete"><i class="fas fa-trash"></i></button>
+          ${p.barcode ? `<button class="icon-btn product-barcode-btn" data-pid="${escapeHTML(p.id)}" title="Print barcode label" data-testid="print-barcode-${escapeHTML(p.id)}"><i class="fas fa-print"></i></button>` : ''}
+          <button class="icon-btn product-edit-btn" data-pid="${escapeHTML(p.id)}" data-testid="edit-product-${escapeHTML(p.id)}" title="Edit"><i class="fas fa-pen"></i></button>
+          <button class="icon-btn danger product-delete-btn" data-pid="${escapeHTML(p.id)}" data-testid="delete-product-${escapeHTML(p.id)}" title="Delete"><i class="fas fa-trash"></i></button>
         </div>
       </td>
     </tr>`;
   }).join('');
+
+  // Wire action buttons safely via data-pid (avoids escapeHTML encoding issues in onclick)
+  document.querySelectorAll('.product-edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => openProductForm(btn.dataset.pid));
+  });
+  document.querySelectorAll('.product-delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => deleteProduct(btn.dataset.pid));
+  });
+  document.querySelectorAll('.product-barcode-btn').forEach(btn => {
+    btn.addEventListener('click', () => printBarcodeLabel(btn.dataset.pid));
+  });
 
   // Wire row checkboxes
   document.querySelectorAll('.product-row-check').forEach(cb => {
