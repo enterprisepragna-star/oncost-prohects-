@@ -818,6 +818,17 @@ window.printBarcodeLabel = printBarcodeLabel;
 
 function openProductForm(id) {
   const p = id ? state.products.find(x => x.id === id) : null;
+  // If id was given but product not found in local state, fetch from Supabase then retry
+  if (id && !p) {
+    supabaseClient.from('products').select('*').eq('id', id).single().then(({ data, error }) => {
+      if (error || !data) return showToast('Product not found: ' + (error?.message || id), 'error');
+      // Add to local state so form can find it
+      const idx = state.products.findIndex(x => x.id === data.id);
+      if (idx >= 0) state.products[idx] = data; else state.products.unshift(data);
+      openProductForm(id); // retry now that state has the product
+    });
+    return;
+  }
   const isEdit = !!p;
   const formId = 'pf';
   const html = `
